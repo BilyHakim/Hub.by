@@ -25,7 +25,13 @@ export const api = {
   createTransaction: (payload) => request('/transactions', { method: 'POST', body: JSON.stringify(payload) }),
   deleteTransaction: (id) => request(`/transactions/${id}`, { method: 'DELETE' }),
   accounts: () => request('/accounts'),
+  createAccount: (payload) => request('/accounts', { method: 'POST', body: JSON.stringify(payload) }),
+  updateAccount: (id, payload) => request(`/accounts/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  deleteAccount: (id) => request(`/accounts/${id}`, { method: 'DELETE' }),
   categories: () => request('/categories'),
+  createCategory: (payload) => request('/categories', { method: 'POST', body: JSON.stringify(payload) }),
+  updateCategory: (id, payload) => request(`/categories/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  deleteCategory: (id) => request(`/categories/${id}`, { method: 'DELETE' }),
   goals: () => request('/goals'),
   updateGoal: (id, currentAmount) => request(`/goals/${id}`, {
     method: 'PATCH',

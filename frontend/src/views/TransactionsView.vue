@@ -5,6 +5,7 @@ import { api } from '../services/api'
 import { demoTransactions } from '../data/demo'
 import EmptyState from '../components/EmptyState.vue'
 import MonthPicker from '../components/MonthPicker.vue'
+import ResourceManagerModal from '../components/ResourceManagerModal.vue'
 
 const transactions = ref([])
 const loading = ref(true)
@@ -12,6 +13,7 @@ const modalOpen = ref(false)
 const query = ref('')
 const month = ref(new Date().toISOString().slice(0, 7))
 const saving = ref(false)
+const managerType = ref(null)
 const form = ref({ type: 'expense', categoryId: null, accountId: null, amount: '', description: '', occurredAt: new Date().toISOString().slice(0, 10), isDebtPayment: false })
 const categories = reactive({
   expense: [{ id: 3, name: 'Makanan' }, { id: 4, name: 'Transportasi' }, { id: 5, name: 'Tempat Tinggal' }, { id: 6, name: 'Tagihan' }, { id: 7, name: 'Belanja' }, { id: 8, name: 'Hiburan' }, { id: 9, name: 'Cicilan' }],
@@ -82,6 +84,7 @@ onMounted(() => {
 onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', handleWorkspaceChange))
 
 async function handleWorkspaceChange() {
+  managerType.value = null
   transactions.value = []
   await loadMetadata()
   await load()
@@ -131,8 +134,14 @@ async function handleWorkspaceChange() {
           </div>
           <label>Nominal <div class="money-input"><span>Rp</span><input v-model="form.amount" inputmode="numeric" type="number" min="1" placeholder="0" required /></div></label>
           <div class="form-grid">
-            <label>Kategori<select v-model="form.categoryId"><option v-for="category in categories[form.type]" :key="category.id" :value="category.id">{{ category.name }}</option></select></label>
-            <label>Rekening<select v-model="form.accountId"><option v-for="account in accounts" :key="account.id" :value="account.id">{{ account.name }}</option></select></label>
+            <div class="form-field">
+              <div class="field-label-row"><span>Kategori</span><button type="button" @click="managerType = 'category'">Kelola</button></div>
+              <select v-model="form.categoryId"><option v-for="category in categories[form.type]" :key="category.id" :value="category.id">{{ category.name }}</option></select>
+            </div>
+            <div class="form-field">
+              <div class="field-label-row"><span>Rekening</span><button type="button" @click="managerType = 'account'">Kelola</button></div>
+              <select v-model="form.accountId"><option v-for="account in accounts" :key="account.id" :value="account.id">{{ account.name }}</option></select>
+            </div>
           </div>
           <label>Tanggal<input v-model="form.occurredAt" type="date" required /></label>
           <label>Keterangan<input v-model="form.description" placeholder="Contoh: Belanja mingguan" required /></label>
@@ -140,6 +149,13 @@ async function handleWorkspaceChange() {
           <button class="primary-button full-button" :disabled="saving">{{ saving ? 'Menyimpan...' : 'Simpan transaksi' }}</button>
         </form>
       </div>
+      <ResourceManagerModal
+        v-if="managerType"
+        :type="managerType"
+        :items="managerType === 'category' ? [...categories.expense, ...categories.income] : accounts"
+        @close="managerType = null"
+        @changed="loadMetadata"
+      />
     </Teleport>
   </section>
 </template>
