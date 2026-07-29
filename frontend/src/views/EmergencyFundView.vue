@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { ArrowLeft, Calculator, CircleDollarSign, Save, ShieldCheck, Sparkles } from '@lucide/vue'
 import MonthPicker from '../components/MonthPicker.vue'
 import { api } from '../services/api'
+import MoneyInput from '../components/MoneyInput.vue'
 
 const month = ref(new Date().toISOString().slice(0, 7))
 const loading = ref(true)
@@ -58,7 +59,7 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
         <div class="panel-heading"><div><h2>Atur target</h2><p>Kolom input pada workbook dipindahkan ke formulir ini.</p></div><Calculator :size="21" /></div>
         <form @submit.prevent="save">
           <label>Pengeluaran bulanan
-            <div class="money-input"><span>Rp</span><input v-model.number="form.monthlyExpense" type="number" min="0" /></div>
+            <MoneyInput v-model="form.monthlyExpense" />
           </label>
           <p class="observed-caption">Total seluruh pengeluaran bulan ini: {{ currency(data.observedExpense) }}</p>
           <label>Jumlah bulan perlindungan

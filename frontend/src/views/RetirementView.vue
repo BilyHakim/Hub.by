@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { ArrowLeft, Info, Save, Sparkles, Umbrella } from '@lucide/vue'
 import { api } from '../services/api'
+import MoneyInput from '../components/MoneyInput.vue'
 
 const loading = ref(true)
 const saving = ref(false)
@@ -60,13 +61,13 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
             <label>Usia saat ini<input v-model.number="form.currentAge" type="number" min="15" max="99"></label>
             <label>Usia pensiun<input v-model.number="form.retirementAge" type="number" :min="form.currentAge + 1" max="100"></label>
           </div>
-          <label>Pengeluaran bulanan saat ini<div class="money-input"><span>Rp</span><input v-model.number="form.monthlyExpense" type="number" min="0"></div></label>
+          <label>Pengeluaran bulanan saat ini<MoneyInput v-model="form.monthlyExpense" /></label>
           <div class="compact-form-grid">
             <label>Inflasi per tahun (%)<input v-model.number="form.inflationRate" type="number" min="0" max="100" step="0.1"></label>
             <label>Return investasi (%)<input v-model.number="form.expectedReturn" type="number" min="0" max="100" step="0.1"></label>
           </div>
-          <label>Saldo investasi saat ini<div class="money-input"><span>Rp</span><input v-model.number="form.currentFund" type="number" min="0"></div></label>
-          <label>Tabungan investasi per bulan<div class="money-input"><span>Rp</span><input v-model.number="form.monthlyContribution" type="number" min="0"></div></label>
+          <label>Saldo investasi saat ini<MoneyInput v-model="form.currentFund" /></label>
+          <label>Tabungan investasi per bulan<MoneyInput v-model="form.monthlyContribution" /></label>
           <label>Withdrawal rate (%)<input v-model.number="form.withdrawalRate" type="number" min="0.1" max="100" step="0.1"></label>
           <button class="primary-button full-button" :disabled="saving"><Save :size="16" />{{ saving ? 'Menghitung...' : 'Hitung & simpan' }}</button>
         </form>

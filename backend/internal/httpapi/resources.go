@@ -171,60 +171,6 @@ func (api *API) listCategories(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, envelope{"data": items})
 }
 
-func (api *API) listGoals(w http.ResponseWriter, r *http.Request) {
-	workspaceID, err := api.currentWorkspaceID(r.Context())
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to resolve active workspace")
-		return
-	}
-	rows, err := api.db.Query(r.Context(), `SELECT id,name,target_amount,current_amount,target_date,icon FROM financial_goals WHERE workspace_id=$1 ORDER BY target_date`, workspaceID)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load goals")
-		return
-	}
-	defer rows.Close()
-	items := make([]envelope, 0)
-	for rows.Next() {
-		var id, target, current int64
-		var name, icon string
-		var date time.Time
-		if rows.Scan(&id, &name, &target, &current, &date, &icon) == nil {
-			items = append(items, envelope{"id": id, "name": name, "targetAmount": target, "currentAmount": current, "targetDate": date.Format("2006-01-02"), "icon": icon})
-		}
-	}
-	writeJSON(w, http.StatusOK, envelope{"data": items})
-}
-
-func (api *API) updateGoal(w http.ResponseWriter, r *http.Request) {
-	workspaceID, err := api.currentWorkspaceID(r.Context())
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to resolve active workspace")
-		return
-	}
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid goal id")
-		return
-	}
-	var input struct {
-		CurrentAmount int64 `json:"currentAmount"`
-	}
-	if decodeJSON(r, &input) != nil || input.CurrentAmount < 0 {
-		writeError(w, http.StatusBadRequest, "currentAmount must be zero or greater")
-		return
-	}
-	result, err := api.db.Exec(r.Context(), `UPDATE financial_goals SET current_amount=$1,updated_at=now() WHERE id=$2 AND workspace_id=$3`, input.CurrentAmount, id, workspaceID)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to update goal")
-		return
-	}
-	if result.RowsAffected() == 0 {
-		writeError(w, http.StatusNotFound, "goal not found")
-		return
-	}
-	writeJSON(w, http.StatusOK, envelope{"data": envelope{"id": id, "currentAmount": input.CurrentAmount}})
-}
-
 func (api *API) listInvestments(w http.ResponseWriter, r *http.Request) {
 	workspaceID, err := api.currentWorkspaceID(r.Context())
 	if err != nil {

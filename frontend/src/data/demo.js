@@ -39,10 +39,3 @@ export const demoTransactions = [
   { id: 3, type: 'income', amount: 3_500_000, description: 'Proyek desain', occurredAt: '2026-07-07', category: { id: 2, name: 'Freelance' }, account: { id: 1, name: 'BCA Utama' } },
   { id: 4, type: 'expense', amount: 2_850_000, description: 'Makan & belanja dapur', occurredAt: '2026-07-04', category: { id: 3, name: 'Makanan' }, account: { id: 1, name: 'BCA Utama' } },
 ]
-
-export const demoGoals = [
-  { id: 1, name: 'Liburan ke Jepang', targetAmount: 45_000_000, currentAmount: 27_000_000, targetDate: '2027-10-01', icon: 'plane' },
-  { id: 2, name: 'DP Rumah', targetAmount: 200_000_000, currentAmount: 72_000_000, targetDate: '2029-01-01', icon: 'home' },
-  { id: 3, name: 'Pendidikan', targetAmount: 100_000_000, currentAmount: 18_000_000, targetDate: '2030-06-01', icon: 'graduation-cap' },
-]
-

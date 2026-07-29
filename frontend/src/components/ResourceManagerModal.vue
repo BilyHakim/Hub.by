@@ -2,6 +2,7 @@
 import { computed, reactive, ref } from 'vue'
 import { Pencil, Plus, Tags, Trash2, WalletCards, X } from '@lucide/vue'
 import { api } from '../services/api'
+import MoneyInput from './MoneyInput.vue'
 
 const props = defineProps({
   type: { type: String, required: true },
@@ -159,7 +160,7 @@ async function remove(item) {
             <label>Jenis rekening
               <select v-model="form.kind"><option v-for="kind in accountKinds" :key="kind.value" :value="kind.value">{{ kind.label }}</option></select>
             </label>
-            <label>Saldo saat ini<input v-model.number="form.balance" type="number" step="1" /></label>
+            <label>Saldo saat ini<MoneyInput v-model="form.balance" allow-negative /></label>
             <label class="checkbox"><input v-model="form.isEmergencyFund" type="checkbox" /> Tandai sebagai dana darurat</label>
           </template>
           <p v-if="errorMessage" class="form-error">{{ errorMessage }}</p>

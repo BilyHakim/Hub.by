@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { ArrowLeft, Calculator, House, Info, Save } from '@lucide/vue'
 import { api } from '../services/api'
+import MoneyInput from '../components/MoneyInput.vue'
 
 const loading = ref(true)
 const saving = ref(false)
@@ -55,7 +56,7 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
       <article class="panel module-form-card">
         <div class="panel-heading"><div><h2>Asumsi KPR</h2><p>Diadaptasi dari kolom input workbook.</p></div><Calculator :size="21" /></div>
         <form class="calculator-form" @submit.prevent="save">
-          <label>Harga properti<div class="money-input"><span>Rp</span><input v-model.number="form.propertyPrice" type="number" min="1"></div></label>
+          <label>Harga properti<MoneyInput v-model="form.propertyPrice" required /></label>
           <div class="compact-form-grid">
             <label>DP (%)<input v-model.number="form.downPaymentPercent" type="number" min="0" max="99" step="0.1"></label>
             <label>Tenor (tahun)<input v-model.number="form.tenorYears" type="number" min="1" max="30"></label>
@@ -64,9 +65,9 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
             <label>Bunga floating (%)<input v-model.number="form.floatingRate" type="number" min="0" max="100" step="0.01"></label>
             <label>Mulai KPR<input v-model="form.startDate" type="date"></label>
           </div>
-          <label>Penghasilan bulanan<div class="money-input"><span>Rp</span><input v-model.number="form.monthlyIncome" type="number" min="0"></div></label>
-          <label>Cicilan lain per bulan<div class="money-input"><span>Rp</span><input v-model.number="form.otherInstallments" type="number" min="0"></div></label>
-          <label>Estimasi biaya lainnya<div class="money-input"><span>Rp</span><input v-model.number="form.otherCosts" type="number" min="0"></div></label>
+          <label>Penghasilan bulanan<MoneyInput v-model="form.monthlyIncome" /></label>
+          <label>Cicilan lain per bulan<MoneyInput v-model="form.otherInstallments" /></label>
+          <label>Estimasi biaya lainnya<MoneyInput v-model="form.otherCosts" /></label>
           <button class="primary-button full-button" :disabled="saving"><Save :size="16" />{{ saving ? 'Menghitung...' : 'Hitung & simpan' }}</button>
         </form>
       </article>

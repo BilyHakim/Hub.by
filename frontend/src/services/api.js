@@ -33,10 +33,13 @@ export const api = {
   updateCategory: (id, payload) => request(`/categories/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
   deleteCategory: (id) => request(`/categories/${id}`, { method: 'DELETE' }),
   goals: () => request('/goals'),
+  createGoal: (payload) => request('/goals', { method: 'POST', body: JSON.stringify(payload) }),
+  replaceGoal: (id, payload) => request(`/goals/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   updateGoal: (id, currentAmount) => request(`/goals/${id}`, {
     method: 'PATCH',
     body: JSON.stringify({ currentAmount }),
   }),
+  deleteGoal: (id) => request(`/goals/${id}`, { method: 'DELETE' }),
   investments: () => request('/investments'),
   createInvestment: (payload) => request('/investments', { method: 'POST', body: JSON.stringify(payload) }),
   updateInvestment: (id, payload) => request(`/investments/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),

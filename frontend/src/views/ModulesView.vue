@@ -1,8 +1,10 @@
 <script setup>
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import {
   Pyramid, HeartPulse, ShieldCheck, House, ChartNoAxesCombined,
   Scale, Umbrella, BookOpenText, ArrowUpRight, BadgeCheck,
 } from '@lucide/vue'
+import { api } from '../services/api'
 
 const modules = [
   { title: 'Piramida keuangan', text: 'Lihat urutan prioritas dan progres fondasi keuanganmu.', icon: Pyramid, state: 'Tersedia', tone: 'sage', route: '/modules/pyramid' },
@@ -14,6 +16,24 @@ const modules = [
   { title: 'Persiapan pensiun', text: 'Proyeksikan kebutuhan pensiun dengan pendekatan 4%.', icon: Umbrella, state: 'Tersedia', tone: 'rose', route: '/modules/retirement' },
   { title: 'Glosarium finansial', text: 'Pahami istilah keuangan dalam bahasa yang sederhana.', icon: BookOpenText, state: 'Tersedia', tone: 'blue', route: '/modules/glossary' },
 ]
+
+const loading = ref(true)
+const pyramid = ref({ levels: [] })
+const completedLevels = computed(() => pyramid.value.levels.filter((level) => level.progress >= 100).length)
+const totalLevels = computed(() => pyramid.value.levels.length || 7)
+const nextLevel = computed(() => pyramid.value.levels.find((level) => level.progress < 100))
+async function loadOverview() {
+  loading.value = true
+  try { pyramid.value = await api.pyramid() }
+  catch { pyramid.value = { levels: [] } }
+  finally { loading.value = false }
+}
+function handleWorkspaceChange() { loadOverview() }
+onMounted(() => {
+  loadOverview()
+  window.addEventListener('hubby:workspace-changed', handleWorkspaceChange)
+})
+onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', handleWorkspaceChange))
 </script>
 
 <template>
@@ -21,9 +41,13 @@ const modules = [
     <div class="page-heading compact">
       <div><p class="eyebrow">Toolkit pribadi</p><h1>Perencanaan keuangan</h1><p>Semua kalkulator dari workbook, dirapikan menjadi alat yang mudah dipakai.</p></div>
     </div>
-    <div class="insight-banner">
+    <div class="insight-banner" :class="{ shimmer: loading }">
       <span><BadgeCheck :size="24" /></span>
-      <div><strong>4 dari 7 fondasi sudah terpenuhi</strong><p>Fokus berikutnya: lengkapi dana darurat hingga 6 bulan pengeluaran.</p></div>
+      <div>
+        <strong>{{ completedLevels }} dari {{ totalLevels }} fondasi sudah terpenuhi</strong>
+        <p v-if="nextLevel">Fokus berikutnya: {{ nextLevel.title }} — {{ nextLevel.progress.toFixed(0) }}% selesai.</p>
+        <p v-else>Seluruh fondasi sudah terpenuhi. Pertahankan dan evaluasi secara berkala.</p>
+      </div>
       <RouterLink class="secondary-button" to="/modules/pyramid">Lihat piramida <ArrowUpRight :size="16" /></RouterLink>
     </div>
     <div class="modules-grid">

@@ -6,6 +6,7 @@ import { demoTransactions } from '../data/demo'
 import EmptyState from '../components/EmptyState.vue'
 import MonthPicker from '../components/MonthPicker.vue'
 import ResourceManagerModal from '../components/ResourceManagerModal.vue'
+import MoneyInput from '../components/MoneyInput.vue'
 
 const transactions = ref([])
 const loading = ref(true)
@@ -139,7 +140,7 @@ async function handleWorkspaceChange() {
             <button type="button" :class="{ active: form.type === 'expense' }" @click="setType('expense')">Pengeluaran</button>
             <button type="button" :class="{ active: form.type === 'income' }" @click="setType('income')">Pemasukan</button>
           </div>
-          <label>Nominal <div class="money-input"><span>Rp</span><input v-model="form.amount" inputmode="numeric" type="number" min="1" placeholder="0" required /></div></label>
+          <label>Nominal <MoneyInput v-model="form.amount" required /></label>
           <div class="form-grid">
             <div class="form-field">
               <div class="field-label-row"><span>Kategori</span><button type="button" @click="managerType = 'category'">Kelola</button></div>

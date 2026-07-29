@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { ArrowLeft, ChartNoAxesCombined, Pencil, Plus, Save, Trash2, X } from '@lucide/vue'
 import ExpenseDonut from '../components/ExpenseDonut.vue'
 import { api } from '../services/api'
+import MoneyInput from '../components/MoneyInput.vue'
 
 const loading = ref(true)
 const saving = ref(false)
@@ -100,8 +101,8 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
             <label>Platform<input v-model.trim="form.platform" placeholder="Contoh: Bibit"></label>
           </div>
           <label>Nama produk/aset<input v-model.trim="form.name" required placeholder="Contoh: BBCA"></label>
-          <label>Nilai pembelian<div class="money-input"><span>Rp</span><input v-model.number="form.purchaseValue" type="number" min="0"></div></label>
-          <label>Nilai sekarang<div class="money-input"><span>Rp</span><input v-model.number="form.currentValue" type="number" min="0"></div></label>
+          <label>Nilai pembelian<MoneyInput v-model="form.purchaseValue" /></label>
+          <label>Nilai sekarang<MoneyInput v-model="form.currentValue" /></label>
           <label>Target alokasi (%)<input v-model.number="form.targetAllocation" type="number" min="0" max="100" step="0.01"></label>
           <button class="primary-button full-button" :disabled="saving"><Save :size="16" />{{ saving ? 'Menyimpan...' : 'Simpan investasi' }}</button>
         </form>
