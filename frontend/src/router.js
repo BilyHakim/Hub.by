@@ -10,6 +10,8 @@ import SettingsView from './views/SettingsView.vue'
 import MortgageView from './views/MortgageView.vue'
 import InvestmentsView from './views/InvestmentsView.vue'
 import RebalancingView from './views/RebalancingView.vue'
+import RetirementView from './views/RetirementView.vue'
+import GlossaryView from './views/GlossaryView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -24,6 +26,8 @@ const router = createRouter({
     { path: '/modules/mortgage', name: 'mortgage', component: MortgageView, meta: { title: 'Simulasi KPR' } },
     { path: '/modules/investments', name: 'investments', component: InvestmentsView, meta: { title: 'Monitor investasi' } },
     { path: '/modules/rebalancing', name: 'rebalancing', component: RebalancingView, meta: { title: 'Rebalancing' } },
+    { path: '/modules/retirement', name: 'retirement', component: RetirementView, meta: { title: 'Persiapan pensiun' } },
+    { path: '/modules/glossary', name: 'glossary', component: GlossaryView, meta: { title: 'Glosarium finansial' } },
     { path: '/settings', name: 'settings', component: SettingsView, meta: { title: 'Pengaturan' } },
   ],
   scrollBehavior: () => ({ top: 0 }),

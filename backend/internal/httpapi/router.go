@@ -49,6 +49,8 @@ func NewRouter(db *pgxpool.Pool, logger *slog.Logger, frontendOrigin string) htt
 	mux.HandleFunc("GET /api/v1/modules/mortgage", api.getMortgageSimulation)
 	mux.HandleFunc("PUT /api/v1/modules/mortgage", api.updateMortgageSimulation)
 	mux.HandleFunc("GET /api/v1/modules/rebalancing", api.getRebalancing)
+	mux.HandleFunc("GET /api/v1/modules/retirement", api.getRetirementPlan)
+	mux.HandleFunc("PUT /api/v1/modules/retirement", api.updateRetirementPlan)
 	mux.HandleFunc("GET /api/v1/settings/finance-period", api.getFinancePeriodSetting)
 	mux.HandleFunc("PATCH /api/v1/settings/finance-period", api.updateFinancePeriodSetting)
 
@@ -72,7 +74,7 @@ func corsMiddleware(origin string, next http.Handler) http.Handler {
 			w.Header().Set("Vary", "Origin")
 		}
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return

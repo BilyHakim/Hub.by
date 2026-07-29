@@ -63,6 +63,8 @@ export const api = {
   mortgage: () => request('/modules/mortgage'),
   updateMortgage: (payload) => request('/modules/mortgage', { method: 'PUT', body: JSON.stringify(payload) }),
   rebalancing: () => request('/modules/rebalancing'),
+  retirement: () => request('/modules/retirement'),
+  updateRetirement: (payload) => request('/modules/retirement', { method: 'PUT', body: JSON.stringify(payload) }),
   financePeriodSetting: (month = '') => request(`/settings/finance-period${month ? `?month=${month}` : ''}`),
   updateFinancePeriodSetting: (periodMode, periodStartDay) => request('/settings/finance-period', {
     method: 'PATCH',

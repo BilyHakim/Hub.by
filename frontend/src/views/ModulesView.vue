@@ -11,8 +11,8 @@ const modules = [
   { title: 'Simulasi KPR', text: 'Uji uang muka, tenor, bunga, dan kemampuan cicilan.', icon: House, state: 'Tersedia', tone: 'blue', route: '/modules/mortgage' },
   { title: 'Monitor investasi', text: 'Pantau nilai, imbal hasil, dan distribusi portofolio.', icon: ChartNoAxesCombined, state: 'Tersedia', tone: 'lilac', route: '/modules/investments' },
   { title: 'Rebalancing', text: 'Bandingkan alokasi saat ini dengan komposisi ideal.', icon: Scale, state: 'Tersedia', tone: 'moss', route: '/modules/rebalancing' },
-  { title: 'Persiapan pensiun', text: 'Proyeksikan kebutuhan pensiun dengan pendekatan 4%.', icon: Umbrella, state: 'Segera', tone: 'rose' },
-  { title: 'Glosarium finansial', text: 'Pahami istilah keuangan dalam bahasa yang sederhana.', icon: BookOpenText, state: 'Segera', tone: 'blue' },
+  { title: 'Persiapan pensiun', text: 'Proyeksikan kebutuhan pensiun dengan pendekatan 4%.', icon: Umbrella, state: 'Tersedia', tone: 'rose', route: '/modules/retirement' },
+  { title: 'Glosarium finansial', text: 'Pahami istilah keuangan dalam bahasa yang sederhana.', icon: BookOpenText, state: 'Tersedia', tone: 'blue', route: '/modules/glossary' },
 ]
 </script>
 
