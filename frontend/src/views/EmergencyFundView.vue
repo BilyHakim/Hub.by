@@ -20,6 +20,13 @@ async function load() {
     form.targetMonths = data.value.targetMonths
   } finally { loading.value = false }
 }
+async function initializePeriod() {
+  try {
+    const setting = await api.financePeriodSetting()
+    month.value = setting.currentPeriodLabel
+  } catch { /* default to calendar month */ }
+  await load()
+}
 async function save() {
   saving.value = true
   try {
@@ -28,9 +35,9 @@ async function save() {
   } finally { saving.value = false }
 }
 function useRecommendedExpense() { form.monthlyExpense = data.value.recommendation.recommendedMonthlyExpense }
-function handleWorkspaceChange() { load() }
+function handleWorkspaceChange() { initializePeriod() }
 onMounted(() => {
-  load()
+  initializePeriod()
   window.addEventListener('hubby:workspace-changed', handleWorkspaceChange)
 })
 onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', handleWorkspaceChange))
@@ -41,7 +48,10 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
     <RouterLink class="back-link" to="/modules"><ArrowLeft :size="16" /> Kembali ke perencanaan</RouterLink>
     <div class="page-heading compact">
       <div><p class="eyebrow">Bantalan keuangan</p><h1>Target dana darurat</h1><p>Target = pengeluaran bulanan × jumlah bulan perlindungan.</p></div>
-      <MonthPicker v-model="month" @change="load" />
+      <div class="period-picker-group">
+        <MonthPicker v-model="month" @change="load" />
+        <small v-if="data.periodStart">{{ data.periodStart }} — {{ data.periodEnd }}</small>
+      </div>
     </div>
     <div class="emergency-module-grid" :class="{ shimmer: loading }">
       <article class="panel emergency-config">

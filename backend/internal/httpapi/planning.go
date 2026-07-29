@@ -172,6 +172,11 @@ func (api *API) getFinancialCheckup(w http.ResponseWriter, r *http.Request) {
 	if month == "" {
 		month = time.Now().Format("2006-01")
 	}
+	period, err := api.resolveFinancePeriod(r.Context(), workspaceID, month)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid finance period")
+		return
+	}
 	var income, expense, debt, requiredExpense, emergency, liquid, investment, assets int64
 	err = api.db.QueryRow(r.Context(), `
 		SELECT
@@ -183,8 +188,8 @@ func (api *API) getFinancialCheckup(w http.ResponseWriter, r *http.Request) {
 			),0)::bigint
 		FROM transactions t
 		LEFT JOIN categories c ON c.id=t.category_id
-		WHERE t.workspace_id=$1 AND to_char(t.occurred_at,'YYYY-MM')=$2
-	`, workspaceID, month).Scan(&income, &expense, &debt, &requiredExpense)
+		WHERE t.workspace_id=$1 AND t.occurred_at >= $2 AND t.occurred_at < $3
+	`, workspaceID, period.Start, period.EndExclusive).Scan(&income, &expense, &debt, &requiredExpense)
 	if err == nil {
 		err = api.db.QueryRow(r.Context(), `
 			SELECT
@@ -222,7 +227,9 @@ func (api *API) getFinancialCheckup(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeJSON(w, http.StatusOK, envelope{"data": envelope{
-		"month": month, "items": items, "healthyCount": healthy, "totalCount": len(items),
+		"month": month, "periodStart": period.Start.Format("2006-01-02"),
+		"periodEnd": period.EndInclusive.Format("2006-01-02"),
+		"items":     items, "healthyCount": healthy, "totalCount": len(items),
 	}})
 }
 
@@ -242,6 +249,11 @@ func (api *API) getEmergencyFund(w http.ResponseWriter, r *http.Request) {
 	month := r.URL.Query().Get("month")
 	if month == "" {
 		month = time.Now().Format("2006-01")
+	}
+	period, err := api.resolveFinancePeriod(r.Context(), workspaceID, month)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid finance period")
+		return
 	}
 	var monthlyExpense, targetMonths, currentAmount int64
 	var totalExpense, essentialExpense, obligationExpense, discretionaryExpense, futureExpense int64
@@ -264,8 +276,9 @@ func (api *API) getEmergencyFund(w http.ResponseWriter, r *http.Request) {
 				COALESCE(SUM(t.amount) FILTER (WHERE c.expense_class='future'),0)::bigint
 			FROM transactions t
 			JOIN categories c ON c.id=t.category_id
-			WHERE t.workspace_id=$1 AND t.type='expense' AND to_char(t.occurred_at,'YYYY-MM')=$2
-		`, workspaceID, month).Scan(&totalExpense, &essentialExpense, &obligationExpense, &discretionaryExpense, &futureExpense)
+			WHERE t.workspace_id=$1 AND t.type='expense'
+				AND t.occurred_at >= $2 AND t.occurred_at < $3
+		`, workspaceID, period.Start, period.EndExclusive).Scan(&totalExpense, &essentialExpense, &obligationExpense, &discretionaryExpense, &futureExpense)
 	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to load emergency fund")
@@ -276,7 +289,9 @@ func (api *API) getEmergencyFund(w http.ResponseWriter, r *http.Request) {
 	recommendedMonthlyExpense := essentialExpense + obligationExpense
 	recommendedTarget := recommendedMonthlyExpense * targetMonths
 	writeJSON(w, http.StatusOK, envelope{"data": envelope{
-		"month": month, "monthlyExpense": monthlyExpense, "observedExpense": totalExpense,
+		"month": month, "periodStart": period.Start.Format("2006-01-02"),
+		"periodEnd":      period.EndInclusive.Format("2006-01-02"),
+		"monthlyExpense": monthlyExpense, "observedExpense": totalExpense,
 		"targetMonths": targetMonths, "targetAmount": target, "currentAmount": currentAmount,
 		"remainingAmount": max(target-currentAmount, 0), "progress": progress,
 		"recommendation": envelope{

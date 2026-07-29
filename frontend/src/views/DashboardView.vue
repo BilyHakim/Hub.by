@@ -41,6 +41,13 @@ async function loadDashboard() {
     if (requestID === requestSequence) loading.value = false
   }
 }
+async function initializePeriod() {
+  try {
+    const setting = await api.financePeriodSetting()
+    month.value = setting.currentPeriodLabel
+  } catch { /* default to calendar month */ }
+  await loadDashboard()
+}
 
 function handleWorkspaceChange() {
   data.value = {
@@ -59,11 +66,11 @@ function handleWorkspaceChange() {
     expenseBreakdown: [],
     financialCheckup: [],
   }
-  loadDashboard()
+  initializePeriod()
 }
 
 onMounted(() => {
-  loadDashboard()
+  initializePeriod()
   window.addEventListener('hubby:workspace-changed', handleWorkspaceChange)
 })
 onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', handleWorkspaceChange))
@@ -78,7 +85,10 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
         <p>Ini cerita keuanganmu bulan ini. Pelan-pelan, yang penting konsisten.</p>
       </div>
       <div class="heading-actions">
-        <MonthPicker v-model="month" @change="loadDashboard" />
+        <div class="period-picker-group">
+          <MonthPicker v-model="month" @change="loadDashboard" />
+          <small v-if="data.periodStart">{{ data.periodStart }} — {{ data.periodEnd }}</small>
+        </div>
         <RouterLink class="primary-button" to="/transactions"><Plus :size="18" /> Catat transaksi</RouterLink>
       </div>
     </div>

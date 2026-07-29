@@ -57,4 +57,9 @@ export const api = {
     method: 'PATCH',
     body: JSON.stringify(payload),
   }),
+  financePeriodSetting: (month = '') => request(`/settings/finance-period${month ? `?month=${month}` : ''}`),
+  updateFinancePeriodSetting: (periodMode, periodStartDay) => request('/settings/finance-period', {
+    method: 'PATCH',
+    body: JSON.stringify({ periodMode, periodStartDay }),
+  }),
 }

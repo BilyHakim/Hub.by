@@ -11,9 +11,16 @@ async function load() {
   loading.value = true
   try { data.value = await api.financialCheckup(month.value) } finally { loading.value = false }
 }
-function handleWorkspaceChange() { load() }
+async function initializePeriod() {
+  try {
+    const setting = await api.financePeriodSetting()
+    month.value = setting.currentPeriodLabel
+  } catch { /* default to calendar month */ }
+  await load()
+}
+function handleWorkspaceChange() { initializePeriod() }
 onMounted(() => {
-  load()
+  initializePeriod()
   window.addEventListener('hubby:workspace-changed', handleWorkspaceChange)
 })
 onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', handleWorkspaceChange))
@@ -24,7 +31,10 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
     <RouterLink class="back-link" to="/modules"><ArrowLeft :size="16" /> Kembali ke perencanaan</RouterLink>
     <div class="page-heading compact">
       <div><p class="eyebrow">Pemeriksaan bulanan</p><h1>Financial check-up</h1><p>Rasio dihitung otomatis dari transaksi dan rekening pada workspace aktif.</p></div>
-      <MonthPicker v-model="month" @change="load" />
+      <div class="period-picker-group">
+        <MonthPicker v-model="month" @change="load" />
+        <small v-if="data.periodStart">{{ data.periodStart }} — {{ data.periodEnd }}</small>
+      </div>
     </div>
     <div class="planning-hero checkup-hero">
       <span><HeartPulse :size="27" /></span>
@@ -43,4 +53,3 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
     </div>
   </section>
 </template>
-

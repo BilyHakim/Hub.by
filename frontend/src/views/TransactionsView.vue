@@ -51,6 +51,14 @@ async function loadMetadata() {
   form.value.categoryId = categories[form.value.type][0]?.id || null
   form.value.accountId = accounts.value[0]?.id || null
 }
+async function initializePeriod() {
+  try {
+    const setting = await api.financePeriodSetting()
+    month.value = setting.currentPeriodLabel
+  } catch { /* default to calendar month */ }
+  await loadMetadata()
+  await load()
+}
 function openModal() {
   form.value.categoryId = categories[form.value.type][0]?.id || null
   form.value.accountId = accounts.value[0]?.id || null
@@ -79,15 +87,14 @@ async function remove(id) {
 }
 onMounted(() => {
   window.addEventListener('hubby:workspace-changed', handleWorkspaceChange)
-  loadMetadata().then(load)
+  initializePeriod()
 })
 onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', handleWorkspaceChange))
 
 async function handleWorkspaceChange() {
   managerType.value = null
   transactions.value = []
-  await loadMetadata()
-  await load()
+  await initializePeriod()
 }
 </script>
 

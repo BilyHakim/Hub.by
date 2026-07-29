@@ -153,6 +153,12 @@ func (api *API) createWorkspace(w http.ResponseWriter, r *http.Request) {
 			VALUES($1,0,6)
 		`, id)
 	}
+	if err == nil {
+		_, err = tx.Exec(r.Context(), `
+			INSERT INTO workspace_finance_settings(workspace_id,period_start_day,period_mode)
+			VALUES($1,1,'fixed_day')
+		`, id)
+	}
 	if err != nil || tx.Commit(r.Context()) != nil {
 		writeError(w, http.StatusInternalServerError, "failed to create workspace")
 		return

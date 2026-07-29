@@ -26,15 +26,20 @@ func (api *API) listTransactions(w http.ResponseWriter, r *http.Request) {
 	if month == "" {
 		month = time.Now().Format("2006-01")
 	}
+	period, err := api.resolveFinancePeriod(r.Context(), workspaceID, month)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid finance period")
+		return
+	}
 	rows, err := api.db.Query(r.Context(), `
 		SELECT t.id, t.type, t.amount, t.description, t.occurred_at, t.is_debt_payment,
 		       c.id, c.name, a.id, a.name
 		FROM transactions t
 		JOIN categories c ON c.id=t.category_id
 		JOIN accounts a ON a.id=t.account_id
-		WHERE to_char(t.occurred_at,'YYYY-MM')=$1 AND t.workspace_id=$2
+		WHERE t.occurred_at >= $1 AND t.occurred_at < $2 AND t.workspace_id=$3
 		ORDER BY t.occurred_at DESC, t.id DESC
-	`, month, workspaceID)
+	`, period.Start, period.EndExclusive, workspaceID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to load transactions")
 		return

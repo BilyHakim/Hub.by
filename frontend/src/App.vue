@@ -197,7 +197,7 @@ onBeforeUnmount(() => {
       </nav>
 
       <div class="sidebar-bottom">
-        <RouterLink to="/modules"><Settings :size="19" /> Pengaturan</RouterLink>
+        <RouterLink to="/settings"><Settings :size="19" /> Pengaturan</RouterLink>
         <div class="profile-menu-wrap" @click.stop>
           <button class="user-card" type="button" :aria-expanded="profileMenuOpen" @click="toggleProfileMenu">
             <span class="avatar">{{ profile.initials }}</span>
@@ -212,7 +212,7 @@ onBeforeUnmount(() => {
               </div>
               <div class="dropdown-divider" />
               <button class="dropdown-action" type="button" @click="openProfile"><UserRound :size="17" /> Profil saya</button>
-              <RouterLink class="dropdown-action" to="/modules" @click="closeMenus"><SlidersHorizontal :size="17" /> Pengaturan</RouterLink>
+              <RouterLink class="dropdown-action" to="/settings" @click="closeMenus"><SlidersHorizontal :size="17" /> Pengaturan</RouterLink>
               <div class="dropdown-footer"><WalletCards :size="14" /> Hubby Finance · Lokal</div>
             </div>
           </Transition>

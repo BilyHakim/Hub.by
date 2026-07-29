@@ -6,6 +6,7 @@ import ModulesView from './views/ModulesView.vue'
 import PyramidView from './views/PyramidView.vue'
 import CheckupView from './views/CheckupView.vue'
 import EmergencyFundView from './views/EmergencyFundView.vue'
+import SettingsView from './views/SettingsView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -17,6 +18,7 @@ const router = createRouter({
     { path: '/modules/pyramid', name: 'pyramid', component: PyramidView, meta: { title: 'Piramida keuangan' } },
     { path: '/modules/checkup', name: 'checkup', component: CheckupView, meta: { title: 'Financial check-up' } },
     { path: '/modules/emergency-fund', name: 'emergency-fund', component: EmergencyFundView, meta: { title: 'Dana darurat' } },
+    { path: '/settings', name: 'settings', component: SettingsView, meta: { title: 'Pengaturan' } },
   ],
   scrollBehavior: () => ({ top: 0 }),
 })
