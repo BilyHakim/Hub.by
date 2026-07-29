@@ -43,6 +43,11 @@ type checkupItem struct {
 
 func (api *API) dashboard(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	workspaceID, err := api.currentWorkspaceID(ctx)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to resolve active workspace")
+		return
+	}
 	month := r.URL.Query().Get("month")
 	if month == "" {
 		month = time.Now().Format("2006-01")
@@ -50,27 +55,29 @@ func (api *API) dashboard(w http.ResponseWriter, r *http.Request) {
 
 	var result dashboardSummary
 	result.Month = month
-	err := api.db.QueryRow(ctx, `
+	result.Cashflow = make([]cashflowPoint, 0)
+	result.ExpenseBreakdown = make([]categoryPoint, 0)
+	err = api.db.QueryRow(ctx, `
 		WITH monthly AS (
 			SELECT
 				COALESCE(SUM(amount) FILTER (WHERE type = 'income'), 0)::bigint AS income,
 				COALESCE(SUM(amount) FILTER (WHERE type = 'expense'), 0)::bigint AS expense,
 				COALESCE(SUM(amount) FILTER (WHERE type = 'expense' AND is_debt_payment), 0)::bigint AS debt
 			FROM transactions
-			WHERE to_char(occurred_at, 'YYYY-MM') = $1
+			WHERE to_char(occurred_at, 'YYYY-MM') = $1 AND workspace_id = $2
 		), wealth AS (
 			SELECT
 				COALESCE(SUM(current_balance) FILTER (WHERE kind <> 'liability'), 0)::bigint AS assets,
 				ABS(COALESCE(SUM(current_balance) FILTER (WHERE kind = 'liability'), 0))::bigint AS liabilities,
 				COALESCE(SUM(current_balance) FILTER (WHERE is_emergency_fund), 0)::bigint AS emergency
-			FROM accounts
+			FROM accounts WHERE workspace_id = $2
 		), investments AS (
 			SELECT COALESCE(SUM(current_value), 0)::bigint AS value,
 			       COALESCE(SUM(purchase_value), 0)::bigint AS cost
-			FROM investments
+			FROM investments WHERE workspace_id = $2
 		), emergency AS (
 			SELECT COALESCE(AVG(monthly_expense) * MAX(target_months), 0)::bigint AS target
-			FROM emergency_fund_settings
+			FROM emergency_fund_settings WHERE workspace_id = $2
 		)
 		SELECT monthly.income, monthly.expense,
 		       wealth.assets - wealth.liabilities, wealth.emergency,
@@ -78,7 +85,7 @@ func (api *API) dashboard(w http.ResponseWriter, r *http.Request) {
 		       CASE WHEN investments.cost > 0 THEN ((investments.value - investments.cost)::numeric / investments.cost * 100) ELSE 0 END,
 		       monthly.debt
 		FROM monthly, wealth, investments, emergency
-	`, month).Scan(
+	`, month, workspaceID).Scan(
 		&result.Income, &result.Expense, &result.NetWorth, &result.EmergencyFund,
 		&result.EmergencyTarget, &result.InvestmentValue, &result.InvestmentReturn,
 		new(int64),
@@ -107,8 +114,9 @@ func (api *API) dashboard(w http.ResponseWriter, r *http.Request) {
 			interval '1 month'
 		) month_start
 		LEFT JOIN transactions t ON date_trunc('month', t.occurred_at) = month_start
+			AND t.workspace_id = $2
 		GROUP BY month_start ORDER BY month_start
-	`, month+"-01")
+	`, month+"-01", workspaceID)
 	if err == nil {
 		defer rows.Close()
 		for rows.Next() {
@@ -124,8 +132,9 @@ func (api *API) dashboard(w http.ResponseWriter, r *http.Request) {
 		SELECT c.name, SUM(t.amount)::bigint
 		FROM transactions t JOIN categories c ON c.id = t.category_id
 		WHERE t.type = 'expense' AND to_char(t.occurred_at, 'YYYY-MM') = $1
+			AND t.workspace_id = $2
 		GROUP BY c.name ORDER BY SUM(t.amount) DESC LIMIT 6
-	`, month)
+	`, month, workspaceID)
 	if err == nil {
 		defer rows.Close()
 		index := 0
@@ -142,7 +151,7 @@ func (api *API) dashboard(w http.ResponseWriter, r *http.Request) {
 	debtRatio := 0.0
 	if result.Income > 0 {
 		var debt int64
-		_ = api.db.QueryRow(ctx, `SELECT COALESCE(SUM(amount),0)::bigint FROM transactions WHERE type='expense' AND is_debt_payment AND to_char(occurred_at,'YYYY-MM')=$1`, month).Scan(&debt)
+		_ = api.db.QueryRow(ctx, `SELECT COALESCE(SUM(amount),0)::bigint FROM transactions WHERE type='expense' AND is_debt_payment AND to_char(occurred_at,'YYYY-MM')=$1 AND workspace_id=$2`, month, workspaceID).Scan(&debt)
 		debtRatio = float64(debt) / float64(result.Income) * 100
 	}
 	result.FinancialCheckup = []checkupItem{

@@ -23,6 +23,7 @@ func NewRouter(db *pgxpool.Pool, logger *slog.Logger, frontendOrigin string) htt
 	mux.HandleFunc("POST /api/v1/transactions", api.createTransaction)
 	mux.HandleFunc("DELETE /api/v1/transactions/{id}", api.deleteTransaction)
 	mux.HandleFunc("GET /api/v1/accounts", api.listAccounts)
+	mux.HandleFunc("GET /api/v1/categories", api.listCategories)
 	mux.HandleFunc("GET /api/v1/goals", api.listGoals)
 	mux.HandleFunc("PATCH /api/v1/goals/{id}", api.updateGoal)
 	mux.HandleFunc("GET /api/v1/investments", api.listInvestments)

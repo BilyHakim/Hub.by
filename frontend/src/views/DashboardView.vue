@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onBeforeUnmount, onMounted } from 'vue'
 import {
   WalletCards, TrendingUp, Landmark, PiggyBank,
   ArrowRight, CircleCheck, CircleAlert, Sparkles, Plus,
@@ -15,24 +15,58 @@ const loading = ref(true)
 const usingDemo = ref(false)
 const data = ref(demoDashboard)
 const month = ref(new Date().toISOString().slice(0, 7))
+let requestSequence = 0
 
 const currency = (value) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(value)
 const compactCurrency = (value) => `Rp${new Intl.NumberFormat('id-ID', { notation: 'compact', maximumFractionDigits: 1 }).format(value)}`
 
 async function loadDashboard() {
+  const requestID = ++requestSequence
   loading.value = true
   try {
-    data.value = await api.dashboard(month.value)
+    const result = await api.dashboard(month.value)
+    if (requestID !== requestSequence) return
+    data.value = {
+      ...result,
+      cashflow: result.cashflow || [],
+      expenseBreakdown: result.expenseBreakdown || [],
+      financialCheckup: result.financialCheckup || [],
+    }
     usingDemo.value = false
   } catch {
+    if (requestID !== requestSequence) return
     data.value = demoDashboard
     usingDemo.value = true
   } finally {
-    loading.value = false
+    if (requestID === requestSequence) loading.value = false
   }
 }
 
-onMounted(loadDashboard)
+function handleWorkspaceChange() {
+  data.value = {
+    ...demoDashboard,
+    income: 0,
+    expense: 0,
+    savings: 0,
+    savingsRate: 0,
+    netWorth: 0,
+    emergencyFund: 0,
+    emergencyTarget: 0,
+    emergencyProgress: 0,
+    investmentValue: 0,
+    investmentReturn: 0,
+    cashflow: [],
+    expenseBreakdown: [],
+    financialCheckup: [],
+  }
+  loadDashboard()
+}
+
+onMounted(() => {
+  loadDashboard()
+  window.addEventListener('hubby:workspace-changed', handleWorkspaceChange)
+})
+onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', handleWorkspaceChange))
 </script>
 
 <template>

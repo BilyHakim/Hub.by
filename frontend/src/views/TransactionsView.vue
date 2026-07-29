@@ -1,6 +1,6 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { Plus, Search, ArrowDownLeft, ArrowUpRight, Trash2, X, CalendarDays } from '@lucide/vue'
+import { ref, computed, onBeforeUnmount, onMounted, reactive } from 'vue'
+import { Plus, Search, ArrowDownLeft, ArrowUpRight, Trash2, X } from '@lucide/vue'
 import { api } from '../services/api'
 import { demoTransactions } from '../data/demo'
 import EmptyState from '../components/EmptyState.vue'
@@ -12,11 +12,13 @@ const modalOpen = ref(false)
 const query = ref('')
 const month = ref(new Date().toISOString().slice(0, 7))
 const saving = ref(false)
-const form = ref({ type: 'expense', categoryId: 3, accountId: 1, amount: '', description: '', occurredAt: new Date().toISOString().slice(0, 10), isDebtPayment: false })
-const categories = {
+const form = ref({ type: 'expense', categoryId: null, accountId: null, amount: '', description: '', occurredAt: new Date().toISOString().slice(0, 10), isDebtPayment: false })
+const categories = reactive({
   expense: [{ id: 3, name: 'Makanan' }, { id: 4, name: 'Transportasi' }, { id: 5, name: 'Tempat Tinggal' }, { id: 6, name: 'Tagihan' }, { id: 7, name: 'Belanja' }, { id: 8, name: 'Hiburan' }, { id: 9, name: 'Cicilan' }],
   income: [{ id: 1, name: 'Gaji' }, { id: 2, name: 'Freelance' }],
-}
+})
+const accounts = ref([{ id: 1, name: 'BCA Utama' }])
+let requestSequence = 0
 
 const filtered = computed(() => transactions.value.filter((item) =>
   `${item.description} ${item.category.name} ${item.account.name}`.toLowerCase().includes(query.value.toLowerCase()),
@@ -27,13 +29,34 @@ const currency = (value) => new Intl.NumberFormat('id-ID', { style: 'currency', 
 const dateLabel = (date) => new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${date}T00:00:00`))
 
 async function load() {
+  const requestID = ++requestSequence
   loading.value = true
-  try { transactions.value = await api.transactions(month.value) } catch { transactions.value = demoTransactions }
-  loading.value = false
+  try {
+    const result = await api.transactions(month.value)
+    if (requestID === requestSequence) transactions.value = result || []
+  } catch {
+    if (requestID === requestSequence) transactions.value = demoTransactions
+  }
+  if (requestID === requestSequence) loading.value = false
+}
+async function loadMetadata() {
+  try {
+    const [categoryItems, accountItems] = await Promise.all([api.categories(), api.accounts()])
+    categories.expense = categoryItems.filter((item) => item.type === 'expense')
+    categories.income = categoryItems.filter((item) => item.type === 'income')
+    accounts.value = accountItems
+  } catch { /* demo mode */ }
+  form.value.categoryId = categories[form.value.type][0]?.id || null
+  form.value.accountId = accounts.value[0]?.id || null
+}
+function openModal() {
+  form.value.categoryId = categories[form.value.type][0]?.id || null
+  form.value.accountId = accounts.value[0]?.id || null
+  modalOpen.value = true
 }
 function setType(type) {
   form.value.type = type
-  form.value.categoryId = categories[type][0].id
+  form.value.categoryId = categories[type][0]?.id || null
 }
 async function save() {
   saving.value = true
@@ -43,7 +66,8 @@ async function save() {
     await load()
   } catch {
     const category = categories[form.value.type].find((x) => x.id === Number(form.value.categoryId))
-    transactions.value.unshift({ id: Date.now(), ...form.value, amount: Number(form.value.amount), category, account: { id: 1, name: 'BCA Utama' } })
+    const account = accounts.value.find((x) => x.id === Number(form.value.accountId))
+    transactions.value.unshift({ id: Date.now(), ...form.value, amount: Number(form.value.amount), category, account })
     modalOpen.value = false
   } finally { saving.value = false }
 }
@@ -51,14 +75,24 @@ async function remove(id) {
   transactions.value = transactions.value.filter((item) => item.id !== id)
   try { await api.deleteTransaction(id) } catch { /* demo mode */ }
 }
-onMounted(load)
+onMounted(() => {
+  window.addEventListener('hubby:workspace-changed', handleWorkspaceChange)
+  loadMetadata().then(load)
+})
+onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', handleWorkspaceChange))
+
+async function handleWorkspaceChange() {
+  transactions.value = []
+  await loadMetadata()
+  await load()
+}
 </script>
 
 <template>
   <section class="page">
     <div class="page-heading compact">
       <div><p class="eyebrow">Arus kas</p><h1>Transaksi</h1><p>Catat setiap rupiah agar keputusan terasa lebih ringan.</p></div>
-      <button class="primary-button" @click="modalOpen = true"><Plus :size="18" /> Tambah transaksi</button>
+      <button class="primary-button" @click="openModal"><Plus :size="18" /> Tambah transaksi</button>
     </div>
 
     <div class="summary-strip">
@@ -98,8 +132,9 @@ onMounted(load)
           <label>Nominal <div class="money-input"><span>Rp</span><input v-model="form.amount" inputmode="numeric" type="number" min="1" placeholder="0" required /></div></label>
           <div class="form-grid">
             <label>Kategori<select v-model="form.categoryId"><option v-for="category in categories[form.type]" :key="category.id" :value="category.id">{{ category.name }}</option></select></label>
-            <label>Tanggal<input v-model="form.occurredAt" type="date" required /></label>
+            <label>Rekening<select v-model="form.accountId"><option v-for="account in accounts" :key="account.id" :value="account.id">{{ account.name }}</option></select></label>
           </div>
+          <label>Tanggal<input v-model="form.occurredAt" type="date" required /></label>
           <label>Keterangan<input v-model="form.description" placeholder="Contoh: Belanja mingguan" required /></label>
           <label v-if="form.type === 'expense'" class="checkbox"><input v-model="form.isDebtPayment" type="checkbox" /> Ini pembayaran cicilan/kewajiban</label>
           <button class="primary-button full-button" :disabled="saving">{{ saving ? 'Menyimpan...' : 'Simpan transaksi' }}</button>

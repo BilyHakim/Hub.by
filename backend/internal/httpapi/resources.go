@@ -17,6 +17,11 @@ type transactionInput struct {
 }
 
 func (api *API) listTransactions(w http.ResponseWriter, r *http.Request) {
+	workspaceID, err := api.currentWorkspaceID(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to resolve active workspace")
+		return
+	}
 	month := r.URL.Query().Get("month")
 	if month == "" {
 		month = time.Now().Format("2006-01")
@@ -27,9 +32,9 @@ func (api *API) listTransactions(w http.ResponseWriter, r *http.Request) {
 		FROM transactions t
 		JOIN categories c ON c.id=t.category_id
 		JOIN accounts a ON a.id=t.account_id
-		WHERE to_char(t.occurred_at,'YYYY-MM')=$1
+		WHERE to_char(t.occurred_at,'YYYY-MM')=$1 AND t.workspace_id=$2
 		ORDER BY t.occurred_at DESC, t.id DESC
-	`, month)
+	`, month, workspaceID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to load transactions")
 		return
@@ -55,6 +60,11 @@ func (api *API) listTransactions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (api *API) createTransaction(w http.ResponseWriter, r *http.Request) {
+	workspaceID, err := api.currentWorkspaceID(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to resolve active workspace")
+		return
+	}
 	var input transactionInput
 	if err := decodeJSON(r, &input); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -72,23 +82,31 @@ func (api *API) createTransaction(w http.ResponseWriter, r *http.Request) {
 
 	var id int64
 	err = api.db.QueryRow(r.Context(), `
-		INSERT INTO transactions(type, category_id, account_id, amount, description, occurred_at, is_debt_payment)
-		VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id
-	`, input.Type, input.CategoryID, input.AccountID, input.Amount, input.Description, occurredAt, input.IsDebtPayment).Scan(&id)
+		INSERT INTO transactions(workspace_id,type,category_id,account_id,amount,description,occurred_at,is_debt_payment)
+		SELECT $8,$1,c.id,a.id,$4,$5,$6,$7
+		FROM categories c CROSS JOIN accounts a
+		WHERE c.id=$2 AND a.id=$3 AND c.workspace_id=$8 AND a.workspace_id=$8
+		RETURNING id
+	`, input.Type, input.CategoryID, input.AccountID, input.Amount, input.Description, occurredAt, input.IsDebtPayment, workspaceID).Scan(&id)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to save transaction")
+		writeError(w, http.StatusUnprocessableEntity, "category or account does not belong to the active workspace")
 		return
 	}
 	writeJSON(w, http.StatusCreated, envelope{"data": envelope{"id": id}})
 }
 
 func (api *API) deleteTransaction(w http.ResponseWriter, r *http.Request) {
+	workspaceID, err := api.currentWorkspaceID(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to resolve active workspace")
+		return
+	}
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid transaction id")
 		return
 	}
-	result, err := api.db.Exec(r.Context(), `DELETE FROM transactions WHERE id=$1`, id)
+	result, err := api.db.Exec(r.Context(), `DELETE FROM transactions WHERE id=$1 AND workspace_id=$2`, id, workspaceID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to delete transaction")
 		return
@@ -101,7 +119,12 @@ func (api *API) deleteTransaction(w http.ResponseWriter, r *http.Request) {
 }
 
 func (api *API) listAccounts(w http.ResponseWriter, r *http.Request) {
-	rows, err := api.db.Query(r.Context(), `SELECT id,name,kind,current_balance,is_emergency_fund FROM accounts ORDER BY id`)
+	workspaceID, err := api.currentWorkspaceID(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to resolve active workspace")
+		return
+	}
+	rows, err := api.db.Query(r.Context(), `SELECT id,name,kind,current_balance,is_emergency_fund FROM accounts WHERE workspace_id=$1 ORDER BY id`, workspaceID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to load accounts")
 		return
@@ -119,8 +142,36 @@ func (api *API) listAccounts(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, envelope{"data": items})
 }
 
+func (api *API) listCategories(w http.ResponseWriter, r *http.Request) {
+	workspaceID, err := api.currentWorkspaceID(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to resolve active workspace")
+		return
+	}
+	rows, err := api.db.Query(r.Context(), `SELECT id,name,type,color,icon FROM categories WHERE workspace_id=$1 ORDER BY type DESC,id`, workspaceID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load categories")
+		return
+	}
+	defer rows.Close()
+	items := make([]envelope, 0)
+	for rows.Next() {
+		var id int64
+		var name, kind, color, icon string
+		if rows.Scan(&id, &name, &kind, &color, &icon) == nil {
+			items = append(items, envelope{"id": id, "name": name, "type": kind, "color": color, "icon": icon})
+		}
+	}
+	writeJSON(w, http.StatusOK, envelope{"data": items})
+}
+
 func (api *API) listGoals(w http.ResponseWriter, r *http.Request) {
-	rows, err := api.db.Query(r.Context(), `SELECT id,name,target_amount,current_amount,target_date,icon FROM financial_goals ORDER BY target_date`)
+	workspaceID, err := api.currentWorkspaceID(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to resolve active workspace")
+		return
+	}
+	rows, err := api.db.Query(r.Context(), `SELECT id,name,target_amount,current_amount,target_date,icon FROM financial_goals WHERE workspace_id=$1 ORDER BY target_date`, workspaceID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to load goals")
 		return
@@ -139,6 +190,11 @@ func (api *API) listGoals(w http.ResponseWriter, r *http.Request) {
 }
 
 func (api *API) updateGoal(w http.ResponseWriter, r *http.Request) {
+	workspaceID, err := api.currentWorkspaceID(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to resolve active workspace")
+		return
+	}
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid goal id")
@@ -151,7 +207,7 @@ func (api *API) updateGoal(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "currentAmount must be zero or greater")
 		return
 	}
-	result, err := api.db.Exec(r.Context(), `UPDATE financial_goals SET current_amount=$1,updated_at=now() WHERE id=$2`, input.CurrentAmount, id)
+	result, err := api.db.Exec(r.Context(), `UPDATE financial_goals SET current_amount=$1,updated_at=now() WHERE id=$2 AND workspace_id=$3`, input.CurrentAmount, id, workspaceID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to update goal")
 		return
@@ -164,7 +220,12 @@ func (api *API) updateGoal(w http.ResponseWriter, r *http.Request) {
 }
 
 func (api *API) listInvestments(w http.ResponseWriter, r *http.Request) {
-	rows, err := api.db.Query(r.Context(), `SELECT id,asset_type,name,platform,purchase_value,current_value FROM investments ORDER BY current_value DESC`)
+	workspaceID, err := api.currentWorkspaceID(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to resolve active workspace")
+		return
+	}
+	rows, err := api.db.Query(r.Context(), `SELECT id,asset_type,name,platform,purchase_value,current_value FROM investments WHERE workspace_id=$1 ORDER BY current_value DESC`, workspaceID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to load investments")
 		return

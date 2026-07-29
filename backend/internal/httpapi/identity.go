@@ -127,6 +127,32 @@ func (api *API) createWorkspace(w http.ResponseWriter, r *http.Request) {
 			UPDATE users SET current_workspace_id=$1,updated_at=now() WHERE id=$2
 		`, id, localUserID)
 	}
+	if err == nil {
+		_, err = tx.Exec(r.Context(), `
+			INSERT INTO categories(workspace_id,name,type,color,icon) VALUES
+			($1,'Gaji','income','#49685c','briefcase'),
+			($1,'Freelance','income','#7f9d8e','sparkles'),
+			($1,'Makanan','expense','#e8a65d','utensils'),
+			($1,'Transportasi','expense','#7894a0','car'),
+			($1,'Tempat Tinggal','expense','#d77268','home'),
+			($1,'Tagihan','expense','#9a8bb7','receipt'),
+			($1,'Belanja','expense','#b4a464','shopping-bag'),
+			($1,'Hiburan','expense','#638475','party-popper'),
+			($1,'Cicilan','expense','#af685f','landmark')
+		`, id)
+	}
+	if err == nil {
+		_, err = tx.Exec(r.Context(), `
+			INSERT INTO accounts(workspace_id,name,kind,current_balance,is_emergency_fund)
+			VALUES($1,'Rekening Utama','bank',0,FALSE)
+		`, id)
+	}
+	if err == nil {
+		_, err = tx.Exec(r.Context(), `
+			INSERT INTO emergency_fund_settings(workspace_id,monthly_expense,target_months)
+			VALUES($1,0,6)
+		`, id)
+	}
 	if err != nil || tx.Commit(r.Context()) != nil {
 		writeError(w, http.StatusInternalServerError, "failed to create workspace")
 		return
@@ -134,6 +160,14 @@ func (api *API) createWorkspace(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, envelope{"data": envelope{
 		"id": id, "name": input.Name, "initials": initials, "role": "owner",
 	}})
+}
+
+func (api *API) currentWorkspaceID(ctx context.Context) (int64, error) {
+	var workspaceID int64
+	err := api.db.QueryRow(ctx, `
+		SELECT current_workspace_id FROM users WHERE id=$1
+	`, localUserID).Scan(&workspaceID)
+	return workspaceID, err
 }
 
 func (api *API) selectWorkspace(w http.ResponseWriter, r *http.Request) {

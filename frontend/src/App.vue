@@ -71,15 +71,18 @@ async function loadIdentity() {
   }
 }
 async function selectWorkspace(item) {
-  selectedWorkspaceId.value = item.id
-  localStorage.setItem('hubby-workspace-id', String(item.id))
   workspaceMenuOpen.value = false
   try {
     await api.selectWorkspace(item.id)
-    notify(`Berpindah ke ${item.name}`)
   } catch {
-    notify(`${item.name} dipilih untuk sesi ini`)
+    notify(`${item.name} dipilih secara lokal`)
   }
+  selectedWorkspaceId.value = item.id
+  localStorage.setItem('hubby-workspace-id', String(item.id))
+  window.dispatchEvent(new CustomEvent('hubby:workspace-changed', {
+    detail: { workspaceId: item.id, workspaceName: item.name },
+  }))
+  notify(`Berpindah ke ${item.name}`)
 }
 function openCreateWorkspace() {
   workspaceMenuOpen.value = false

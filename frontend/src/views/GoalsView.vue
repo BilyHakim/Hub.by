@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onBeforeUnmount, onMounted } from 'vue'
 import { Target, Plane, Home, GraduationCap, Plus, CalendarDays, ArrowRight } from '@lucide/vue'
 import { api } from '../services/api'
 import { demoGoals } from '../data/demo'
@@ -8,7 +8,25 @@ const goals = ref([])
 const icons = { plane: Plane, home: Home, 'graduation-cap': GraduationCap }
 const currency = (value) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(value)
 const dateLabel = (date) => new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(new Date(`${date}T00:00:00`))
-onMounted(async () => { try { goals.value = await api.goals() } catch { goals.value = demoGoals } })
+let requestSequence = 0
+async function loadGoals() {
+  const requestID = ++requestSequence
+  try {
+    const result = await api.goals()
+    if (requestID === requestSequence) goals.value = result || []
+  } catch {
+    if (requestID === requestSequence) goals.value = demoGoals
+  }
+}
+function handleWorkspaceChange() {
+  goals.value = []
+  loadGoals()
+}
+onMounted(() => {
+  loadGoals()
+  window.addEventListener('hubby:workspace-changed', handleWorkspaceChange)
+})
+onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', handleWorkspaceChange))
 </script>
 
 <template>

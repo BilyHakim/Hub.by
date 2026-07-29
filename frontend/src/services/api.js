@@ -25,6 +25,7 @@ export const api = {
   createTransaction: (payload) => request('/transactions', { method: 'POST', body: JSON.stringify(payload) }),
   deleteTransaction: (id) => request(`/transactions/${id}`, { method: 'DELETE' }),
   accounts: () => request('/accounts'),
+  categories: () => request('/categories'),
   goals: () => request('/goals'),
   updateGoal: (id, currentAmount) => request(`/goals/${id}`, {
     method: 'PATCH',
