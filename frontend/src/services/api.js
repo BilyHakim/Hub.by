@@ -46,4 +46,15 @@ export const api = {
     method: 'PATCH',
     body: JSON.stringify({ workspaceId }),
   }),
+  pyramid: () => request('/modules/pyramid'),
+  updatePyramidItem: (id, isCompleted) => request(`/modules/pyramid/items/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ isCompleted }),
+  }),
+  financialCheckup: (month) => request(`/modules/checkup?month=${month}`),
+  emergencyFund: (month) => request(`/modules/emergency-fund?month=${month}`),
+  updateEmergencyFund: (payload) => request('/modules/emergency-fund', {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  }),
 }

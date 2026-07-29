@@ -38,6 +38,11 @@ func NewRouter(db *pgxpool.Pool, logger *slog.Logger, frontendOrigin string) htt
 	mux.HandleFunc("GET /api/v1/workspaces", api.listWorkspaces)
 	mux.HandleFunc("POST /api/v1/workspaces", api.createWorkspace)
 	mux.HandleFunc("PATCH /api/v1/me/workspace", api.selectWorkspace)
+	mux.HandleFunc("GET /api/v1/modules/pyramid", api.getPyramid)
+	mux.HandleFunc("PATCH /api/v1/modules/pyramid/items/{id}", api.updatePyramidItem)
+	mux.HandleFunc("GET /api/v1/modules/checkup", api.getFinancialCheckup)
+	mux.HandleFunc("GET /api/v1/modules/emergency-fund", api.getEmergencyFund)
+	mux.HandleFunc("PATCH /api/v1/modules/emergency-fund", api.updateEmergencyFund)
 
 	return recoverMiddleware(logger, loggingMiddleware(logger, corsMiddleware(frontendOrigin, mux)))
 }
