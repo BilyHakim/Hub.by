@@ -172,14 +172,19 @@ func (api *API) getFinancialCheckup(w http.ResponseWriter, r *http.Request) {
 	if month == "" {
 		month = time.Now().Format("2006-01")
 	}
-	var income, expense, debt, emergency, liquid, investment, assets int64
+	var income, expense, debt, requiredExpense, emergency, liquid, investment, assets int64
 	err = api.db.QueryRow(r.Context(), `
 		SELECT
-			COALESCE(SUM(amount) FILTER (WHERE type='income'),0)::bigint,
-			COALESCE(SUM(amount) FILTER (WHERE type='expense'),0)::bigint,
-			COALESCE(SUM(amount) FILTER (WHERE type='expense' AND is_debt_payment),0)::bigint
-		FROM transactions WHERE workspace_id=$1 AND to_char(occurred_at,'YYYY-MM')=$2
-	`, workspaceID, month).Scan(&income, &expense, &debt)
+			COALESCE(SUM(t.amount) FILTER (WHERE t.type='income'),0)::bigint,
+			COALESCE(SUM(t.amount) FILTER (WHERE t.type='expense'),0)::bigint,
+			COALESCE(SUM(t.amount) FILTER (WHERE t.type='expense' AND t.is_debt_payment),0)::bigint,
+			COALESCE(SUM(t.amount) FILTER (
+				WHERE t.type='expense' AND c.expense_class IN ('essential','obligation')
+			),0)::bigint
+		FROM transactions t
+		LEFT JOIN categories c ON c.id=t.category_id
+		WHERE t.workspace_id=$1 AND to_char(t.occurred_at,'YYYY-MM')=$2
+	`, workspaceID, month).Scan(&income, &expense, &debt, &requiredExpense)
 	if err == nil {
 		err = api.db.QueryRow(r.Context(), `
 			SELECT
@@ -196,7 +201,7 @@ func (api *API) getFinancialCheckup(w http.ResponseWriter, r *http.Request) {
 	}
 	savingsRate := ratio(income-expense, income)
 	debtRatio := ratio(debt, income)
-	emergencyTarget := expense * 6
+	emergencyTarget := requiredExpense * 6
 	emergencyRatio := ratio(emergency, emergencyTarget)
 	liquidityMonths := 0.0
 	if expense > 0 {
@@ -238,7 +243,8 @@ func (api *API) getEmergencyFund(w http.ResponseWriter, r *http.Request) {
 	if month == "" {
 		month = time.Now().Format("2006-01")
 	}
-	var monthlyExpense, targetMonths, currentAmount, observedExpense int64
+	var monthlyExpense, targetMonths, currentAmount int64
+	var totalExpense, essentialExpense, obligationExpense, discretionaryExpense, futureExpense int64
 	err = api.db.QueryRow(r.Context(), `
 		SELECT monthly_expense,target_months FROM emergency_fund_settings WHERE workspace_id=$1
 	`, workspaceID).Scan(&monthlyExpense, &targetMonths)
@@ -250,9 +256,16 @@ func (api *API) getEmergencyFund(w http.ResponseWriter, r *http.Request) {
 	}
 	if err == nil {
 		err = api.db.QueryRow(r.Context(), `
-			SELECT COALESCE(SUM(amount),0)::bigint FROM transactions
-			WHERE workspace_id=$1 AND type='expense' AND to_char(occurred_at,'YYYY-MM')=$2
-		`, workspaceID, month).Scan(&observedExpense)
+			SELECT
+				COALESCE(SUM(t.amount),0)::bigint,
+				COALESCE(SUM(t.amount) FILTER (WHERE c.expense_class='essential'),0)::bigint,
+				COALESCE(SUM(t.amount) FILTER (WHERE c.expense_class='obligation'),0)::bigint,
+				COALESCE(SUM(t.amount) FILTER (WHERE c.expense_class='discretionary'),0)::bigint,
+				COALESCE(SUM(t.amount) FILTER (WHERE c.expense_class='future'),0)::bigint
+			FROM transactions t
+			JOIN categories c ON c.id=t.category_id
+			WHERE t.workspace_id=$1 AND t.type='expense' AND to_char(t.occurred_at,'YYYY-MM')=$2
+		`, workspaceID, month).Scan(&totalExpense, &essentialExpense, &obligationExpense, &discretionaryExpense, &futureExpense)
 	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to load emergency fund")
@@ -260,10 +273,19 @@ func (api *API) getEmergencyFund(w http.ResponseWriter, r *http.Request) {
 	}
 	target := monthlyExpense * targetMonths
 	progress := ratio(currentAmount, target)
+	recommendedMonthlyExpense := essentialExpense + obligationExpense
+	recommendedTarget := recommendedMonthlyExpense * targetMonths
 	writeJSON(w, http.StatusOK, envelope{"data": envelope{
-		"month": month, "monthlyExpense": monthlyExpense, "observedExpense": observedExpense,
+		"month": month, "monthlyExpense": monthlyExpense, "observedExpense": totalExpense,
 		"targetMonths": targetMonths, "targetAmount": target, "currentAmount": currentAmount,
 		"remainingAmount": max(target-currentAmount, 0), "progress": progress,
+		"recommendation": envelope{
+			"essentialExpense": essentialExpense, "obligationExpense": obligationExpense,
+			"discretionaryExpense": discretionaryExpense, "futureExpense": futureExpense,
+			"recommendedMonthlyExpense": recommendedMonthlyExpense,
+			"recommendedTargetAmount":   recommendedTarget,
+			"remainingAmount":           max(recommendedTarget-currentAmount, 0),
+		},
 	}})
 }
 

@@ -148,7 +148,7 @@ func (api *API) listCategories(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to resolve active workspace")
 		return
 	}
-	rows, err := api.db.Query(r.Context(), `SELECT id,name,type,color,icon FROM categories WHERE workspace_id=$1 ORDER BY type DESC,id`, workspaceID)
+	rows, err := api.db.Query(r.Context(), `SELECT id,name,type,color,icon,expense_class FROM categories WHERE workspace_id=$1 ORDER BY type DESC,id`, workspaceID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to load categories")
 		return
@@ -158,8 +158,9 @@ func (api *API) listCategories(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var id int64
 		var name, kind, color, icon string
-		if rows.Scan(&id, &name, &kind, &color, &icon) == nil {
-			items = append(items, envelope{"id": id, "name": name, "type": kind, "color": color, "icon": icon})
+		var expenseClass *string
+		if rows.Scan(&id, &name, &kind, &color, &icon, &expenseClass) == nil {
+			items = append(items, envelope{"id": id, "name": name, "type": kind, "color": color, "icon": icon, "expenseClass": expenseClass})
 		}
 	}
 	writeJSON(w, http.StatusOK, envelope{"data": items})

@@ -129,16 +129,16 @@ func (api *API) createWorkspace(w http.ResponseWriter, r *http.Request) {
 	}
 	if err == nil {
 		_, err = tx.Exec(r.Context(), `
-			INSERT INTO categories(workspace_id,name,type,color,icon) VALUES
-			($1,'Gaji','income','#49685c','briefcase'),
-			($1,'Freelance','income','#7f9d8e','sparkles'),
-			($1,'Makanan','expense','#e8a65d','utensils'),
-			($1,'Transportasi','expense','#7894a0','car'),
-			($1,'Tempat Tinggal','expense','#d77268','home'),
-			($1,'Tagihan','expense','#9a8bb7','receipt'),
-			($1,'Belanja','expense','#b4a464','shopping-bag'),
-			($1,'Hiburan','expense','#638475','party-popper'),
-			($1,'Cicilan','expense','#af685f','landmark')
+			INSERT INTO categories(workspace_id,name,type,color,icon,expense_class) VALUES
+			($1,'Gaji','income','#49685c','briefcase',NULL),
+			($1,'Freelance','income','#7f9d8e','sparkles',NULL),
+			($1,'Makanan','expense','#e8a65d','utensils','essential'),
+			($1,'Transportasi','expense','#7894a0','car','essential'),
+			($1,'Tempat Tinggal','expense','#d77268','home','essential'),
+			($1,'Tagihan','expense','#9a8bb7','receipt','obligation'),
+			($1,'Belanja','expense','#b4a464','shopping-bag','discretionary'),
+			($1,'Hiburan','expense','#638475','party-popper','discretionary'),
+			($1,'Cicilan','expense','#af685f','landmark','obligation')
 		`, id)
 	}
 	if err == nil {

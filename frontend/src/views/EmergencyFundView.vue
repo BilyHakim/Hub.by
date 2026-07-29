@@ -7,7 +7,7 @@ import { api } from '../services/api'
 const month = ref(new Date().toISOString().slice(0, 7))
 const loading = ref(true)
 const saving = ref(false)
-const data = ref({ monthlyExpense: 0, observedExpense: 0, targetMonths: 6, targetAmount: 0, currentAmount: 0, remainingAmount: 0, progress: 0 })
+const data = ref({ monthlyExpense: 0, observedExpense: 0, targetMonths: 6, targetAmount: 0, currentAmount: 0, remainingAmount: 0, progress: 0, recommendation: { essentialExpense: 0, obligationExpense: 0, discretionaryExpense: 0, futureExpense: 0, recommendedMonthlyExpense: 0, recommendedTargetAmount: 0, remainingAmount: 0 } })
 const form = reactive({ monthlyExpense: 0, targetMonths: 6 })
 const currency = (value) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(value)
 const projectedTarget = computed(() => Number(form.monthlyExpense || 0) * Number(form.targetMonths || 0))
@@ -27,7 +27,7 @@ async function save() {
     await load()
   } finally { saving.value = false }
 }
-function useObservedExpense() { form.monthlyExpense = data.value.observedExpense }
+function useRecommendedExpense() { form.monthlyExpense = data.value.recommendation.recommendedMonthlyExpense }
 function handleWorkspaceChange() { load() }
 onMounted(() => {
   load()
@@ -50,7 +50,7 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
           <label>Pengeluaran bulanan
             <div class="money-input"><span>Rp</span><input v-model.number="form.monthlyExpense" type="number" min="0" /></div>
           </label>
-          <button type="button" class="observed-button" @click="useObservedExpense">Gunakan pengeluaran bulan ini: {{ currency(data.observedExpense) }}</button>
+          <p class="observed-caption">Total seluruh pengeluaran bulan ini: {{ currency(data.observedExpense) }}</p>
           <label>Jumlah bulan perlindungan
             <select v-model.number="form.targetMonths"><option v-for="number in 24" :key="number" :value="number">{{ number }} bulan</option></select>
           </label>
@@ -67,6 +67,24 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
         <div class="emergency-account-note"><CircleDollarSign :size="18" /><span>Nilai saat ini dijumlahkan dari rekening yang ditandai sebagai <strong>dana darurat</strong>.</span></div>
       </article>
     </div>
+    <article class="panel emergency-recommendation">
+      <div class="panel-heading">
+        <div><h2>Rekomendasi dari biaya hidup wajib</h2><p>Mengikuti workbook: kebutuhan sehari-hari + kewajiban. Keinginan dan tabungan masa depan tidak dihitung.</p></div>
+        <span class="pill">Rekomendasi</span>
+      </div>
+      <div class="recommendation-breakdown">
+        <div><span>Kebutuhan sehari-hari</span><strong>{{ currency(data.recommendation.essentialExpense) }}</strong><small>Makan, transportasi, tempat tinggal, dan kebutuhan penting.</small></div>
+        <div><span>Kewajiban dan tagihan</span><strong>{{ currency(data.recommendation.obligationExpense) }}</strong><small>Cicilan, utang, dan tagihan yang tetap harus dibayar.</small></div>
+        <div class="excluded"><span>Keinginan — tidak dihitung</span><strong>{{ currency(data.recommendation.discretionaryExpense) }}</strong><small>Hiburan, belanja keinginan, dan pengeluaran opsional.</small></div>
+        <div class="excluded"><span>Masa depan — tidak dihitung</span><strong>{{ currency(data.recommendation.futureExpense) }}</strong><small>Investasi dan tabungan bukan biaya bertahan hidup.</small></div>
+      </div>
+      <div class="recommended-target">
+        <div><small>Biaya wajib per bulan</small><strong>{{ currency(data.recommendation.recommendedMonthlyExpense) }}</strong></div>
+        <span>× {{ form.targetMonths }} bulan</span>
+        <div><small>Target yang direkomendasikan</small><strong>{{ currency(data.recommendation.recommendedMonthlyExpense * form.targetMonths) }}</strong></div>
+        <button class="secondary-button" type="button" @click="useRecommendedExpense">Gunakan rekomendasi</button>
+      </div>
+    </article>
     <div class="recommendation-grid">
       <div><strong>3 bulan</strong><span>Single dengan pekerjaan dan pendapatan stabil</span></div>
       <div class="recommended"><strong>6 bulan</strong><span>Menikah atau memiliki tanggungan keluarga</span></div>

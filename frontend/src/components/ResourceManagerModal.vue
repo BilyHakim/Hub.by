@@ -15,6 +15,7 @@ const errorMessage = ref('')
 const form = reactive({
   name: '',
   categoryType: 'expense',
+  expenseClass: 'essential',
   kind: 'bank',
   balance: 0,
   isEmergencyFund: false,
@@ -29,6 +30,13 @@ const accountKinds = [
   { value: 'property', label: 'Properti' },
   { value: 'liability', label: 'Kewajiban/utang' },
 ]
+const expenseClasses = [
+  { value: 'essential', label: 'Kebutuhan sehari-hari' },
+  { value: 'obligation', label: 'Kewajiban dan tagihan' },
+  { value: 'discretionary', label: 'Keinginan' },
+  { value: 'future', label: 'Masa depan/investasi' },
+]
+const expenseClassLabels = Object.fromEntries(expenseClasses.map((item) => [item.value, item.label]))
 const currency = (value) => new Intl.NumberFormat('id-ID', {
   style: 'currency', currency: 'IDR', maximumFractionDigits: 0,
 }).format(value)
@@ -39,6 +47,7 @@ function resetForm() {
   Object.assign(form, {
     name: '',
     categoryType: 'expense',
+    expenseClass: 'essential',
     kind: 'bank',
     balance: 0,
     isEmergencyFund: false,
@@ -50,6 +59,7 @@ function edit(item) {
   Object.assign(form, {
     name: item.name,
     categoryType: item.type || 'expense',
+    expenseClass: item.expenseClass || 'essential',
     kind: item.kind || 'bank',
     balance: item.balance || 0,
     isEmergencyFund: item.isEmergencyFund || false,
@@ -60,7 +70,11 @@ async function save() {
   errorMessage.value = ''
   try {
     if (isCategory.value) {
-      const payload = { name: form.name, type: form.categoryType }
+      const payload = {
+        name: form.name,
+        type: form.categoryType,
+        expenseClass: form.categoryType === 'expense' ? form.expenseClass : null,
+      }
       if (editingID.value) await api.updateCategory(editingID.value, payload)
       else await api.createCategory(payload)
     } else {
@@ -115,7 +129,7 @@ async function remove(item) {
             </span>
             <div>
               <strong>{{ item.name }}</strong>
-              <small v-if="isCategory">{{ item.type === 'income' ? 'Pemasukan' : 'Pengeluaran' }}</small>
+              <small v-if="isCategory">{{ item.type === 'income' ? 'Pemasukan' : expenseClassLabels[item.expenseClass] || 'Pengeluaran' }}</small>
               <small v-else>{{ currency(item.balance) }} · {{ item.kind }}</small>
             </div>
             <button type="button" aria-label="Edit" @click="edit(item)"><Pencil :size="15" /></button>
@@ -135,6 +149,12 @@ async function remove(item) {
               <option value="income">Pemasukan</option>
             </select>
           </label>
+          <label v-if="isCategory && form.categoryType === 'expense'">Kelompok pengeluaran
+            <select v-model="form.expenseClass">
+              <option v-for="expenseClass in expenseClasses" :key="expenseClass.value" :value="expenseClass.value">{{ expenseClass.label }}</option>
+            </select>
+            <small class="field-help">Kebutuhan dan kewajiban masuk rekomendasi dana darurat.</small>
+          </label>
           <template v-else>
             <label>Jenis rekening
               <select v-model="form.kind"><option v-for="kind in accountKinds" :key="kind.value" :value="kind.value">{{ kind.label }}</option></select>
@@ -152,4 +172,3 @@ async function remove(item) {
     </div>
   </div>
 </template>
-

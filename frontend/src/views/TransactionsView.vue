@@ -16,7 +16,7 @@ const saving = ref(false)
 const managerType = ref(null)
 const form = ref({ type: 'expense', categoryId: null, accountId: null, amount: '', description: '', occurredAt: new Date().toISOString().slice(0, 10), isDebtPayment: false })
 const categories = reactive({
-  expense: [{ id: 3, name: 'Makanan' }, { id: 4, name: 'Transportasi' }, { id: 5, name: 'Tempat Tinggal' }, { id: 6, name: 'Tagihan' }, { id: 7, name: 'Belanja' }, { id: 8, name: 'Hiburan' }, { id: 9, name: 'Cicilan' }],
+  expense: [{ id: 3, name: 'Makanan', expenseClass: 'essential' }, { id: 4, name: 'Transportasi', expenseClass: 'essential' }, { id: 5, name: 'Tempat Tinggal', expenseClass: 'essential' }, { id: 6, name: 'Tagihan', expenseClass: 'obligation' }, { id: 7, name: 'Belanja', expenseClass: 'discretionary' }, { id: 8, name: 'Hiburan', expenseClass: 'discretionary' }, { id: 9, name: 'Cicilan', expenseClass: 'obligation' }],
   income: [{ id: 1, name: 'Gaji' }, { id: 2, name: 'Freelance' }],
 })
 const accounts = ref([{ id: 1, name: 'BCA Utama' }])

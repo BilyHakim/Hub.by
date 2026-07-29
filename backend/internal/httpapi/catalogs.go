@@ -10,8 +10,9 @@ import (
 )
 
 type categoryInput struct {
-	Name string `json:"name"`
-	Type string `json:"type"`
+	Name         string  `json:"name"`
+	Type         string  `json:"type"`
+	ExpenseClass *string `json:"expenseClass"`
 }
 
 type accountInput struct {
@@ -34,15 +35,17 @@ func (api *API) createCategory(w http.ResponseWriter, r *http.Request) {
 	}
 	input.Name = strings.TrimSpace(input.Name)
 	var id int64
+	expenseClass := normalizedExpenseClass(input)
 	err = api.db.QueryRow(r.Context(), `
-		INSERT INTO categories(workspace_id,name,type) VALUES($1,$2,$3) RETURNING id
-	`, workspaceID, input.Name, input.Type).Scan(&id)
+		INSERT INTO categories(workspace_id,name,type,expense_class) VALUES($1,$2,$3,$4) RETURNING id
+	`, workspaceID, input.Name, input.Type, expenseClass).Scan(&id)
 	if err != nil {
 		writeMutationError(w, err, "category")
 		return
 	}
 	writeJSON(w, http.StatusCreated, envelope{"data": envelope{
-		"id": id, "name": input.Name, "type": input.Type, "color": "#49685c", "icon": "circle",
+		"id": id, "name": input.Name, "type": input.Type, "expenseClass": expenseClass,
+		"color": "#49685c", "icon": "circle",
 	}})
 }
 
@@ -63,9 +66,10 @@ func (api *API) updateCategory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	input.Name = strings.TrimSpace(input.Name)
+	expenseClass := normalizedExpenseClass(input)
 	result, err := api.db.Exec(r.Context(), `
-		UPDATE categories SET name=$1,type=$2 WHERE id=$3 AND workspace_id=$4
-	`, input.Name, input.Type, id, workspaceID)
+		UPDATE categories SET name=$1,type=$2,expense_class=$3 WHERE id=$4 AND workspace_id=$5
+	`, input.Name, input.Type, expenseClass, id, workspaceID)
 	if err != nil {
 		writeMutationError(w, err, "category")
 		return
@@ -74,7 +78,9 @@ func (api *API) updateCategory(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "category not found in active workspace")
 		return
 	}
-	writeJSON(w, http.StatusOK, envelope{"data": envelope{"id": id, "name": input.Name, "type": input.Type}})
+	writeJSON(w, http.StatusOK, envelope{"data": envelope{
+		"id": id, "name": input.Name, "type": input.Type, "expenseClass": expenseClass,
+	}})
 }
 
 func (api *API) deleteCategory(w http.ResponseWriter, r *http.Request) {
@@ -174,7 +180,26 @@ func (api *API) deleteCatalogResource(w http.ResponseWriter, r *http.Request, ta
 
 func validCategoryInput(input categoryInput) bool {
 	name := strings.TrimSpace(input.Name)
-	return len(name) >= 2 && len(name) <= 80 && (input.Type == "income" || input.Type == "expense")
+	if len(name) < 2 || len(name) > 80 || (input.Type != "income" && input.Type != "expense") {
+		return false
+	}
+	if input.Type == "income" {
+		return true
+	}
+	if input.ExpenseClass == nil {
+		return false
+	}
+	validClasses := map[string]bool{
+		"essential": true, "obligation": true, "discretionary": true, "future": true,
+	}
+	return validClasses[*input.ExpenseClass]
+}
+
+func normalizedExpenseClass(input categoryInput) any {
+	if input.Type == "income" || input.ExpenseClass == nil {
+		return nil
+	}
+	return *input.ExpenseClass
 }
 
 func validAccountInput(input accountInput) bool {
