@@ -231,7 +231,10 @@ func (api *API) listInvestments(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to resolve active workspace")
 		return
 	}
-	rows, err := api.db.Query(r.Context(), `SELECT id,asset_type,name,platform,purchase_value,current_value FROM investments WHERE workspace_id=$1 ORDER BY current_value DESC`, workspaceID)
+	rows, err := api.db.Query(r.Context(), `
+		SELECT id,asset_type,name,platform,purchase_value,current_value,target_allocation
+		FROM investments WHERE workspace_id=$1 ORDER BY current_value DESC,id
+	`, workspaceID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to load investments")
 		return
@@ -240,14 +243,19 @@ func (api *API) listInvestments(w http.ResponseWriter, r *http.Request) {
 	items := make([]envelope, 0)
 	for rows.Next() {
 		var id, purchase, current int64
+		var targetAllocation float64
 		var assetType, name, platform string
-		if rows.Scan(&id, &assetType, &name, &platform, &purchase, &current) == nil {
+		if rows.Scan(&id, &assetType, &name, &platform, &purchase, &current, &targetAllocation) == nil {
 			gain := current - purchase
 			percentage := 0.0
 			if purchase > 0 {
 				percentage = float64(gain) / float64(purchase) * 100
 			}
-			items = append(items, envelope{"id": id, "assetType": assetType, "name": name, "platform": platform, "purchaseValue": purchase, "currentValue": current, "gain": gain, "returnPercentage": percentage})
+			items = append(items, envelope{
+				"id": id, "assetType": assetType, "name": name, "platform": platform,
+				"purchaseValue": purchase, "currentValue": current,
+				"targetAllocation": targetAllocation, "gain": gain, "returnPercentage": percentage,
+			})
 		}
 	}
 	writeJSON(w, http.StatusOK, envelope{"data": items})

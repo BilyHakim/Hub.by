@@ -7,6 +7,9 @@ import PyramidView from './views/PyramidView.vue'
 import CheckupView from './views/CheckupView.vue'
 import EmergencyFundView from './views/EmergencyFundView.vue'
 import SettingsView from './views/SettingsView.vue'
+import MortgageView from './views/MortgageView.vue'
+import InvestmentsView from './views/InvestmentsView.vue'
+import RebalancingView from './views/RebalancingView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -18,6 +21,9 @@ const router = createRouter({
     { path: '/modules/pyramid', name: 'pyramid', component: PyramidView, meta: { title: 'Piramida keuangan' } },
     { path: '/modules/checkup', name: 'checkup', component: CheckupView, meta: { title: 'Financial check-up' } },
     { path: '/modules/emergency-fund', name: 'emergency-fund', component: EmergencyFundView, meta: { title: 'Dana darurat' } },
+    { path: '/modules/mortgage', name: 'mortgage', component: MortgageView, meta: { title: 'Simulasi KPR' } },
+    { path: '/modules/investments', name: 'investments', component: InvestmentsView, meta: { title: 'Monitor investasi' } },
+    { path: '/modules/rebalancing', name: 'rebalancing', component: RebalancingView, meta: { title: 'Rebalancing' } },
     { path: '/settings', name: 'settings', component: SettingsView, meta: { title: 'Pengaturan' } },
   ],
   scrollBehavior: () => ({ top: 0 }),

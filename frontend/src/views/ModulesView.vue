@@ -8,9 +8,9 @@ const modules = [
   { title: 'Piramida keuangan', text: 'Lihat urutan prioritas dan progres fondasi keuanganmu.', icon: Pyramid, state: 'Tersedia', tone: 'sage', route: '/modules/pyramid' },
   { title: 'Financial check-up', text: 'Periksa rasio tabungan, kewajiban, dan likuiditas.', icon: HeartPulse, state: 'Tersedia', tone: 'rose', route: '/modules/checkup' },
   { title: 'Dana darurat', text: 'Hitung target dana aman berdasarkan kebutuhan bulanan.', icon: ShieldCheck, state: 'Tersedia', tone: 'sand', route: '/modules/emergency-fund' },
-  { title: 'Simulasi KPR', text: 'Uji uang muka, tenor, bunga, dan kemampuan cicilan.', icon: House, state: 'Segera', tone: 'blue' },
-  { title: 'Monitor investasi', text: 'Pantau nilai, imbal hasil, dan distribusi portofolio.', icon: ChartNoAxesCombined, state: 'Segera', tone: 'lilac' },
-  { title: 'Rebalancing', text: 'Bandingkan alokasi saat ini dengan komposisi ideal.', icon: Scale, state: 'Segera', tone: 'moss' },
+  { title: 'Simulasi KPR', text: 'Uji uang muka, tenor, bunga, dan kemampuan cicilan.', icon: House, state: 'Tersedia', tone: 'blue', route: '/modules/mortgage' },
+  { title: 'Monitor investasi', text: 'Pantau nilai, imbal hasil, dan distribusi portofolio.', icon: ChartNoAxesCombined, state: 'Tersedia', tone: 'lilac', route: '/modules/investments' },
+  { title: 'Rebalancing', text: 'Bandingkan alokasi saat ini dengan komposisi ideal.', icon: Scale, state: 'Tersedia', tone: 'moss', route: '/modules/rebalancing' },
   { title: 'Persiapan pensiun', text: 'Proyeksikan kebutuhan pensiun dengan pendekatan 4%.', icon: Umbrella, state: 'Segera', tone: 'rose' },
   { title: 'Glosarium finansial', text: 'Pahami istilah keuangan dalam bahasa yang sederhana.', icon: BookOpenText, state: 'Segera', tone: 'blue' },
 ]
