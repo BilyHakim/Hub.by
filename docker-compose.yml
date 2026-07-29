@@ -1,0 +1,31 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: hubby-postgres
+    environment:
+      POSTGRES_DB: hubby
+      POSTGRES_USER: hubby
+      POSTGRES_PASSWORD: hubby
+    ports:
+      - "5432:5432"
+    volumes:
+      - hubby_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hubby -d hubby"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    build:
+      context: ./backend
+    entrypoint: ["/hubby-migrate"]
+    command: ["up"]
+    environment:
+      DATABASE_URL: postgres://hubby:hubby@postgres:5432/hubby?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  hubby_postgres:

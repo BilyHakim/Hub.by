@@ -1,0 +1,48 @@
+export const demoDashboard = {
+  month: new Date().toISOString().slice(0, 7),
+  income: 21_500_000,
+  expense: 12_650_000,
+  savings: 8_850_000,
+  savingsRate: 41.2,
+  netWorth: -66_800_000,
+  emergencyFund: 21_000_000,
+  emergencyTarget: 42_000_000,
+  emergencyProgress: 50,
+  investmentValue: 62_500_000,
+  investmentReturn: 11.6,
+  cashflow: [
+    { month: 'Feb', income: 16_300_000, expense: 9_180_000 },
+    { month: 'Mar', income: 16_600_000, expense: 9_360_000 },
+    { month: 'Apr', income: 16_900_000, expense: 9_540_000 },
+    { month: 'Mei', income: 17_200_000, expense: 9_720_000 },
+    { month: 'Jun', income: 17_500_000, expense: 9_900_000 },
+    { month: 'Jul', income: 21_500_000, expense: 12_650_000 },
+  ],
+  expenseBreakdown: [
+    { name: 'Tempat tinggal', value: 4_000_000, color: '#d77268' },
+    { name: 'Makanan', value: 2_850_000, color: '#e8a65d' },
+    { name: 'Cicilan', value: 2_500_000, color: '#af685f' },
+    { name: 'Tagihan', value: 1_350_000, color: '#9a8bb7' },
+    { name: 'Transportasi', value: 1_200_000, color: '#7894a0' },
+    { name: 'Hiburan', value: 750_000, color: '#638475' },
+  ],
+  financialCheckup: [
+    { label: 'Rasio tabungan', value: 41.2, recommendation: 'Minimal 20%', status: 'healthy' },
+    { label: 'Kewajiban / pendapatan', value: 11.6, recommendation: 'Maksimal 30%', status: 'healthy' },
+    { label: 'Dana darurat', value: 50, recommendation: 'Minimal 100%', status: 'attention' },
+  ],
+}
+
+export const demoTransactions = [
+  { id: 1, type: 'income', amount: 18_000_000, description: 'Gaji bulanan', occurredAt: '2026-07-02', category: { id: 1, name: 'Gaji' }, account: { id: 1, name: 'BCA Utama' } },
+  { id: 2, type: 'expense', amount: 4_000_000, description: 'Sewa tempat tinggal', occurredAt: '2026-07-02', category: { id: 5, name: 'Tempat Tinggal' }, account: { id: 1, name: 'BCA Utama' } },
+  { id: 3, type: 'income', amount: 3_500_000, description: 'Proyek desain', occurredAt: '2026-07-07', category: { id: 2, name: 'Freelance' }, account: { id: 1, name: 'BCA Utama' } },
+  { id: 4, type: 'expense', amount: 2_850_000, description: 'Makan & belanja dapur', occurredAt: '2026-07-04', category: { id: 3, name: 'Makanan' }, account: { id: 1, name: 'BCA Utama' } },
+]
+
+export const demoGoals = [
+  { id: 1, name: 'Liburan ke Jepang', targetAmount: 45_000_000, currentAmount: 27_000_000, targetDate: '2027-10-01', icon: 'plane' },
+  { id: 2, name: 'DP Rumah', targetAmount: 200_000_000, currentAmount: 72_000_000, targetDate: '2029-01-01', icon: 'home' },
+  { id: 3, name: 'Pendidikan', targetAmount: 100_000_000, currentAmount: 18_000_000, targetDate: '2030-06-01', icon: 'graduation-cap' },
+]
+
