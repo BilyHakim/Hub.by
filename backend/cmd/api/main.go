@@ -13,6 +13,7 @@ import (
 	"github.com/hubby-id/hubby/backend/internal/config"
 	"github.com/hubby-id/hubby/backend/internal/database"
 	"github.com/hubby-id/hubby/backend/internal/httpapi"
+	"github.com/hubby-id/hubby/backend/internal/telegrambot"
 )
 
 func main() {
@@ -28,6 +29,24 @@ func main() {
 		os.Exit(1)
 	}
 	defer pool.Close()
+
+	if cfg.TelegramBotToken != "" {
+		bot, err := telegrambot.New(pool, logger, telegrambot.Config{
+			Token:        cfg.TelegramBotToken,
+			PairingCode:  cfg.TelegramPairingCode,
+			LocalUserID:  cfg.TelegramLocalUserID,
+			TimezoneName: cfg.TelegramTimezone,
+		})
+		if err != nil {
+			logger.Error("Telegram bot configuration failed", "error", err)
+			os.Exit(1)
+		}
+		go func() {
+			if err := bot.Run(ctx); err != nil {
+				logger.Error("Telegram bot stopped", "error", err)
+			}
+		}()
+	}
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,

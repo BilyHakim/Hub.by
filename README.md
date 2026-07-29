@@ -60,6 +60,38 @@ go run ./cmd/api
 
 Backend otomatis membaca konfigurasi lokal dari `backend/.env`. Environment variable dari sistem tetap memiliki prioritas sehingga konfigurasi deployment tidak akan ditimpa. API tersedia di `http://localhost:8080`; health check berada di `http://localhost:8080/health`.
 
+### Telegram Bot
+
+Backend dapat menjalankan Telegram bot dengan long polling, sehingga tidak membutuhkan
+domain publik atau webhook. Tambahkan konfigurasi berikut ke `backend/.env`:
+
+```dotenv
+TELEGRAM_BOT_TOKEN=token_dari_botfather
+TELEGRAM_PAIRING_CODE=kode_rahasia_untuk_menghubungkan_akun
+TELEGRAM_LOCAL_USER_ID=1
+TELEGRAM_TIMEZONE=Asia/Jakarta
+```
+
+Setelah API dijalankan, buka bot dan hubungkan akun:
+
+```text
+/start kode_rahasia_untuk_menghubungkan_akun
+```
+
+Perintah yang tersedia:
+
+- `/ruang` memilih ruang keuangan secara dinamis;
+- `/ruangaktif` menampilkan ruang yang digunakan bot;
+- `/keluar 25000 makan siang` mencatat pengeluaran;
+- `/masuk 5jt gaji bulanan` mencatat pemasukan;
+- `/hariini` dan `/bulanini` menampilkan ringkasan;
+- `/saldo` menampilkan rekening dan saldo pada ruang aktif;
+- `/batal` membatalkan transaksi yang belum dikonfirmasi.
+
+Ruang aktif bot disimpan per akun Telegram dan tidak mengubah ruang aktif di website.
+Kategori dan rekening selalu diambil dari ruang yang dipilih. Transaksi baru disimpan
+setelah pengguna menekan tombol konfirmasi.
+
 ### 3. Frontend
 
 Di terminal lain:

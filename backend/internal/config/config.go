@@ -2,14 +2,19 @@ package config
 
 import (
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 )
 
 type Config struct {
-	Port           string
-	DatabaseURL    string
-	FrontendOrigin string
+	Port                string
+	DatabaseURL         string
+	FrontendOrigin      string
+	TelegramBotToken    string
+	TelegramPairingCode string
+	TelegramLocalUserID int64
+	TelegramTimezone    string
 }
 
 func Load() Config {
@@ -18,9 +23,13 @@ func Load() Config {
 	_ = godotenv.Load()
 
 	return Config{
-		Port:           valueOrDefault("APP_PORT", "8080"),
-		DatabaseURL:    valueOrDefault("DATABASE_URL", "postgres://hubby:hubby@localhost:5432/hubby?sslmode=disable"),
-		FrontendOrigin: valueOrDefault("FRONTEND_ORIGIN", "http://localhost:5173"),
+		Port:                valueOrDefault("APP_PORT", "8080"),
+		DatabaseURL:         valueOrDefault("DATABASE_URL", "postgres://hubby:hubby@localhost:5432/hubby?sslmode=disable"),
+		FrontendOrigin:      valueOrDefault("FRONTEND_ORIGIN", "http://localhost:5173"),
+		TelegramBotToken:    os.Getenv("TELEGRAM_BOT_TOKEN"),
+		TelegramPairingCode: os.Getenv("TELEGRAM_PAIRING_CODE"),
+		TelegramLocalUserID: int64OrDefault("TELEGRAM_LOCAL_USER_ID", 1),
+		TelegramTimezone:    valueOrDefault("TELEGRAM_TIMEZONE", "Asia/Jakarta"),
 	}
 }
 
@@ -29,4 +38,12 @@ func valueOrDefault(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func int64OrDefault(key string, fallback int64) int64 {
+	value, err := strconv.ParseInt(os.Getenv(key), 10, 64)
+	if err != nil || value <= 0 {
+		return fallback
+	}
+	return value
 }
