@@ -33,4 +33,8 @@ const router = createRouter({
   scrollBehavior: () => ({ top: 0 }),
 })
 
+router.afterEach((to) => {
+  document.title = `${to.meta.title || 'Keuangan'} · Hubby Finance`
+})
+
 export default router

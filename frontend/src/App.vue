@@ -1,15 +1,19 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import {
   LayoutDashboard, ArrowLeftRight, Target, Blocks, Settings,
   Bell, Search, Menu, X, HeartHandshake, ChevronDown, Plus,
   Check, Ellipsis, UserRound, SlidersHorizontal, Users, WalletCards,
-  ArrowDownLeft, ArrowUpRight,
+  ArrowDownLeft, ArrowUpRight, LogOut,
 } from '@lucide/vue'
 import { api } from './services/api'
+import LoginView from './components/LoginView.vue'
 
 const route = useRoute()
+const router = useRouter()
+const authChecking = ref(true)
+const authenticated = ref(false)
 const sidebarOpen = ref(false)
 const workspaceMenuOpen = ref(false)
 const profileMenuOpen = ref(false)
@@ -178,7 +182,7 @@ function toTransactionNotification(item, workspaceId) {
   }
 }
 async function checkForNewTransactions() {
-  if (checkingTransactions || document.hidden) return
+  if (!authenticated.value || checkingTransactions || document.hidden) return
   checkingTransactions = true
   const workspaceId = selectedWorkspaceId.value
   const hasBaseline = Object.prototype.hasOwnProperty.call(lastKnownTransactionIds, workspaceId)
@@ -225,14 +229,41 @@ function notify(message) {
   }, 2600)
 }
 async function loadIdentity() {
-  const [profileResult, workspaceResult] = await Promise.allSettled([api.me(), api.workspaces()])
-  if (profileResult.status === 'fulfilled') {
-    Object.assign(profile, profileResult.value)
-    selectedWorkspaceId.value = profileResult.value.currentWorkspaceId || selectedWorkspaceId.value
+  try {
+    const [profileResult, workspaceResult] = await Promise.all([api.me(), api.workspaces()])
+    Object.assign(profile, profileResult)
+    selectedWorkspaceId.value = profileResult.currentWorkspaceId || selectedWorkspaceId.value
+    if (workspaceResult.length) workspaces.value = workspaceResult
+    return true
+  } catch {
+    return false
   }
-  if (workspaceResult.status === 'fulfilled' && workspaceResult.value.length) {
-    workspaces.value = workspaceResult.value
+}
+function startTransactionPolling() {
+  window.clearInterval(transactionPollTimer)
+  checkForNewTransactions()
+  transactionPollTimer = window.setInterval(checkForNewTransactions, 15000)
+}
+async function handleAuthenticated() {
+  if (await loadIdentity()) {
+    authenticated.value = true
+    startTransactionPolling()
   }
+}
+function handleUnauthorized() {
+  authenticated.value = false
+  window.clearInterval(transactionPollTimer)
+  closeMenus()
+}
+async function handleLogout() {
+  profileMenuOpen.value = false
+  try {
+    await api.logout()
+  } catch {
+    // Tetap kembali ke layar login jika koneksi terputus.
+  }
+  handleUnauthorized()
+  await router.replace('/')
 }
 async function selectWorkspace(item) {
   workspaceMenuOpen.value = false
@@ -309,23 +340,29 @@ function handleKeydown(event) {
 }
 
 onMounted(async () => {
-  await loadIdentity()
   document.addEventListener('click', closeMenus)
   document.addEventListener('keydown', handleKeydown)
   document.addEventListener('visibilitychange', handleVisibilityChange)
-  await checkForNewTransactions()
-  transactionPollTimer = window.setInterval(checkForNewTransactions, 15000)
+  window.addEventListener('hubby:unauthorized', handleUnauthorized)
+  authenticated.value = await loadIdentity()
+  authChecking.value = false
+  if (authenticated.value) startTransactionPolling()
 })
 onBeforeUnmount(() => {
   document.removeEventListener('click', closeMenus)
   document.removeEventListener('keydown', handleKeydown)
   document.removeEventListener('visibilitychange', handleVisibilityChange)
+  window.removeEventListener('hubby:unauthorized', handleUnauthorized)
   window.clearInterval(transactionPollTimer)
 })
 </script>
 
 <template>
-  <div class="app-shell">
+  <div v-if="authChecking" class="auth-loading" aria-label="Memuat Hubby">
+    <span class="login-brand-mark"><HeartHandshake :size="28" stroke-width="1.8" /></span>
+  </div>
+  <LoginView v-else-if="!authenticated" @authenticated="handleAuthenticated" />
+  <div v-else class="app-shell">
     <div v-if="sidebarOpen" class="sidebar-backdrop" @click="sidebarOpen = false" />
     <aside class="sidebar" :class="{ 'is-open': sidebarOpen }">
       <div class="brand">
@@ -383,7 +420,8 @@ onBeforeUnmount(() => {
               <div class="dropdown-divider" />
               <button class="dropdown-action" type="button" @click="openProfile"><UserRound :size="17" /> Profil saya</button>
               <RouterLink class="dropdown-action" to="/settings" @click="closeMenus"><SlidersHorizontal :size="17" /> Pengaturan</RouterLink>
-              <div class="dropdown-footer"><WalletCards :size="14" /> Hubby Finance · Lokal</div>
+              <button class="dropdown-action logout-action" type="button" @click="handleLogout"><LogOut :size="17" /> Keluar</button>
+              <div class="dropdown-footer"><WalletCards :size="14" /> Hubby Finance · Sesi aman</div>
             </div>
           </Transition>
         </div>

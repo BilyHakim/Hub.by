@@ -30,6 +30,15 @@ func main() {
 	}
 	defer pool.Close()
 
+	authConfigured, err := httpapi.BootstrapAuth(ctx, pool, cfg.AuthEmail, cfg.AuthInitialPassword)
+	if err != nil {
+		logger.Error("authentication configuration failed", "error", err)
+		os.Exit(1)
+	}
+	if !authConfigured {
+		logger.Warn("no application password is configured; set AUTH_INITIAL_PASSWORD before first login")
+	}
+
 	if cfg.TelegramBotToken != "" {
 		bot, err := telegrambot.New(pool, logger, telegrambot.Config{
 			Token:        cfg.TelegramBotToken,

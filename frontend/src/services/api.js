@@ -3,6 +3,7 @@ const API_URL = import.meta.env.VITE_API_URL || '/api/v1'
 async function request(path, options = {}) {
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       ...options.headers,
@@ -11,7 +12,12 @@ async function request(path, options = {}) {
 
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}))
-    throw new Error(payload.error || 'Terjadi masalah saat memuat data.')
+    const error = new Error(payload.error || 'Terjadi masalah saat memuat data.')
+    error.status = response.status
+    if (response.status === 401 && path !== '/auth/login') {
+      window.dispatchEvent(new CustomEvent('hubby:unauthorized'))
+    }
+    throw error
   }
 
   if (response.status === 204) return null
@@ -20,6 +26,8 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  login: (payload) => request('/auth/login', { method: 'POST', body: JSON.stringify(payload) }),
+  logout: () => request('/auth/logout', { method: 'POST' }),
   dashboard: (month) => request(`/dashboard?month=${month}`),
   transactions: (month) => request(`/transactions?month=${month}`),
   recentTransactions: (afterId = 0) => request(`/transactions/recent?afterId=${afterId}`),

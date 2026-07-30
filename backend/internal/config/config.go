@@ -11,6 +11,8 @@ type Config struct {
 	Port                string
 	DatabaseURL         string
 	FrontendOrigin      string
+	AuthEmail           string
+	AuthInitialPassword string
 	TelegramBotToken    string
 	TelegramPairingCode string
 	TelegramLocalUserID int64
@@ -26,6 +28,8 @@ func Load() Config {
 		Port:                valueOrDefault("APP_PORT", "8080"),
 		DatabaseURL:         valueOrDefault("DATABASE_URL", "postgres://hubby:hubby@localhost:5432/hubby?sslmode=disable"),
 		FrontendOrigin:      valueOrDefault("FRONTEND_ORIGIN", "http://localhost:5173"),
+		AuthEmail:           valueOrDefault("AUTH_EMAIL", "bily@hubby.local"),
+		AuthInitialPassword: os.Getenv("AUTH_INITIAL_PASSWORD"),
 		TelegramBotToken:    os.Getenv("TELEGRAM_BOT_TOKEN"),
 		TelegramPairingCode: os.Getenv("TELEGRAM_PAIRING_CODE"),
 		TelegramLocalUserID: int64OrDefault("TELEGRAM_LOCAL_USER_ID", 1),

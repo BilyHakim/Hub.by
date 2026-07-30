@@ -7,7 +7,8 @@ RUN CGO_ENABLED=0 go build -o /hubby-api ./cmd/api
 RUN CGO_ENABLED=0 go build -o /hubby-migrate ./cmd/migrate
 
 FROM alpine:3.22
-RUN adduser -D -u 10001 hubby
+RUN apk add --no-cache tzdata \
+    && adduser -D -u 10001 hubby
 USER hubby
 COPY --from=builder /hubby-api /hubby-api
 COPY --from=builder /hubby-migrate /hubby-migrate

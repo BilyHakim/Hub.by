@@ -8,8 +8,6 @@ import (
 	"unicode/utf8"
 )
 
-const localUserID int64 = 1
-
 type profileInput struct {
 	DisplayName string `json:"displayName"`
 	Email       string `json:"email"`
@@ -21,12 +19,13 @@ type workspaceInput struct {
 }
 
 func (api *API) getProfile(w http.ResponseWriter, r *http.Request) {
+	userID := authenticatedUserID(r.Context())
 	var id, currentWorkspaceID int64
 	var displayName, email, initials, subtitle string
 	err := api.db.QueryRow(r.Context(), `
 		SELECT id, display_name, email, initials, subtitle, current_workspace_id
 		FROM users WHERE id=$1
-	`, localUserID).Scan(&id, &displayName, &email, &initials, &subtitle, &currentWorkspaceID)
+	`, userID).Scan(&id, &displayName, &email, &initials, &subtitle, &currentWorkspaceID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to load profile")
 		return
@@ -38,6 +37,7 @@ func (api *API) getProfile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (api *API) updateProfile(w http.ResponseWriter, r *http.Request) {
+	userID := authenticatedUserID(r.Context())
 	var input profileInput
 	if decodeJSON(r, &input) != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -57,25 +57,26 @@ func (api *API) updateProfile(w http.ResponseWriter, r *http.Request) {
 	_, err := api.db.Exec(r.Context(), `
 		UPDATE users SET display_name=$1,email=$2,initials=$3,subtitle=$4,updated_at=now()
 		WHERE id=$5
-	`, input.DisplayName, input.Email, initials, input.Subtitle, localUserID)
+	`, input.DisplayName, input.Email, initials, input.Subtitle, userID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to update profile")
 		return
 	}
 	writeJSON(w, http.StatusOK, envelope{"data": envelope{
-		"id": localUserID, "displayName": input.DisplayName, "email": input.Email,
+		"id": userID, "displayName": input.DisplayName, "email": input.Email,
 		"initials": initials, "subtitle": input.Subtitle,
 	}})
 }
 
 func (api *API) listWorkspaces(w http.ResponseWriter, r *http.Request) {
+	userID := authenticatedUserID(r.Context())
 	rows, err := api.db.Query(r.Context(), `
 		SELECT w.id,w.name,w.initials,wm.role
 		FROM workspaces w
 		JOIN workspace_members wm ON wm.workspace_id=w.id
 		WHERE wm.user_id=$1
 		ORDER BY w.created_at
-	`, localUserID)
+	`, userID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to load workspaces")
 		return
@@ -94,6 +95,7 @@ func (api *API) listWorkspaces(w http.ResponseWriter, r *http.Request) {
 }
 
 func (api *API) createWorkspace(w http.ResponseWriter, r *http.Request) {
+	userID := authenticatedUserID(r.Context())
 	var input workspaceInput
 	if decodeJSON(r, &input) != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -116,16 +118,16 @@ func (api *API) createWorkspace(w http.ResponseWriter, r *http.Request) {
 	initials := makeInitials(input.Name)
 	err = tx.QueryRow(r.Context(), `
 		INSERT INTO workspaces(name,initials,owner_user_id) VALUES($1,$2,$3) RETURNING id
-	`, input.Name, initials, localUserID).Scan(&id)
+	`, input.Name, initials, userID).Scan(&id)
 	if err == nil {
 		_, err = tx.Exec(r.Context(), `
 			INSERT INTO workspace_members(workspace_id,user_id,role) VALUES($1,$2,'owner')
-		`, id, localUserID)
+		`, id, userID)
 	}
 	if err == nil {
 		_, err = tx.Exec(r.Context(), `
 			UPDATE users SET current_workspace_id=$1,updated_at=now() WHERE id=$2
-		`, id, localUserID)
+		`, id, userID)
 	}
 	if err == nil {
 		_, err = tx.Exec(r.Context(), `
@@ -177,14 +179,16 @@ func (api *API) createWorkspace(w http.ResponseWriter, r *http.Request) {
 }
 
 func (api *API) currentWorkspaceID(ctx context.Context) (int64, error) {
+	userID := authenticatedUserID(ctx)
 	var workspaceID int64
 	err := api.db.QueryRow(ctx, `
 		SELECT current_workspace_id FROM users WHERE id=$1
-	`, localUserID).Scan(&workspaceID)
+	`, userID).Scan(&workspaceID)
 	return workspaceID, err
 }
 
 func (api *API) selectWorkspace(w http.ResponseWriter, r *http.Request) {
+	userID := authenticatedUserID(r.Context())
 	var input struct {
 		WorkspaceID int64 `json:"workspaceId"`
 	}
@@ -197,7 +201,7 @@ func (api *API) selectWorkspace(w http.ResponseWriter, r *http.Request) {
 		WHERE id=$2 AND EXISTS (
 			SELECT 1 FROM workspace_members WHERE workspace_id=$1 AND user_id=$2
 		)
-	`, input.WorkspaceID, localUserID)
+	`, input.WorkspaceID, userID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to select workspace")
 		return

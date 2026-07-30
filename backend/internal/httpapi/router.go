@@ -4,59 +4,71 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type API struct {
-	db     *pgxpool.Pool
-	logger *slog.Logger
+	db            *pgxpool.Pool
+	logger        *slog.Logger
+	secureCookies bool
+	loginMu       sync.Mutex
+	loginAttempts map[string]loginAttempt
 }
 
 func NewRouter(db *pgxpool.Pool, logger *slog.Logger, frontendOrigin string) http.Handler {
-	api := &API{db: db, logger: logger}
+	api := &API{
+		db: db, logger: logger, secureCookies: strings.HasPrefix(frontendOrigin, "https://"),
+		loginAttempts: make(map[string]loginAttempt),
+	}
+	protected := http.NewServeMux()
+	protected.HandleFunc("GET /api/v1/dashboard", api.dashboard)
+	protected.HandleFunc("GET /api/v1/transactions", api.listTransactions)
+	protected.HandleFunc("GET /api/v1/transactions/recent", api.listRecentTransactions)
+	protected.HandleFunc("POST /api/v1/transactions", api.createTransaction)
+	protected.HandleFunc("DELETE /api/v1/transactions/{id}", api.deleteTransaction)
+	protected.HandleFunc("GET /api/v1/accounts", api.listAccounts)
+	protected.HandleFunc("POST /api/v1/accounts", api.createAccount)
+	protected.HandleFunc("PATCH /api/v1/accounts/{id}", api.updateAccount)
+	protected.HandleFunc("DELETE /api/v1/accounts/{id}", api.deleteAccount)
+	protected.HandleFunc("GET /api/v1/categories", api.listCategories)
+	protected.HandleFunc("POST /api/v1/categories", api.createCategory)
+	protected.HandleFunc("PATCH /api/v1/categories/{id}", api.updateCategory)
+	protected.HandleFunc("DELETE /api/v1/categories/{id}", api.deleteCategory)
+	protected.HandleFunc("GET /api/v1/goals", api.listGoals)
+	protected.HandleFunc("POST /api/v1/goals", api.createGoal)
+	protected.HandleFunc("PATCH /api/v1/goals/{id}", api.updateGoal)
+	protected.HandleFunc("PUT /api/v1/goals/{id}", api.replaceGoal)
+	protected.HandleFunc("DELETE /api/v1/goals/{id}", api.deleteGoal)
+	protected.HandleFunc("GET /api/v1/investments", api.listInvestments)
+	protected.HandleFunc("POST /api/v1/investments", api.createInvestment)
+	protected.HandleFunc("PATCH /api/v1/investments/{id}", api.updateInvestment)
+	protected.HandleFunc("DELETE /api/v1/investments/{id}", api.deleteInvestment)
+	protected.HandleFunc("GET /api/v1/me", api.getProfile)
+	protected.HandleFunc("PATCH /api/v1/me", api.updateProfile)
+	protected.HandleFunc("GET /api/v1/workspaces", api.listWorkspaces)
+	protected.HandleFunc("POST /api/v1/workspaces", api.createWorkspace)
+	protected.HandleFunc("PATCH /api/v1/me/workspace", api.selectWorkspace)
+	protected.HandleFunc("GET /api/v1/modules/pyramid", api.getPyramid)
+	protected.HandleFunc("PATCH /api/v1/modules/pyramid/items/{id}", api.updatePyramidItem)
+	protected.HandleFunc("GET /api/v1/modules/checkup", api.getFinancialCheckup)
+	protected.HandleFunc("GET /api/v1/modules/emergency-fund", api.getEmergencyFund)
+	protected.HandleFunc("PATCH /api/v1/modules/emergency-fund", api.updateEmergencyFund)
+	protected.HandleFunc("GET /api/v1/modules/mortgage", api.getMortgageSimulation)
+	protected.HandleFunc("PUT /api/v1/modules/mortgage", api.updateMortgageSimulation)
+	protected.HandleFunc("GET /api/v1/modules/rebalancing", api.getRebalancing)
+	protected.HandleFunc("GET /api/v1/modules/retirement", api.getRetirementPlan)
+	protected.HandleFunc("PUT /api/v1/modules/retirement", api.updateRetirementPlan)
+	protected.HandleFunc("GET /api/v1/settings/finance-period", api.getFinancePeriodSetting)
+	protected.HandleFunc("PATCH /api/v1/settings/finance-period", api.updateFinancePeriodSetting)
+	protected.HandleFunc("POST /api/v1/auth/logout", api.logout)
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", api.health)
-	mux.HandleFunc("GET /api/v1/dashboard", api.dashboard)
-	mux.HandleFunc("GET /api/v1/transactions", api.listTransactions)
-	mux.HandleFunc("GET /api/v1/transactions/recent", api.listRecentTransactions)
-	mux.HandleFunc("POST /api/v1/transactions", api.createTransaction)
-	mux.HandleFunc("DELETE /api/v1/transactions/{id}", api.deleteTransaction)
-	mux.HandleFunc("GET /api/v1/accounts", api.listAccounts)
-	mux.HandleFunc("POST /api/v1/accounts", api.createAccount)
-	mux.HandleFunc("PATCH /api/v1/accounts/{id}", api.updateAccount)
-	mux.HandleFunc("DELETE /api/v1/accounts/{id}", api.deleteAccount)
-	mux.HandleFunc("GET /api/v1/categories", api.listCategories)
-	mux.HandleFunc("POST /api/v1/categories", api.createCategory)
-	mux.HandleFunc("PATCH /api/v1/categories/{id}", api.updateCategory)
-	mux.HandleFunc("DELETE /api/v1/categories/{id}", api.deleteCategory)
-	mux.HandleFunc("GET /api/v1/goals", api.listGoals)
-	mux.HandleFunc("POST /api/v1/goals", api.createGoal)
-	mux.HandleFunc("PATCH /api/v1/goals/{id}", api.updateGoal)
-	mux.HandleFunc("PUT /api/v1/goals/{id}", api.replaceGoal)
-	mux.HandleFunc("DELETE /api/v1/goals/{id}", api.deleteGoal)
-	mux.HandleFunc("GET /api/v1/investments", api.listInvestments)
-	mux.HandleFunc("POST /api/v1/investments", api.createInvestment)
-	mux.HandleFunc("PATCH /api/v1/investments/{id}", api.updateInvestment)
-	mux.HandleFunc("DELETE /api/v1/investments/{id}", api.deleteInvestment)
-	mux.HandleFunc("GET /api/v1/me", api.getProfile)
-	mux.HandleFunc("PATCH /api/v1/me", api.updateProfile)
-	mux.HandleFunc("GET /api/v1/workspaces", api.listWorkspaces)
-	mux.HandleFunc("POST /api/v1/workspaces", api.createWorkspace)
-	mux.HandleFunc("PATCH /api/v1/me/workspace", api.selectWorkspace)
-	mux.HandleFunc("GET /api/v1/modules/pyramid", api.getPyramid)
-	mux.HandleFunc("PATCH /api/v1/modules/pyramid/items/{id}", api.updatePyramidItem)
-	mux.HandleFunc("GET /api/v1/modules/checkup", api.getFinancialCheckup)
-	mux.HandleFunc("GET /api/v1/modules/emergency-fund", api.getEmergencyFund)
-	mux.HandleFunc("PATCH /api/v1/modules/emergency-fund", api.updateEmergencyFund)
-	mux.HandleFunc("GET /api/v1/modules/mortgage", api.getMortgageSimulation)
-	mux.HandleFunc("PUT /api/v1/modules/mortgage", api.updateMortgageSimulation)
-	mux.HandleFunc("GET /api/v1/modules/rebalancing", api.getRebalancing)
-	mux.HandleFunc("GET /api/v1/modules/retirement", api.getRetirementPlan)
-	mux.HandleFunc("PUT /api/v1/modules/retirement", api.updateRetirementPlan)
-	mux.HandleFunc("GET /api/v1/settings/finance-period", api.getFinancePeriodSetting)
-	mux.HandleFunc("PATCH /api/v1/settings/finance-period", api.updateFinancePeriodSetting)
+	mux.HandleFunc("POST /api/v1/auth/login", api.login)
+	mux.Handle("/api/v1/", api.requireAuth(protected))
 
 	return recoverMiddleware(logger, loggingMiddleware(logger, corsMiddleware(frontendOrigin, mux)))
 }
@@ -75,6 +87,7 @@ func corsMiddleware(origin string, next http.Handler) http.Handler {
 		requestOrigin := r.Header.Get("Origin")
 		if requestOrigin == origin || (strings.HasPrefix(origin, "http://localhost") && strings.HasPrefix(requestOrigin, "http://localhost")) {
 			w.Header().Set("Access-Control-Allow-Origin", requestOrigin)
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
 			w.Header().Set("Vary", "Origin")
 		}
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
