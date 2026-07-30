@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onBeforeUnmount, onMounted } from 'vue'
+import { computed, ref, onBeforeUnmount, onMounted } from 'vue'
 import {
   WalletCards, TrendingUp, Landmark, PiggyBank,
   ArrowRight, CircleCheck, CircleAlert, Sparkles, Plus,
@@ -19,6 +19,48 @@ let requestSequence = 0
 
 const currency = (value) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(value)
 const compactCurrency = (value) => `Rp${new Intl.NumberFormat('id-ID', { notation: 'compact', maximumFractionDigits: 1 }).format(value)}`
+const expenseShare = computed(() => data.value.income > 0 ? data.value.expense / data.value.income * 100 : 0)
+const healthyCheckCount = computed(() => data.value.financialCheckup.filter((item) => item.status === 'healthy').length)
+const shortDate = (value) => value
+  ? new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short' }).format(new Date(`${value}T00:00:00`))
+  : ''
+const periodLabel = (start, end, fallback) =>
+  start && end ? `${shortDate(start)} – ${shortDate(end)}` : fallback
+const trendFormula = (current, previous, trend) => previous === 0
+  ? 'Persentase belum dapat dihitung karena nilai periode sebelumnya adalah nol.'
+  : `(${currency(current)} − ${currency(previous)}) ÷ ${currency(Math.abs(previous))} × 100 = ${Math.abs(trend || 0).toLocaleString('id-ID', { maximumFractionDigits: 1 })}%`
+const metricComparisons = computed(() => {
+  const currentPeriod = periodLabel(data.value.periodStart, data.value.periodEnd, 'Periode ini')
+  const previousPeriod = periodLabel(data.value.previousPeriodStart, data.value.previousPeriodEnd, 'Periode sebelumnya')
+  const createPeriodComparison = (title, current, previous, trend, inverse = false) => ({
+    title,
+    description: 'Dibandingkan dengan satu periode sebelumnya',
+    currentLabel: currentPeriod,
+    previousLabel: previousPeriod,
+    currentValue: current,
+    previousValue: previous,
+    delta: current - previous,
+    inverse,
+    formula: trendFormula(current, previous, trend),
+  })
+  return {
+    income: createPeriodComparison('Perubahan pemasukan', data.value.income, data.value.previousIncome, data.value.incomeTrend),
+    expense: createPeriodComparison('Perubahan pengeluaran', data.value.expense, data.value.previousExpense, data.value.expenseTrend, true),
+    savings: createPeriodComparison('Perubahan uang tersisa', data.value.savings, data.value.previousSavings, data.value.savingsTrend),
+    investment: {
+      title: 'Imbal hasil investasi',
+      description: 'Nilai saat ini dibandingkan dengan modal pembelian',
+      currentLabel: 'Nilai investasi saat ini',
+      previousLabel: 'Total modal pembelian',
+      currentValue: data.value.investmentValue,
+      previousValue: data.value.investmentCost,
+      delta: data.value.investmentValue - data.value.investmentCost,
+      formula: data.value.investmentCost === 0
+        ? 'Imbal hasil belum dapat dihitung karena modal pembelian masih nol.'
+        : `(${currency(data.value.investmentValue)} − ${currency(data.value.investmentCost)}) ÷ ${currency(data.value.investmentCost)} × 100 = ${Math.abs(data.value.investmentReturn).toLocaleString('id-ID', { maximumFractionDigits: 1 })}%`,
+    },
+  }
+})
 
 async function loadDashboard() {
   const requestID = ++requestSequence
@@ -55,12 +97,19 @@ function handleWorkspaceChange() {
     income: 0,
     expense: 0,
     savings: 0,
+    previousIncome: 0,
+    previousExpense: 0,
+    previousSavings: 0,
+    incomeTrend: null,
+    expenseTrend: null,
+    savingsTrend: null,
     savingsRate: 0,
     netWorth: 0,
     emergencyFund: 0,
     emergencyTarget: 0,
     emergencyProgress: 0,
     investmentValue: 0,
+    investmentCost: 0,
     investmentReturn: 0,
     cashflow: [],
     expenseBreakdown: [],
@@ -99,16 +148,24 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
     </div>
 
     <div class="metrics-grid" :class="{ shimmer: loading }">
-      <MetricCard label="Pemasukan" :value="compactCurrency(data.income)" note="Bulan berjalan" :trend="8.4" tone="sage">
+      <MetricCard label="Pemasukan" :value="compactCurrency(data.income)" note="Bulan berjalan" :trend="data.incomeTrend" :comparison="metricComparisons.income" tone="sage">
         <template #icon><WalletCards :size="20" /></template>
       </MetricCard>
-      <MetricCard label="Pengeluaran" :value="compactCurrency(data.expense)" note="59% dari pemasukan" :trend="-3.1" tone="sand">
+      <MetricCard
+        label="Pengeluaran"
+        :value="compactCurrency(data.expense)"
+        :note="`${expenseShare.toFixed(1)}% dari pemasukan`"
+        :trend="data.expenseTrend"
+        :comparison="metricComparisons.expense"
+        inverse-trend
+        tone="sand"
+      >
         <template #icon><Landmark :size="20" /></template>
       </MetricCard>
-      <MetricCard label="Uang tersisa" :value="compactCurrency(data.savings)" :note="`${data.savingsRate.toFixed(1)}% berhasil disimpan`" :trend="14.2" tone="moss">
+      <MetricCard label="Uang tersisa" :value="compactCurrency(data.savings)" :note="`${data.savingsRate.toFixed(1)}% berhasil disimpan`" :trend="data.savingsTrend" :comparison="metricComparisons.savings" tone="moss">
         <template #icon><PiggyBank :size="20" /></template>
       </MetricCard>
-      <MetricCard label="Nilai investasi" :value="compactCurrency(data.investmentValue)" :note="`${data.investmentReturn.toFixed(1)}% total imbal hasil`" :trend="data.investmentReturn" tone="lilac">
+      <MetricCard label="Nilai investasi" :value="compactCurrency(data.investmentValue)" :note="`${data.investmentReturn.toFixed(1)}% total imbal hasil`" :trend="data.investmentReturn" :comparison="metricComparisons.investment" trend-hint="Total imbal hasil investasi" tone="lilac">
         <template #icon><TrendingUp :size="20" /></template>
       </MetricCard>
     </div>
@@ -155,7 +212,7 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
       <article class="panel checkup-card">
         <div class="panel-heading">
           <div><h2>Financial check-up</h2><p>Tiga indikator kesehatan utama</p></div>
-          <span class="score-badge">2/3 sehat</span>
+          <span class="score-badge">{{ healthyCheckCount }}/{{ data.financialCheckup.length }} sehat</span>
         </div>
         <div class="checkup-list">
           <div v-for="item in data.financialCheckup" :key="item.label" class="checkup-row">

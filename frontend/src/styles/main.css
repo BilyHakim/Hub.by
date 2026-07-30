@@ -205,6 +205,27 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
 .metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 16px; }
 .metric-card { min-width: 0; padding: 19px; border: 1px solid var(--line); border-radius: 15px; background: var(--surface); box-shadow: var(--shadow); }
 .metric-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.metric-comparison { position: relative; }
+.metric-comparison .trend { border: 0; cursor: pointer; }
+.metric-comparison .trend[aria-expanded=true] { outline: 2px solid rgba(73,104,92,.13); outline-offset: 2px; }
+.comparison-popover {
+  position: absolute; top: calc(100% + 9px); right: 0; z-index: 60; width: min(300px, calc(100vw - 34px));
+  padding: 15px; color: var(--ink); border: 1px solid var(--line); border-radius: 13px;
+  background: var(--surface); box-shadow: 0 16px 42px rgba(31,47,41,.16); cursor: default;
+}
+.comparison-heading { display: grid; grid-template-columns: auto 1fr; gap: 9px; align-items: start; padding-bottom: 11px; border-bottom: 1px solid var(--line); }
+.comparison-heading > span { width: 28px; height: 28px; display: grid; place-items: center; color: var(--sage); border-radius: 8px; background: var(--sage-light); }
+.comparison-heading div { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.comparison-heading strong { font-family: 'Manrope'; font-size: 11px; }
+.comparison-heading small { color: var(--muted); font-size: 8px; line-height: 1.4; }
+.comparison-values { display: grid; gap: 8px; padding: 12px 0; }
+.comparison-values div, .comparison-result { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.comparison-values span, .comparison-result span { color: var(--muted); font-size: 8px; }
+.comparison-values strong, .comparison-result strong { font-size: 10px; white-space: nowrap; }
+.comparison-result { padding-top: 10px; border-top: 1px dashed var(--line); }
+.comparison-result strong { color: var(--sage); }
+.comparison-result strong.negative { color: var(--rose); }
+.comparison-popover > p { margin: 11px 0 0; padding: 9px; color: #77837d; border-radius: 8px; background: var(--surface-2); font-size: 8px; line-height: 1.5; }
 .metric-icon { width: 37px; height: 37px; display: grid; place-items: center; border-radius: 10px; }
 .metric-card.tone-sage .metric-icon { color: var(--sage); background: var(--sage-light); }
 .metric-card.tone-sand .metric-icon { color: #a66625; background: var(--sand-light); }

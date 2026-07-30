@@ -1,27 +1,37 @@
 package httpapi
 
 import (
+	"math"
 	"net/http"
 	"time"
 )
 
 type dashboardSummary struct {
-	Month             string          `json:"month"`
-	PeriodStart       string          `json:"periodStart"`
-	PeriodEnd         string          `json:"periodEnd"`
-	Income            int64           `json:"income"`
-	Expense           int64           `json:"expense"`
-	Savings           int64           `json:"savings"`
-	SavingsRate       float64         `json:"savingsRate"`
-	NetWorth          int64           `json:"netWorth"`
-	EmergencyFund     int64           `json:"emergencyFund"`
-	EmergencyTarget   int64           `json:"emergencyTarget"`
-	EmergencyProgress float64         `json:"emergencyProgress"`
-	InvestmentValue   int64           `json:"investmentValue"`
-	InvestmentReturn  float64         `json:"investmentReturn"`
-	Cashflow          []cashflowPoint `json:"cashflow"`
-	ExpenseBreakdown  []categoryPoint `json:"expenseBreakdown"`
-	FinancialCheckup  []checkupItem   `json:"financialCheckup"`
+	Month               string          `json:"month"`
+	PeriodStart         string          `json:"periodStart"`
+	PeriodEnd           string          `json:"periodEnd"`
+	PreviousPeriodStart string          `json:"previousPeriodStart"`
+	PreviousPeriodEnd   string          `json:"previousPeriodEnd"`
+	Income              int64           `json:"income"`
+	Expense             int64           `json:"expense"`
+	Savings             int64           `json:"savings"`
+	PreviousIncome      int64           `json:"previousIncome"`
+	PreviousExpense     int64           `json:"previousExpense"`
+	PreviousSavings     int64           `json:"previousSavings"`
+	IncomeTrend         *float64        `json:"incomeTrend"`
+	ExpenseTrend        *float64        `json:"expenseTrend"`
+	SavingsTrend        *float64        `json:"savingsTrend"`
+	SavingsRate         float64         `json:"savingsRate"`
+	NetWorth            int64           `json:"netWorth"`
+	EmergencyFund       int64           `json:"emergencyFund"`
+	EmergencyTarget     int64           `json:"emergencyTarget"`
+	EmergencyProgress   float64         `json:"emergencyProgress"`
+	InvestmentValue     int64           `json:"investmentValue"`
+	InvestmentCost      int64           `json:"investmentCost"`
+	InvestmentReturn    float64         `json:"investmentReturn"`
+	Cashflow            []cashflowPoint `json:"cashflow"`
+	ExpenseBreakdown    []categoryPoint `json:"expenseBreakdown"`
+	FinancialCheckup    []checkupItem   `json:"financialCheckup"`
 }
 
 type cashflowPoint struct {
@@ -90,13 +100,13 @@ func (api *API) dashboard(w http.ResponseWriter, r *http.Request) {
 		)
 		SELECT monthly.income, monthly.expense,
 		       wealth.assets - wealth.liabilities, wealth.emergency,
-		       emergency.target, investments.value,
+		       emergency.target, investments.value, investments.cost,
 		       CASE WHEN investments.cost > 0 THEN ((investments.value - investments.cost)::numeric / investments.cost * 100) ELSE 0 END,
 		       monthly.debt
 		FROM monthly, wealth, investments, emergency
 	`, period.Start, period.EndExclusive, workspaceID).Scan(
 		&result.Income, &result.Expense, &result.NetWorth, &result.EmergencyFund,
-		&result.EmergencyTarget, &result.InvestmentValue, &result.InvestmentReturn,
+		&result.EmergencyTarget, &result.InvestmentValue, &result.InvestmentCost, &result.InvestmentReturn,
 		new(int64),
 	)
 	if err != nil {
@@ -106,6 +116,28 @@ func (api *API) dashboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result.Savings = result.Income - result.Expense
+	labelMonth, _ := time.Parse("2006-01-02", month+"-01")
+	previousPeriod, previousPeriodErr := buildFinancePeriod(
+		labelMonth.AddDate(0, -1, 0).Format("2006-01"),
+		financePeriodSetting{Mode: period.Mode, StartDay: period.StartDay},
+	)
+	if previousPeriodErr == nil {
+		result.PreviousPeriodStart = previousPeriod.Start.Format("2006-01-02")
+		result.PreviousPeriodEnd = previousPeriod.EndInclusive.Format("2006-01-02")
+		previousErr := api.db.QueryRow(ctx, `
+			SELECT
+				COALESCE(SUM(amount) FILTER (WHERE type='income'),0)::bigint,
+				COALESCE(SUM(amount) FILTER (WHERE type='expense'),0)::bigint
+			FROM transactions
+			WHERE workspace_id=$1 AND occurred_at >= $2 AND occurred_at < $3
+		`, workspaceID, previousPeriod.Start, previousPeriod.EndExclusive).Scan(&result.PreviousIncome, &result.PreviousExpense)
+		if previousErr == nil {
+			result.PreviousSavings = result.PreviousIncome - result.PreviousExpense
+			result.IncomeTrend = percentageChange(result.Income, result.PreviousIncome)
+			result.ExpenseTrend = percentageChange(result.Expense, result.PreviousExpense)
+			result.SavingsTrend = percentageChange(result.Savings, result.PreviousSavings)
+		}
+	}
 	if result.Income > 0 {
 		result.SavingsRate = float64(result.Savings) / float64(result.Income) * 100
 	}
@@ -113,7 +145,6 @@ func (api *API) dashboard(w http.ResponseWriter, r *http.Request) {
 		result.EmergencyProgress = float64(result.EmergencyFund) / float64(result.EmergencyTarget) * 100
 	}
 
-	labelMonth, _ := time.Parse("2006-01-02", month+"-01")
 	monthLabels := []string{"Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"}
 	for offset := -5; offset <= 0; offset++ {
 		pointMonth := labelMonth.AddDate(0, offset, 0)
@@ -170,6 +201,15 @@ func (api *API) dashboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, envelope{"data": result})
+}
+
+func percentageChange(current, previous int64) *float64 {
+	if previous == 0 {
+		return nil
+	}
+	value := float64(current-previous) / math.Abs(float64(previous)) * 100
+	rounded := math.Round(value*10) / 10
+	return &rounded
 }
 
 func status(ok bool) string {
