@@ -5,6 +5,7 @@ import {
   LayoutDashboard, ArrowLeftRight, Target, Blocks, Settings,
   Bell, Search, Menu, X, HeartHandshake, ChevronDown, Plus,
   Check, Ellipsis, UserRound, SlidersHorizontal, Users, WalletCards,
+  ArrowDownLeft, ArrowUpRight,
 } from '@lucide/vue'
 import { api } from './services/api'
 
@@ -12,6 +13,7 @@ const route = useRoute()
 const sidebarOpen = ref(false)
 const workspaceMenuOpen = ref(false)
 const profileMenuOpen = ref(false)
+const notificationMenuOpen = ref(false)
 const createWorkspaceOpen = ref(false)
 const profileModalOpen = ref(false)
 const savingWorkspace = ref(false)
@@ -31,9 +33,50 @@ const profileForm = reactive({ displayName: '', email: '', subtitle: '' })
 const workspaces = ref([
   { id: 1, name: 'Keluarga AmBil', initials: 'AB', role: 'owner' },
 ])
+const guidanceNotifications = [
+  {
+    id: 'record-transactions',
+    title: 'Catat transaksi hari ini',
+    message: 'Jaga ringkasan keuangan tetap akurat dengan mencatat pemasukan atau pengeluaran terbaru.',
+    time: 'Hari ini',
+    to: '/transactions',
+    icon: ArrowLeftRight,
+    tone: 'sage',
+  },
+  {
+    id: 'review-goals',
+    title: 'Saatnya cek tujuan keuangan',
+    message: 'Lihat kembali progres tujuan dan sesuaikan target kontribusi bulan ini.',
+    time: 'Minggu ini',
+    to: '/goals',
+    icon: Target,
+    tone: 'sand',
+  },
+  {
+    id: 'planning-ready',
+    title: 'Fitur perencanaan siap digunakan',
+    message: 'Coba alat perencanaan untuk menyusun kondisi keuangan keluarga dengan lebih terarah.',
+    time: 'Baru',
+    to: '/modules',
+    icon: Blocks,
+    tone: 'lilac',
+  },
+]
+const transactionNotifications = ref(loadTransactionNotifications())
+const lastKnownTransactionIds = loadLastKnownTransactionIds()
+const readNotificationIds = ref(loadReadNotificationIds())
+let transactionPollTimer
+let checkingTransactions = false
 
 const currentWorkspace = computed(() =>
   workspaces.value.find((item) => item.id === selectedWorkspaceId.value) || workspaces.value[0],
+)
+const notifications = computed(() => [
+  ...transactionNotifications.value.filter((item) => item.workspaceId === selectedWorkspaceId.value),
+  ...guidanceNotifications,
+])
+const unreadNotificationCount = computed(() =>
+  notifications.value.filter((item) => !readNotificationIds.value.includes(item.id)).length,
 )
 const nav = [
   { to: '/', label: 'Ringkasan', icon: LayoutDashboard },
@@ -45,14 +88,135 @@ const nav = [
 function closeMenus() {
   workspaceMenuOpen.value = false
   profileMenuOpen.value = false
+  notificationMenuOpen.value = false
 }
 function toggleWorkspaceMenu() {
   profileMenuOpen.value = false
+  notificationMenuOpen.value = false
   workspaceMenuOpen.value = !workspaceMenuOpen.value
 }
 function toggleProfileMenu() {
   workspaceMenuOpen.value = false
+  notificationMenuOpen.value = false
   profileMenuOpen.value = !profileMenuOpen.value
+}
+function loadReadNotificationIds() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('hubby-read-notifications') || '[]')
+    return Array.isArray(saved) ? saved : []
+  } catch {
+    return []
+  }
+}
+function loadTransactionNotifications() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('hubby-transaction-notifications') || '[]')
+    return Array.isArray(saved)
+      ? saved.map((item) => ({
+          ...item,
+          icon: item.transactionType === 'income' || item.tone === 'sage' ? ArrowDownLeft : ArrowUpRight,
+        }))
+      : []
+  } catch {
+    return []
+  }
+}
+function loadLastKnownTransactionIds() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('hubby-last-transaction-ids') || '{}')
+    return saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {}
+  } catch {
+    return {}
+  }
+}
+function saveTransactionNotifications(items) {
+  transactionNotifications.value = items.slice(0, 30)
+  localStorage.setItem('hubby-transaction-notifications', JSON.stringify(transactionNotifications.value))
+}
+function saveReadNotificationIds(ids) {
+  readNotificationIds.value = ids
+  localStorage.setItem('hubby-read-notifications', JSON.stringify(ids))
+}
+function toggleNotificationMenu() {
+  workspaceMenuOpen.value = false
+  profileMenuOpen.value = false
+  notificationMenuOpen.value = !notificationMenuOpen.value
+}
+function isNotificationUnread(id) {
+  return !readNotificationIds.value.includes(id)
+}
+function markNotificationRead(id) {
+  if (isNotificationUnread(id)) {
+    saveReadNotificationIds([...readNotificationIds.value, id])
+  }
+  notificationMenuOpen.value = false
+}
+function markAllNotificationsRead() {
+  saveReadNotificationIds(notifications.value.map((item) => item.id))
+}
+function formatCurrency(value) {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    maximumFractionDigits: 0,
+  }).format(value)
+}
+function toTransactionNotification(item, workspaceId) {
+  const isIncome = item.type === 'income'
+  const detail = item.description?.trim() || item.category
+  return {
+    id: `transaction-${workspaceId}-${item.id}`,
+    transactionId: item.id,
+    transactionType: item.type,
+    workspaceId,
+    title: isIncome ? 'Pemasukan baru tercatat' : 'Pengeluaran baru tercatat',
+    message: `${formatCurrency(item.amount)} · ${detail} · ${item.account}`,
+    time: 'Baru saja',
+    to: '/transactions',
+    icon: isIncome ? ArrowDownLeft : ArrowUpRight,
+    tone: isIncome ? 'sage' : 'rose',
+  }
+}
+async function checkForNewTransactions() {
+  if (checkingTransactions || document.hidden) return
+  checkingTransactions = true
+  const workspaceId = selectedWorkspaceId.value
+  const hasBaseline = Object.prototype.hasOwnProperty.call(lastKnownTransactionIds, workspaceId)
+  const knownID = Number(lastKnownTransactionIds[workspaceId] || 0)
+  try {
+    const items = await api.recentTransactions(knownID)
+    if (workspaceId !== selectedWorkspaceId.value) return
+    if (!items?.length) {
+      if (!hasBaseline) {
+        lastKnownTransactionIds[workspaceId] = 0
+        localStorage.setItem('hubby-last-transaction-ids', JSON.stringify(lastKnownTransactionIds))
+      }
+      return
+    }
+    const latestID = Math.max(...items.map((item) => Number(item.id)))
+    lastKnownTransactionIds[workspaceId] = latestID
+    localStorage.setItem('hubby-last-transaction-ids', JSON.stringify(lastKnownTransactionIds))
+
+    // Pemeriksaan pertama menetapkan baseline agar transaksi lama tidak muncul sebagai notifikasi baru.
+    if (!hasBaseline) return
+    const freshNotifications = items.map((item) => toTransactionNotification(item, workspaceId))
+    const freshIDs = new Set(freshNotifications.map((item) => item.id))
+    saveTransactionNotifications([
+      ...freshNotifications,
+      ...transactionNotifications.value.filter((item) => !freshIDs.has(item.id)),
+    ])
+    window.dispatchEvent(new CustomEvent('hubby:transactions-updated'))
+    notify(freshNotifications.length === 1
+      ? freshNotifications[0].title
+      : `${freshNotifications.length} transaksi baru tercatat`)
+  } catch {
+    // API mungkin belum aktif; pemeriksaan berikutnya akan mencoba kembali.
+  } finally {
+    checkingTransactions = false
+  }
+}
+function handleVisibilityChange() {
+  if (!document.hidden) checkForNewTransactions()
 }
 function notify(message) {
   toast.value = message
@@ -83,6 +247,7 @@ async function selectWorkspace(item) {
     detail: { workspaceId: item.id, workspaceName: item.name },
   }))
   notify(`Berpindah ke ${item.name}`)
+  checkForNewTransactions()
 }
 function openCreateWorkspace() {
   workspaceMenuOpen.value = false
@@ -143,14 +308,19 @@ function handleKeydown(event) {
   }
 }
 
-onMounted(() => {
-  loadIdentity()
+onMounted(async () => {
+  await loadIdentity()
   document.addEventListener('click', closeMenus)
   document.addEventListener('keydown', handleKeydown)
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  await checkForNewTransactions()
+  transactionPollTimer = window.setInterval(checkForNewTransactions, 15000)
 })
 onBeforeUnmount(() => {
   document.removeEventListener('click', closeMenus)
   document.removeEventListener('keydown', handleKeydown)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  window.clearInterval(transactionPollTimer)
 })
 </script>
 
@@ -229,7 +399,60 @@ onBeforeUnmount(() => {
           <kbd>⌘ K</kbd>
         </div>
         <div class="topbar-actions">
-          <button class="icon-button has-notification" aria-label="Notifikasi"><Bell :size="20" /></button>
+          <div class="notification-wrap" @click.stop>
+            <button
+              class="icon-button notification-button"
+              :class="{ 'has-notification': unreadNotificationCount > 0 }"
+              type="button"
+              aria-label="Notifikasi"
+              aria-haspopup="dialog"
+              :aria-expanded="notificationMenuOpen"
+              @click="toggleNotificationMenu"
+            >
+              <Bell :size="20" />
+              <span v-if="unreadNotificationCount" class="sr-only">{{ unreadNotificationCount }} notifikasi belum dibaca</span>
+            </button>
+            <Transition name="dropdown">
+              <section v-if="notificationMenuOpen" class="notification-panel" aria-label="Notifikasi">
+                <div class="notification-heading">
+                  <div>
+                    <h2>Notifikasi</h2>
+                    <p>{{ unreadNotificationCount ? `${unreadNotificationCount} belum dibaca` : 'Semua sudah dibaca' }}</p>
+                  </div>
+                  <button
+                    v-if="unreadNotificationCount"
+                    type="button"
+                    class="mark-read-button"
+                    @click="markAllNotificationsRead"
+                  >
+                    <Check :size="14" /> Tandai semua dibaca
+                  </button>
+                </div>
+                <div class="notification-list">
+                  <RouterLink
+                    v-for="item in notifications"
+                    :key="item.id"
+                    :to="item.to"
+                    class="notification-item"
+                    :class="{ unread: isNotificationUnread(item.id) }"
+                    @click="markNotificationRead(item.id)"
+                  >
+                    <span class="notification-icon" :class="`tone-${item.tone}`">
+                      <component :is="item.icon" :size="18" stroke-width="1.8" />
+                    </span>
+                    <span class="notification-copy">
+                      <span class="notification-title-row">
+                        <strong>{{ item.title }}</strong>
+                        <i v-if="isNotificationUnread(item.id)" aria-hidden="true" />
+                      </span>
+                      <span>{{ item.message }}</span>
+                      <small>{{ item.time }}</small>
+                    </span>
+                  </RouterLink>
+                </div>
+              </section>
+            </Transition>
+          </div>
           <span class="avatar top-avatar">{{ profile.initials }}</span>
         </div>
       </header>

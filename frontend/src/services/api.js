@@ -22,6 +22,7 @@ async function request(path, options = {}) {
 export const api = {
   dashboard: (month) => request(`/dashboard?month=${month}`),
   transactions: (month) => request(`/transactions?month=${month}`),
+  recentTransactions: (afterId = 0) => request(`/transactions/recent?afterId=${afterId}`),
   createTransaction: (payload) => request('/transactions', { method: 'POST', body: JSON.stringify(payload) }),
   deleteTransaction: (id) => request(`/transactions/${id}`, { method: 'DELETE' }),
   accounts: () => request('/accounts'),

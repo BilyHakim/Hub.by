@@ -88,9 +88,13 @@ async function remove(id) {
 }
 onMounted(() => {
   window.addEventListener('hubby:workspace-changed', handleWorkspaceChange)
+  window.addEventListener('hubby:transactions-updated', load)
   initializePeriod()
 })
-onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', handleWorkspaceChange))
+onBeforeUnmount(() => {
+  window.removeEventListener('hubby:workspace-changed', handleWorkspaceChange)
+  window.removeEventListener('hubby:transactions-updated', load)
+})
 
 async function handleWorkspaceChange() {
   managerType.value = null

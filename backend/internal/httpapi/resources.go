@@ -64,6 +64,54 @@ func (api *API) listTransactions(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, envelope{"data": items})
 }
 
+func (api *API) listRecentTransactions(w http.ResponseWriter, r *http.Request) {
+	workspaceID, err := api.currentWorkspaceID(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to resolve active workspace")
+		return
+	}
+	afterID := int64(0)
+	if value := r.URL.Query().Get("afterId"); value != "" {
+		afterID, err = strconv.ParseInt(value, 10, 64)
+		if err != nil || afterID < 0 {
+			writeError(w, http.StatusBadRequest, "afterId must be a non-negative integer")
+			return
+		}
+	}
+
+	rows, err := api.db.Query(r.Context(), `
+		SELECT t.id, t.type, t.amount, t.description, t.occurred_at, t.created_at,
+		       c.name, a.name
+		FROM transactions t
+		JOIN categories c ON c.id=t.category_id
+		JOIN accounts a ON a.id=t.account_id
+		WHERE t.workspace_id=$1 AND t.id > $2
+		ORDER BY t.id DESC
+		LIMIT 50
+	`, workspaceID, afterID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load recent transactions")
+		return
+	}
+	defer rows.Close()
+
+	items := make([]envelope, 0)
+	for rows.Next() {
+		var id, amount int64
+		var kind, description, category, account string
+		var occurred, created time.Time
+		if err := rows.Scan(&id, &kind, &amount, &description, &occurred, &created, &category, &account); err != nil {
+			continue
+		}
+		items = append(items, envelope{
+			"id": id, "type": kind, "amount": amount, "description": description,
+			"occurredAt": occurred.Format("2006-01-02"), "createdAt": created.Format(time.RFC3339),
+			"category": category, "account": account,
+		})
+	}
+	writeJSON(w, http.StatusOK, envelope{"data": items})
+}
+
 func (api *API) createTransaction(w http.ResponseWriter, r *http.Request) {
 	workspaceID, err := api.currentWorkspaceID(r.Context())
 	if err != nil {
