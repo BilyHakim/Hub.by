@@ -13,6 +13,7 @@ import RebalancingView from './views/RebalancingView.vue'
 import RetirementView from './views/RetirementView.vue'
 import GlossaryView from './views/GlossaryView.vue'
 import BudgetView from './views/BudgetView.vue'
+import ObligationsView from './views/ObligationsView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -22,6 +23,7 @@ const router = createRouter({
     { path: '/goals', name: 'goals', component: GoalsView, meta: { title: 'Tujuan keuangan' } },
     { path: '/modules', name: 'modules', component: ModulesView, meta: { title: 'Perencanaan' } },
     { path: '/modules/budget', name: 'budget', component: BudgetView, meta: { title: 'Rencana pengeluaran' } },
+    { path: '/modules/obligations', name: 'obligations', component: ObligationsView, meta: { title: 'Utang & piutang' } },
     { path: '/modules/pyramid', name: 'pyramid', component: PyramidView, meta: { title: 'Piramida keuangan' } },
     { path: '/modules/checkup', name: 'checkup', component: CheckupView, meta: { title: 'Financial check-up' } },
     { path: '/modules/emergency-fund', name: 'emergency-fund', component: EmergencyFundView, meta: { title: 'Dana darurat' } },

@@ -629,6 +629,51 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
 .empty-module { padding: 45px 15px; color: var(--muted); text-align: center; font-size: 10px; }
 .investment-modal { max-width: 530px; }
 .investment-modal { position: relative; }
+.obligation-summary { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 15px; }
+.obligation-summary article { display: flex; align-items: center; gap: 11px; padding: 16px; }
+.obligation-summary article > span { width: 40px; height: 40px; display: grid; place-items: center; flex: none; border-radius: 11px; }
+.obligation-summary article > span.debt { color: #a25850; background: var(--rose-light); }
+.obligation-summary article > span.receivable { color: var(--sage); background: var(--sage-light); }
+.obligation-summary article > span.done { color: #a27335; background: var(--sand-light); }
+.obligation-summary article > div { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.obligation-summary small, .obligation-summary em { color: var(--muted); font-size: 8px; font-style: normal; }
+.obligation-summary strong { overflow: hidden; font-family: 'Manrope'; font-size: 16px; white-space: nowrap; text-overflow: ellipsis; }
+.obligation-tabs { display: inline-flex; gap: 5px; margin-bottom: 13px; padding: 4px; border-radius: 10px; background: #eae9e3; }
+.obligation-tabs button { display: flex; align-items: center; gap: 7px; padding: 8px 13px; color: var(--muted); border: 0; border-radius: 8px; background: transparent; font-size: 10px; font-weight: 700; cursor: pointer; }
+.obligation-tabs button.active { color: var(--ink); background: white; box-shadow: 0 2px 8px rgba(40,50,45,.08); }
+.obligation-tabs span { min-width: 18px; padding: 2px 5px; border-radius: 99px; background: var(--surface-2); font-size: 8px; }
+.obligation-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 13px; }
+.obligation-card { padding: 18px; }
+.obligation-card.completed { border-color: #cbd9d1; background: #fbfdfb; }
+.obligation-heading { display: grid; grid-template-columns: 38px 1fr auto; gap: 10px; align-items: center; }
+.obligation-heading > span { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 10px; }
+.obligation-heading > span.debt { color: #a25850; background: var(--rose-light); }
+.obligation-heading > span.receivable { color: var(--sage); background: var(--sage-light); }
+.obligation-heading h2 { margin: 0 0 2px; font-size: 12px; }
+.obligation-heading p { margin: 0; color: var(--muted); font-size: 8px; }
+.obligation-actions { display: flex; gap: 3px; }
+.obligation-actions button { width: 28px; height: 28px; display: grid; place-items: center; color: var(--muted); border: 0; border-radius: 7px; background: transparent; cursor: pointer; }
+.obligation-actions button:hover { color: var(--sage); background: var(--sage-light); }
+.obligation-actions button.danger:hover { color: var(--rose); background: var(--rose-light); }
+.obligation-amounts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 18px 0 11px; }
+.obligation-amounts > div { display: flex; flex-direction: column; gap: 3px; }
+.obligation-amounts > div:last-child { text-align: right; }
+.obligation-amounts small { color: var(--muted); font-size: 8px; }
+.obligation-amounts strong { font-family: 'Manrope'; font-size: 14px; }
+.obligation-progress-label { display: flex; justify-content: space-between; margin-top: 6px; color: var(--muted); font-size: 8px; }
+.obligation-meta { display: flex; flex-wrap: wrap; gap: 7px 15px; margin-top: 13px; padding: 10px; color: var(--muted); border-radius: 8px; background: var(--surface-2); font-size: 8px; }
+.obligation-meta span { display: flex; align-items: center; gap: 5px; }
+.obligation-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 9px; margin-top: 13px; }
+.obligation-card-footer .primary-button { min-height: 35px; padding: 0 12px; font-size: 9px; }
+.undo-payment { display: flex; align-items: center; gap: 5px; padding: 6px; color: var(--muted); border: 0; background: transparent; font-size: 8px; cursor: pointer; }
+.undo-payment:hover { color: var(--rose); }
+.obligation-paid { display: flex; align-items: center; gap: 6px; color: var(--sage); font-size: 10px; font-weight: 700; }
+.obligation-empty { grid-column: 1 / -1; min-height: 180px; display: grid; place-items: center; }
+.obligation-modal, .payment-modal { position: relative; max-width: 540px; }
+.payment-modal { max-width: 430px; }
+.payment-caption { margin: 5px 0 0; color: var(--muted); font-size: 9px; }
+.tenor-shortcuts { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; color: var(--muted); font-size: 8px; }
+.tenor-shortcuts button { padding: 5px 8px; color: var(--sage); border: 1px solid #d3ddd7; border-radius: 7px; background: var(--sage-light); font-size: 8px; font-weight: 700; cursor: pointer; }
 .modal-close { position: absolute; top: 17px; right: 17px; width: 36px; height: 36px; display: grid; place-items: center; color: var(--muted); border: 1px solid var(--line); border-radius: 10px; background: white; cursor: pointer; }
 .modal-close:hover { color: var(--ink); background: var(--surface-2); }
 .allocation-total { display: grid; margin-left: auto; text-align: right; }
@@ -696,6 +741,7 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
   .goals-grid { grid-template-columns: repeat(2, 1fr); }
   .modules-grid { grid-template-columns: repeat(3, 1fr); }
   .mortgage-grid, .investment-layout, .retirement-grid { grid-template-columns: 1fr; }
+  .obligation-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 800px) {
@@ -787,6 +833,7 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
   .recommendation-grid { grid-template-columns: 1fr; }
   .checkup-score { width: 100%; margin-left: 61px; }
   .compact-form-grid, .result-grid, .investment-summary { grid-template-columns: 1fr; }
+  .obligation-summary { grid-template-columns: 1fr; }
   .mortgage-summary { grid-template-columns: 1fr; gap: 12px; }
   .mortgage-summary > div { padding: 0; border-right: 0; }
   .mortgage-ratio, .allocation-total { width: 100%; margin-left: 61px; text-align: left; }
