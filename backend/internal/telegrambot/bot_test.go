@@ -42,3 +42,19 @@ func TestFormatRupiah(t *testing.T) {
 		t.Fatalf("formatRupiah returned %q", actual)
 	}
 }
+
+func TestTransactionBalanceDelta(t *testing.T) {
+	tests := []struct {
+		kind   string
+		amount int64
+		want   int64
+	}{
+		{kind: "income", amount: 8_000_000, want: 8_000_000},
+		{kind: "expense", amount: 1_000, want: -1_000},
+	}
+	for _, test := range tests {
+		if got := transactionBalanceDelta(test.kind, test.amount); got != test.want {
+			t.Fatalf("transactionBalanceDelta(%q, %d) = %d, want %d", test.kind, test.amount, got, test.want)
+		}
+	}
+}

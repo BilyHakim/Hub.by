@@ -466,17 +466,27 @@ func (b *Bot) handleCallback(ctx context.Context, callback *callbackQuery) error
 	if callback.Message == nil {
 		return b.answerCallback(ctx, callback.ID, "Pesan asal tidak tersedia.")
 	}
+	acknowledgement := ""
+	if strings.HasPrefix(callback.Data, "save:") {
+		acknowledgement = "Menyimpan transaksi..."
+	}
+	if err := b.answerCallback(ctx, callback.ID, acknowledgement); err != nil {
+		// A callback acknowledgement can expire or fail independently. Continue
+		// processing so a temporary Telegram API issue never drops a transaction.
+		b.logger.Warn("failed to acknowledge Telegram callback", "callback_data", callback.Data, "error", err)
+	}
+
 	linked, err := b.linkedUser(ctx, callback.From.ID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return b.answerCallback(ctx, callback.ID, "Hubungkan akun dengan /start terlebih dahulu.")
+		return b.sendText(ctx, callback.Message.Chat.ID, "Hubungkan akun dengan /start terlebih dahulu.")
 	}
 	if err != nil {
-		return err
+		return b.reportCallbackFailure(ctx, callback, err)
 	}
 
 	parts := strings.Split(callback.Data, ":")
 	if len(parts) < 2 {
-		return b.answerCallback(ctx, callback.ID, "Pilihan tidak valid.")
+		return b.sendText(ctx, callback.Message.Chat.ID, "Pilihan tidak valid.")
 	}
 
 	var response string
@@ -495,13 +505,27 @@ func (b *Bot) handleCallback(ctx context.Context, callback *callbackQuery) error
 		response = "Pilihan tidak dikenali."
 	}
 	if err != nil {
-		return err
-	}
-	if err := b.answerCallback(ctx, callback.ID, response); err != nil {
-		return err
+		return b.reportCallbackFailure(ctx, callback, err)
 	}
 	if response != "" {
 		return b.sendText(ctx, callback.Message.Chat.ID, response)
+	}
+	return nil
+}
+
+func (b *Bot) reportCallbackFailure(ctx context.Context, callback *callbackQuery, cause error) error {
+	b.logger.Error(
+		"Telegram callback failed",
+		"callback_data", callback.Data,
+		"telegram_user_id", callback.From.ID,
+		"error", cause,
+	)
+	message := "⚠️ Pilihan tidak dapat diproses. Silakan coba lagi."
+	if strings.HasPrefix(callback.Data, "save:") {
+		message = "⚠️ Transaksi belum tersimpan karena terjadi kesalahan. Data sementara tetap tersedia; silakan tekan Simpan lagi."
+	}
+	if err := b.sendText(ctx, callback.Message.Chat.ID, message); err != nil {
+		return errors.Join(cause, err)
 	}
 	return nil
 }
@@ -681,12 +705,13 @@ func (b *Bot) savePending(ctx context.Context, telegramUserID int64, parts []str
 	if err != nil {
 		return "", err
 	}
+	delta := transactionBalanceDelta(kind, amount)
 	result, err := tx.Exec(ctx, `
 		UPDATE accounts
-		SET current_balance=current_balance + CASE WHEN $2='income' THEN $3 ELSE -$3 END,
+		SET current_balance=current_balance + $2,
 		    updated_at=now()
-		WHERE id=$1 AND workspace_id=$4
-	`, accountID.Int64, kind, amount, workspaceID)
+		WHERE id=$1 AND workspace_id=$3
+	`, accountID.Int64, delta, workspaceID)
 	if err != nil {
 		return "", err
 	}
@@ -704,6 +729,13 @@ func (b *Bot) savePending(ctx context.Context, telegramUserID int64, parts []str
 		"✅ Transaksi #%d tersimpan\n\nRuang: %s\nJumlah: %s\nKategori: %s\nRekening: %s",
 		transactionID, workspace, formatRupiah(amount), category, account,
 	), nil
+}
+
+func transactionBalanceDelta(kind string, amount int64) int64 {
+	if kind == "expense" {
+		return -amount
+	}
+	return amount
 }
 
 func (b *Bot) cancelPending(ctx context.Context, telegramUserID int64, parts []string) (string, error) {
