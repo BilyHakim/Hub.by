@@ -33,6 +33,11 @@ export const api = {
   recentTransactions: (afterId = 0) => request(`/transactions/recent?afterId=${afterId}`),
   createTransaction: (payload) => request('/transactions', { method: 'POST', body: JSON.stringify(payload) }),
   deleteTransaction: (id) => request(`/transactions/${id}`, { method: 'DELETE' }),
+  budget: (month) => request(`/budgets?month=${month}`),
+  updateBudget: (month, items) => request(`/budgets?month=${month}`, {
+    method: 'PUT',
+    body: JSON.stringify({ items }),
+  }),
   accounts: () => request('/accounts'),
   createAccount: (payload) => request('/accounts', { method: 'POST', body: JSON.stringify(payload) }),
   updateAccount: (id, payload) => request(`/accounts/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
