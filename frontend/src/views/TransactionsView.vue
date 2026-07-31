@@ -74,7 +74,7 @@ async function save() {
   try {
     await api.createTransaction({ ...form.value, amount: Number(form.value.amount) })
     modalOpen.value = false
-    await load()
+    await Promise.all([load(), loadMetadata()])
   } catch {
     const category = categories[form.value.type].find((x) => x.id === Number(form.value.categoryId))
     const account = accounts.value.find((x) => x.id === Number(form.value.accountId))
@@ -83,17 +83,24 @@ async function save() {
   } finally { saving.value = false }
 }
 async function remove(id) {
-  transactions.value = transactions.value.filter((item) => item.id !== id)
-  try { await api.deleteTransaction(id) } catch { /* demo mode */ }
+  try {
+    await api.deleteTransaction(id)
+    await Promise.all([load(), loadMetadata()])
+  } catch {
+    transactions.value = transactions.value.filter((item) => item.id !== id)
+  }
+}
+async function handleTransactionsUpdated() {
+  await Promise.all([load(), loadMetadata()])
 }
 onMounted(() => {
   window.addEventListener('hubby:workspace-changed', handleWorkspaceChange)
-  window.addEventListener('hubby:transactions-updated', load)
+  window.addEventListener('hubby:transactions-updated', handleTransactionsUpdated)
   initializePeriod()
 })
 onBeforeUnmount(() => {
   window.removeEventListener('hubby:workspace-changed', handleWorkspaceChange)
-  window.removeEventListener('hubby:transactions-updated', load)
+  window.removeEventListener('hubby:transactions-updated', handleTransactionsUpdated)
 })
 
 async function handleWorkspaceChange() {

@@ -160,7 +160,10 @@ async function remove(item) {
             <label>Jenis rekening
               <select v-model="form.kind"><option v-for="kind in accountKinds" :key="kind.value" :value="kind.value">{{ kind.label }}</option></select>
             </label>
-            <label>Saldo saat ini<MoneyInput v-model="form.balance" allow-negative /></label>
+            <label>Saldo awal / penyesuaian saldo
+              <MoneyInput v-model="form.balance" allow-negative />
+              <small class="field-help">Rekening baru dimulai dari Rp0. Setelah disimpan, pemasukan dan pengeluaran akan memperbarui saldo otomatis.</small>
+            </label>
             <label class="checkbox"><input v-model="form.isEmergencyFund" type="checkbox" /> Tandai sebagai dana darurat</label>
           </template>
           <p v-if="errorMessage" class="form-error">{{ errorMessage }}</p>

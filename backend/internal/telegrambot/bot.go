@@ -681,6 +681,18 @@ func (b *Bot) savePending(ctx context.Context, telegramUserID int64, parts []str
 	if err != nil {
 		return "", err
 	}
+	result, err := tx.Exec(ctx, `
+		UPDATE accounts
+		SET current_balance=current_balance + CASE WHEN $2='income' THEN $3 ELSE -$3 END,
+		    updated_at=now()
+		WHERE id=$1 AND workspace_id=$4
+	`, accountID.Int64, kind, amount, workspaceID)
+	if err != nil {
+		return "", err
+	}
+	if result.RowsAffected() != 1 {
+		return "", fmt.Errorf("update transaction account balance: account not found")
+	}
 	if _, err := tx.Exec(ctx, `DELETE FROM telegram_pending_transactions WHERE id=$1`, pendingID); err != nil {
 		return "", err
 	}

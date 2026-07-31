@@ -1,9 +1,12 @@
 package httpapi
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type transactionInput struct {
@@ -133,19 +136,33 @@ func (api *API) createTransaction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var id int64
+	var id, balance int64
 	err = api.db.QueryRow(r.Context(), `
-		INSERT INTO transactions(workspace_id,type,category_id,account_id,amount,description,occurred_at,is_debt_payment)
-		SELECT $8,$1,c.id,a.id,$4,$5,$6,$7
-		FROM categories c CROSS JOIN accounts a
-		WHERE c.id=$2 AND a.id=$3 AND c.workspace_id=$8 AND a.workspace_id=$8
-		RETURNING id
-	`, input.Type, input.CategoryID, input.AccountID, input.Amount, input.Description, occurredAt, input.IsDebtPayment, workspaceID).Scan(&id)
-	if err != nil {
+		WITH inserted AS (
+			INSERT INTO transactions(workspace_id,type,category_id,account_id,amount,description,occurred_at,is_debt_payment)
+			SELECT $8,$1,c.id,a.id,$4,$5,$6,$7
+			FROM categories c CROSS JOIN accounts a
+			WHERE c.id=$2 AND a.id=$3 AND c.workspace_id=$8 AND a.workspace_id=$8 AND c.type=$1
+			RETURNING id,account_id,type,amount
+		), updated AS (
+			UPDATE accounts a
+			SET current_balance=a.current_balance + CASE WHEN i.type='income' THEN i.amount ELSE -i.amount END,
+			    updated_at=now()
+			FROM inserted i
+			WHERE a.id=i.account_id AND a.workspace_id=$8
+			RETURNING i.id,a.current_balance
+		)
+		SELECT id,current_balance FROM updated
+	`, input.Type, input.CategoryID, input.AccountID, input.Amount, input.Description, occurredAt, input.IsDebtPayment, workspaceID).Scan(&id, &balance)
+	if errors.Is(err, pgx.ErrNoRows) {
 		writeError(w, http.StatusUnprocessableEntity, "category or account does not belong to the active workspace")
 		return
 	}
-	writeJSON(w, http.StatusCreated, envelope{"data": envelope{"id": id}})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to save transaction")
+		return
+	}
+	writeJSON(w, http.StatusCreated, envelope{"data": envelope{"id": id, "accountBalance": balance}})
 }
 
 func (api *API) deleteTransaction(w http.ResponseWriter, r *http.Request) {
@@ -159,13 +176,28 @@ func (api *API) deleteTransaction(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid transaction id")
 		return
 	}
-	result, err := api.db.Exec(r.Context(), `DELETE FROM transactions WHERE id=$1 AND workspace_id=$2`, id, workspaceID)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to delete transaction")
+	var balance int64
+	err = api.db.QueryRow(r.Context(), `
+		WITH removed AS (
+			DELETE FROM transactions
+			WHERE id=$1 AND workspace_id=$2
+			RETURNING id,account_id,type,amount
+		), updated AS (
+			UPDATE accounts a
+			SET current_balance=a.current_balance - CASE WHEN r.type='income' THEN r.amount ELSE -r.amount END,
+			    updated_at=now()
+			FROM removed r
+			WHERE a.id=r.account_id AND a.workspace_id=$2
+			RETURNING a.current_balance
+		)
+		SELECT current_balance FROM updated
+	`, id, workspaceID).Scan(&balance)
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeError(w, http.StatusNotFound, "transaction not found")
 		return
 	}
-	if result.RowsAffected() == 0 {
-		writeError(w, http.StatusNotFound, "transaction not found")
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to delete transaction")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
