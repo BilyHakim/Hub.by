@@ -300,6 +300,18 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
 .summary-icon.balance { color: #766697; background: var(--lilac-light); }
 .summary-strip p { display: flex; flex-direction: column; gap: 3px; margin: 0; color: var(--muted); font-size: 10px; }
 .summary-strip strong { color: var(--ink); font-family: 'Manrope'; font-size: 16px; }
+.account-balance-panel { margin-bottom: 16px; padding: 17px; }
+.account-balance-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 13px; }
+.account-balance-heading h2 { margin: 2px 0 0; font-size: 15px; }
+.account-manage-button { margin: 0; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.account-balance-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(240px,1fr)); gap: 9px; }
+.account-balance-card { display: grid; grid-template-columns: 35px minmax(0,1fr) auto; align-items: center; gap: 10px; min-width: 0; padding: 11px; border: 1px solid #eeece6; border-radius: 11px; background: var(--surface-2); }
+.account-balance-card > span { width: 35px; height: 35px; display: grid; place-items: center; color: var(--sage); border-radius: 9px; background: var(--sage-light); }
+.account-balance-card > div { min-width: 0; display: flex; flex-direction: column; }
+.account-balance-card small { overflow: hidden; color: var(--muted); font-size: 8px; white-space: nowrap; text-overflow: ellipsis; }
+.account-balance-card strong { overflow: hidden; margin-top: 2px; font-size: 11px; white-space: nowrap; text-overflow: ellipsis; }
+.account-balance-card b { margin-left: 8px; font-family: 'Manrope'; font-size: 11px; white-space: nowrap; }
+.account-balance-card b.negative { color: var(--rose); }
 .table-panel { overflow: hidden; }
 .table-toolbar { display: flex; justify-content: space-between; gap: 12px; padding: 15px; border-bottom: 1px solid var(--line); }
 .table-search { width: 280px; height: 37px; }
@@ -813,6 +825,8 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
   .summary-strip { grid-template-columns: 1fr; }
   .summary-strip > div { border-right: 0; border-bottom: 1px solid var(--line); }
   .summary-strip > div:last-child { border-bottom: 0; }
+  .account-balance-heading { align-items: flex-start; }
+  .account-balance-grid { grid-template-columns: 1fr; }
   .table-toolbar { flex-direction: column; }
   .table-search { width: 100%; }
   .date-filter { justify-content: center; }

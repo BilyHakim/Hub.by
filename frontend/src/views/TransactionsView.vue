@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onBeforeUnmount, onMounted, reactive } from 'vue'
-import { Plus, Search, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Trash2, X } from '@lucide/vue'
+import { Plus, Search, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, WalletCards, Trash2, X } from '@lucide/vue'
 import { api } from '../services/api'
 import { demoTransactions } from '../data/demo'
 import EmptyState from '../components/EmptyState.vue'
@@ -24,7 +24,11 @@ const categories = reactive({
   expense: [{ id: 3, name: 'Makanan', expenseClass: 'essential' }, { id: 4, name: 'Transportasi', expenseClass: 'essential' }, { id: 5, name: 'Tempat Tinggal', expenseClass: 'essential' }, { id: 6, name: 'Tagihan', expenseClass: 'obligation' }, { id: 7, name: 'Belanja', expenseClass: 'discretionary' }, { id: 8, name: 'Hiburan', expenseClass: 'discretionary' }, { id: 9, name: 'Cicilan', expenseClass: 'obligation' }],
   income: [{ id: 1, name: 'Gaji' }, { id: 2, name: 'Freelance' }],
 })
-const accounts = ref([{ id: 1, name: 'BCA Utama' }])
+const accounts = ref([{ id: 1, name: 'BCA Utama', kind: 'bank', balance: 0 }])
+const accountKindLabels = {
+  bank: 'Rekening bank', cash: 'Tunai', ewallet: 'E-wallet', investment: 'Investasi',
+  property: 'Properti', liability: 'Kewajiban/utang',
+}
 let requestSequence = 0
 
 const filtered = computed(() => transactions.value.filter((item) =>
@@ -33,6 +37,7 @@ const filtered = computed(() => transactions.value.filter((item) =>
 const income = computed(() => transactions.value.filter((x) => x.type === 'income').reduce((sum, x) => sum + x.amount, 0))
 const expense = computed(() => transactions.value.filter((x) => x.type === 'expense').reduce((sum, x) => sum + x.amount, 0))
 const selectedSourceAccount = computed(() => accounts.value.find((account) => account.id === Number(transferForm.value.sourceAccountId)))
+const selectedDestinationAccount = computed(() => accounts.value.find((account) => account.id === Number(transferForm.value.destinationAccountId)))
 const canSaveTransfer = computed(() => {
   const amount = Number(transferForm.value.amount)
   return !savingTransfer.value && transferForm.value.sourceAccountId && transferForm.value.destinationAccountId &&
@@ -178,6 +183,23 @@ async function handleWorkspaceChange() {
       <div><span class="summary-icon balance">=</span><p>Selisih<strong>{{ currency(income - expense) }}</strong></p></div>
     </div>
 
+    <article class="panel account-balance-panel">
+      <div class="account-balance-heading">
+        <div><p class="eyebrow">Posisi dana</p><h2>Saldo rekening</h2></div>
+        <button type="button" class="text-link account-manage-button" @click="managerType = 'account'">Kelola rekening</button>
+      </div>
+      <div class="account-balance-grid">
+        <div v-for="account in accounts" :key="account.id" class="account-balance-card">
+          <span><WalletCards :size="18" /></span>
+          <div>
+            <small>{{ accountKindLabels[account.kind] || account.kind }}<template v-if="account.isEmergencyFund"> · Dana darurat</template></small>
+            <strong>{{ account.name }}</strong>
+          </div>
+          <b :class="{ negative: account.balance < 0 }">{{ currency(account.balance) }}</b>
+        </div>
+      </div>
+    </article>
+
     <article class="panel table-panel">
       <div class="table-toolbar">
         <div class="search-box table-search"><Search :size="17" /><input v-model="query" placeholder="Cari transaksi..." /></div>
@@ -241,7 +263,7 @@ async function handleWorkspaceChange() {
             </div>
             <button type="button" class="transfer-swap-button" aria-label="Tukar rekening" @click="swapTransferAccounts"><ArrowLeftRight :size="17" /></button>
             <div class="form-field">
-              <div class="field-label-row"><span>Ke rekening</span></div>
+              <div class="field-label-row"><span>Ke rekening</span><small v-if="selectedDestinationAccount">Saldo {{ currency(selectedDestinationAccount.balance) }}</small></div>
               <select v-model="transferForm.destinationAccountId" required @change="transferError = ''">
                 <option v-for="account in accounts" :key="account.id" :value="account.id" :disabled="account.id === transferForm.sourceAccountId">{{ account.name }}</option>
               </select>
