@@ -29,6 +29,8 @@ func NewRouter(db *pgxpool.Pool, logger *slog.Logger, frontendOrigin string) htt
 	protected.HandleFunc("GET /api/v1/transactions/recent", api.listRecentTransactions)
 	protected.HandleFunc("POST /api/v1/transactions", api.createTransaction)
 	protected.HandleFunc("DELETE /api/v1/transactions/{id}", api.deleteTransaction)
+	protected.HandleFunc("POST /api/v1/transfers", api.createTransfer)
+	protected.HandleFunc("DELETE /api/v1/transfers/{id}", api.deleteTransfer)
 	protected.HandleFunc("GET /api/v1/budgets", api.getBudget)
 	protected.HandleFunc("PUT /api/v1/budgets", api.replaceBudget)
 	protected.HandleFunc("GET /api/v1/accounts", api.listAccounts)

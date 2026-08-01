@@ -201,6 +201,7 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
 .primary-button:hover { background: var(--sage-dark); transform: translateY(-1px); }
 .primary-button:disabled { opacity: .55; cursor: wait; }
 .secondary-button { color: var(--sage); background: var(--sage-light); }
+.secondary-button:disabled { opacity: .5; cursor: not-allowed; }
 .demo-notice { display: flex; align-items: center; gap: 8px; margin: -10px 0 18px; padding: 9px 12px; color: #756031; background: #fcf2d7; border: 1px solid #f1dfae; border-radius: 9px; font-size: 12px; }
 .metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 16px; }
 .metric-card { min-width: 0; padding: 19px; border: 1px solid var(--line); border-radius: 15px; background: var(--surface); box-shadow: var(--shadow); }
@@ -309,12 +310,14 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
 .transaction-icon { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 10px; }
 .transaction-icon.income { color: var(--sage); background: var(--sage-light); }
 .transaction-icon.expense { color: #a95f56; background: var(--rose-light); }
+.transaction-icon.transfer { color: #766697; background: var(--lilac-light); }
 .transaction-name { display: flex; flex-direction: column; }
 .transaction-name strong { font-size: 12px; }
 .transaction-name small, .transaction-date { margin-top: 3px; color: var(--muted); font-size: 10px; }
 .transaction-amount { justify-self: end; font-family: 'Manrope'; font-size: 12px; }
 .transaction-amount.income { color: var(--sage); }
 .transaction-amount.expense { color: var(--ink); }
+.transaction-amount.transfer { color: #766697; }
 .delete-button { width: 32px; height: 32px; color: #a3a8a5; border: 0; background: transparent; opacity: 0; }
 .transaction-row:hover .delete-button { opacity: 1; }
 .delete-button:hover { color: var(--rose); background: var(--rose-light); }
@@ -347,6 +350,11 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
 .checkbox { flex-direction: row !important; align-items: center; }
 .checkbox input { accent-color: var(--sage); }
 .full-button { width: 100%; margin-top: 3px; }
+.transfer-account-grid { display: grid; grid-template-columns: minmax(0,1fr) 34px minmax(0,1fr); gap: 8px; align-items: center; }
+.transfer-account-grid .form-field { min-width: 0; }
+.transfer-account-grid .field-label-row small { overflow: hidden; max-width: 105px; color: var(--muted); font-size: 8px; font-weight: 500; white-space: nowrap; text-overflow: ellipsis; }
+.transfer-swap-button { width: 34px; height: 34px; display: grid; place-items: center; margin-top: 4px; color: var(--sage); border: 1px solid var(--line); border-radius: 9px; background: var(--surface-2); cursor: pointer; }
+.transfer-swap-button:hover { border-color: #bdcac3; background: var(--sage-light); }
 .app-toast { position: fixed; right: 24px; bottom: 24px; z-index: 120; display: flex; align-items: center; gap: 8px; padding: 11px 14px; color: white; border-radius: 10px; background: var(--sage-dark); box-shadow: 0 12px 35px rgba(31,47,41,.22); font-size: 11px; font-weight: 600; }
 .toast-enter-active, .toast-leave-active { transition: opacity .2s ease, transform .2s ease; }
 .toast-enter-from, .toast-leave-to { opacity: 0; transform: translateY(7px); }

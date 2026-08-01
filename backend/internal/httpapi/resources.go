@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -17,6 +18,14 @@ type transactionInput struct {
 	Description   string `json:"description"`
 	OccurredAt    string `json:"occurredAt"`
 	IsDebtPayment bool   `json:"isDebtPayment"`
+}
+
+type transferInput struct {
+	SourceAccountID      int64  `json:"sourceAccountId"`
+	DestinationAccountID int64  `json:"destinationAccountId"`
+	Amount               int64  `json:"amount"`
+	Description          string `json:"description"`
+	OccurredAt           string `json:"occurredAt"`
 }
 
 func (api *API) listTransactions(w http.ResponseWriter, r *http.Request) {
@@ -35,13 +44,26 @@ func (api *API) listTransactions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rows, err := api.db.Query(r.Context(), `
-		SELECT t.id, t.type, t.amount, t.description, t.occurred_at, t.is_debt_payment,
-		       c.id, c.name, a.id, a.name
-		FROM transactions t
-		JOIN categories c ON c.id=t.category_id
-		JOIN accounts a ON a.id=t.account_id
-		WHERE t.occurred_at >= $1 AND t.occurred_at < $2 AND t.workspace_id=$3
-		ORDER BY t.occurred_at DESC, t.id DESC
+		SELECT id,kind,amount,description,occurred_at,is_debt_payment,
+		       category_id,category_name,account_id,account_name,
+		       destination_account_id,destination_account_name
+		FROM (
+			SELECT t.id,t.type::text AS kind,t.amount,t.description,t.occurred_at,t.is_debt_payment,
+			       c.id AS category_id,c.name AS category_name,a.id AS account_id,a.name AS account_name,
+			       0::bigint AS destination_account_id,''::text AS destination_account_name
+			FROM transactions t
+			JOIN categories c ON c.id=t.category_id
+			JOIN accounts a ON a.id=t.account_id
+			WHERE t.occurred_at >= $1 AND t.occurred_at < $2 AND t.workspace_id=$3
+			UNION ALL
+			SELECT tr.id,'transfer',tr.amount,tr.description,tr.occurred_at,false,
+			       0::bigint,'Transfer antar rekening',source.id,source.name,destination.id,destination.name
+			FROM account_transfers tr
+			JOIN accounts source ON source.id=tr.source_account_id
+			JOIN accounts destination ON destination.id=tr.destination_account_id
+			WHERE tr.occurred_at >= $1 AND tr.occurred_at < $2 AND tr.workspace_id=$3
+		) records
+		ORDER BY occurred_at DESC,id DESC
 	`, period.Start, period.EndExclusive, workspaceID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to load transactions")
@@ -50,19 +72,23 @@ func (api *API) listTransactions(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 	items := make([]envelope, 0)
 	for rows.Next() {
-		var id, amount, categoryID, accountID int64
-		var kind, description, category, account string
+		var id, amount, categoryID, accountID, destinationAccountID int64
+		var kind, description, category, account, destinationAccount string
 		var occurred time.Time
 		var debt bool
-		if err := rows.Scan(&id, &kind, &amount, &description, &occurred, &debt, &categoryID, &category, &accountID, &account); err != nil {
+		if err := rows.Scan(&id, &kind, &amount, &description, &occurred, &debt, &categoryID, &category, &accountID, &account, &destinationAccountID, &destinationAccount); err != nil {
 			continue
 		}
-		items = append(items, envelope{
+		item := envelope{
 			"id": id, "type": kind, "amount": amount, "description": description,
 			"occurredAt": occurred.Format("2006-01-02"), "isDebtPayment": debt,
 			"category": envelope{"id": categoryID, "name": category},
 			"account":  envelope{"id": accountID, "name": account},
-		})
+		}
+		if kind == "transfer" {
+			item["destinationAccount"] = envelope{"id": destinationAccountID, "name": destinationAccount}
+		}
+		items = append(items, item)
 	}
 	writeJSON(w, http.StatusOK, envelope{"data": items})
 }
@@ -201,6 +227,206 @@ func (api *API) deleteTransaction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (api *API) createTransfer(w http.ResponseWriter, r *http.Request) {
+	workspaceID, err := api.currentWorkspaceID(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to resolve active workspace")
+		return
+	}
+	var input transferInput
+	if err := decodeJSON(r, &input); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	occurredAt, err := validateTransferInput(input)
+	if err != nil {
+		writeError(w, http.StatusUnprocessableEntity, err.Error())
+		return
+	}
+	input.Description = strings.TrimSpace(input.Description)
+	if input.Description == "" {
+		input.Description = "Transfer antar rekening"
+	}
+
+	tx, err := api.db.Begin(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to start transfer")
+		return
+	}
+	defer tx.Rollback(r.Context())
+
+	rows, err := tx.Query(r.Context(), `
+		SELECT id,current_balance FROM accounts
+		WHERE workspace_id=$1 AND id IN ($2,$3)
+		ORDER BY id FOR UPDATE
+	`, workspaceID, input.SourceAccountID, input.DestinationAccountID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to lock transfer accounts")
+		return
+	}
+	balances := make(map[int64]int64, 2)
+	for rows.Next() {
+		var id, balance int64
+		if scanErr := rows.Scan(&id, &balance); scanErr != nil {
+			rows.Close()
+			writeError(w, http.StatusInternalServerError, "failed to read transfer accounts")
+			return
+		}
+		balances[id] = balance
+	}
+	rows.Close()
+	if rows.Err() != nil {
+		writeError(w, http.StatusInternalServerError, "failed to read transfer accounts")
+		return
+	}
+	if len(balances) != 2 {
+		writeError(w, http.StatusUnprocessableEntity, "source and destination accounts must belong to the active workspace")
+		return
+	}
+	if balances[input.SourceAccountID] < input.Amount {
+		writeError(w, http.StatusUnprocessableEntity, "source account balance is insufficient")
+		return
+	}
+
+	if _, err = tx.Exec(r.Context(), `
+		UPDATE accounts
+		SET current_balance=current_balance - $1,updated_at=now()
+		WHERE id=$2 AND workspace_id=$3
+	`, input.Amount, input.SourceAccountID, workspaceID); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to debit source account")
+		return
+	}
+	if _, err = tx.Exec(r.Context(), `
+		UPDATE accounts
+		SET current_balance=current_balance + $1,updated_at=now()
+		WHERE id=$2 AND workspace_id=$3
+	`, input.Amount, input.DestinationAccountID, workspaceID); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to credit destination account")
+		return
+	}
+
+	var id int64
+	err = tx.QueryRow(r.Context(), `
+		INSERT INTO account_transfers(
+			workspace_id,source_account_id,destination_account_id,amount,description,occurred_at
+		) VALUES($1,$2,$3,$4,$5,$6) RETURNING id
+	`, workspaceID, input.SourceAccountID, input.DestinationAccountID, input.Amount, input.Description, occurredAt).Scan(&id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to save transfer")
+		return
+	}
+	if err = tx.Commit(r.Context()); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to commit transfer")
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, envelope{"data": envelope{
+		"id":                        id,
+		"sourceAccountBalance":      balances[input.SourceAccountID] - input.Amount,
+		"destinationAccountBalance": balances[input.DestinationAccountID] + input.Amount,
+	}})
+}
+
+func (api *API) deleteTransfer(w http.ResponseWriter, r *http.Request) {
+	workspaceID, err := api.currentWorkspaceID(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to resolve active workspace")
+		return
+	}
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid transfer id")
+		return
+	}
+
+	tx, err := api.db.Begin(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to start transfer removal")
+		return
+	}
+	defer tx.Rollback(r.Context())
+
+	var sourceAccountID, destinationAccountID, amount int64
+	err = tx.QueryRow(r.Context(), `
+		SELECT source_account_id,destination_account_id,amount
+		FROM account_transfers WHERE id=$1 AND workspace_id=$2 FOR UPDATE
+	`, id, workspaceID).Scan(&sourceAccountID, &destinationAccountID, &amount)
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeError(w, http.StatusNotFound, "transfer not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load transfer")
+		return
+	}
+
+	rows, err := tx.Query(r.Context(), `
+		SELECT id FROM accounts
+		WHERE workspace_id=$1 AND id IN ($2,$3)
+		ORDER BY id FOR UPDATE
+	`, workspaceID, sourceAccountID, destinationAccountID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to lock transfer accounts")
+		return
+	}
+	accountCount := 0
+	for rows.Next() {
+		var accountID int64
+		if scanErr := rows.Scan(&accountID); scanErr != nil {
+			rows.Close()
+			writeError(w, http.StatusInternalServerError, "failed to read transfer accounts")
+			return
+		}
+		accountCount++
+	}
+	rows.Close()
+	if rows.Err() != nil || accountCount != 2 {
+		writeError(w, http.StatusInternalServerError, "failed to read transfer accounts")
+		return
+	}
+
+	if _, err = tx.Exec(r.Context(), `
+		UPDATE accounts SET current_balance=current_balance + $1,updated_at=now()
+		WHERE id=$2 AND workspace_id=$3
+	`, amount, sourceAccountID, workspaceID); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to restore source account")
+		return
+	}
+	if _, err = tx.Exec(r.Context(), `
+		UPDATE accounts SET current_balance=current_balance - $1,updated_at=now()
+		WHERE id=$2 AND workspace_id=$3
+	`, amount, destinationAccountID, workspaceID); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to restore destination account")
+		return
+	}
+	if _, err = tx.Exec(r.Context(), `DELETE FROM account_transfers WHERE id=$1 AND workspace_id=$2`, id, workspaceID); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to delete transfer")
+		return
+	}
+	if err = tx.Commit(r.Context()); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to commit transfer removal")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func validateTransferInput(input transferInput) (time.Time, error) {
+	if input.SourceAccountID <= 0 || input.DestinationAccountID <= 0 {
+		return time.Time{}, errors.New("source and destination accounts are required")
+	}
+	if input.SourceAccountID == input.DestinationAccountID {
+		return time.Time{}, errors.New("source and destination accounts must be different")
+	}
+	if input.Amount <= 0 {
+		return time.Time{}, errors.New("transfer amount must be positive")
+	}
+	occurredAt, err := time.Parse("2006-01-02", input.OccurredAt)
+	if err != nil {
+		return time.Time{}, errors.New("occurredAt must use YYYY-MM-DD")
+	}
+	return occurredAt, nil
 }
 
 func (api *API) listAccounts(w http.ResponseWriter, r *http.Request) {
