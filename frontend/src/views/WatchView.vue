@@ -22,7 +22,7 @@ const episodeProgress = ref([])
 const loadingEpisodes = ref(false)
 const overview = ref({
   summary: { totalTitles: 0, watchingTitles: 0, completedTitles: 0, totalMinutes: 0, monthMinutes: 0 },
-  titles: [], recentSessions: [],
+  titles: [], recentSessions: [], dailyActivity: [],
 })
 const titleForm = reactive({ mediaType: 'movie', title: '', genre: '', releaseYear: '', runtimeMinutes: 120, totalEpisodes: '', imdbId: '', posterUrl: '', totalSeasons: 0 })
 const sessionForm = reactive({ titleId: '', watchedAt: today(), durationMinutes: 45, seasonNumber: 1, episodeNumber: 1, episodeFrom: 1, episodeTo: 1, notes: '', isBackfill: false })
@@ -42,6 +42,8 @@ const watchedEpisodeNumbers = computed(() => {
   return season?.watchedEpisodes || []
 })
 const availableEndEpisodes = computed(() => episodeCatalog.value.filter((item) => item.episodeNumber >= Number(sessionForm.episodeFrom)))
+const maxDailyMinutes = computed(() => Math.max(...(overview.value.dailyActivity || []).map((item) => Number(item.minutes)), 1))
+const weekMinutes = computed(() => (overview.value.dailyActivity || []).reduce((total, item) => total + Number(item.minutes), 0))
 
 function today() { return new Date().toISOString().slice(0, 10) }
 function formatDuration(minutes = 0) {
@@ -53,6 +55,9 @@ function formatDuration(minutes = 0) {
 function formatDate(value) {
   if (!value) return 'Belum ditonton'
   return new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${value}T00:00:00`))
+}
+function shortDay(value) {
+  return new Intl.DateTimeFormat('id-ID', { weekday: 'short' }).format(new Date(`${value}T00:00:00`))
 }
 function episodeLabel(item) {
   if (item.mediaType === 'movie') return item.sessionCount ? 'Selesai ditonton' : 'Belum ditonton'
@@ -321,14 +326,28 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
       <article><span class="watch-metric-icon tone-sage"><Check :size="20" /></span><div><small>Selesai</small><strong>{{ overview.summary.completedTitles }} judul</strong></div></article>
     </div>
 
+    <section class="watch-activity-chart watch-panel">
+      <div class="watch-section-heading">
+        <div><p class="eyebrow">7 hari terakhir</p><h2>Aktivitas menonton</h2></div>
+        <div class="chart-total"><small>Total minggu ini</small><strong>{{ formatDuration(weekMinutes) }}</strong></div>
+      </div>
+      <div class="watch-bars" role="img" aria-label="Grafik waktu menonton tujuh hari terakhir">
+        <article v-for="item in overview.dailyActivity" :key="item.date" :title="`${formatDate(item.date)}: ${formatDuration(item.minutes)}`">
+          <span class="bar-value">{{ item.minutes ? formatDuration(item.minutes) : '–' }}</span>
+          <span class="bar-track"><i :style="{ height: `${Math.max(item.minutes ? 8 : 0, (item.minutes / maxDailyMinutes) * 100)}%` }" /></span>
+          <strong>{{ shortDay(item.date) }}</strong>
+        </article>
+      </div>
+    </section>
+
     <section v-if="continueWatching.length" class="watch-section">
       <div class="watch-section-heading"><div><p class="eyebrow">Lanjutkan</p><h2>Terakhir kamu tonton</h2></div></div>
       <div class="continue-grid">
-        <button v-for="item in continueWatching" :key="item.id" class="continue-card" type="button" @click="openSessionModal(item)">
+        <RouterLink v-for="item in continueWatching" :key="item.id" class="continue-card" :to="`/watch/${item.id}`">
           <span class="continue-art"><img v-if="item.posterUrl" :src="item.posterUrl" :alt="`Poster ${item.title}`" /><Tv v-else-if="item.mediaType === 'series'" :size="27" /><Film v-else :size="27" /></span>
           <span class="continue-copy"><small>{{ item.mediaType === 'series' ? 'Series' : 'Film' }} · {{ item.genre || 'Tanpa genre' }}</small><strong>{{ item.title }}</strong><span>{{ episodeLabel(item) }} · {{ formatDate(item.lastWatchedAt) }}</span></span>
           <span class="continue-play"><Play :size="17" fill="currentColor" /></span>
-        </button>
+        </RouterLink>
       </div>
     </section>
 
@@ -341,8 +360,8 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
         <div v-if="!loading && !filteredTitles.length" class="watch-empty"><Clapperboard :size="28" /><strong>{{ overview.titles.length ? 'Judul tidak ditemukan' : 'Pustakamu masih kosong' }}</strong><p>{{ overview.titles.length ? 'Coba kata kunci atau filter lain.' : 'Tambahkan film atau series pertama untuk mulai tracking.' }}</p><button v-if="!overview.titles.length" class="secondary-button" @click="openTitleModal"><Plus :size="15" /> Tambah judul</button></div>
         <div v-else class="watch-library-list">
           <article v-for="item in filteredTitles" :key="item.id" class="watch-title-row">
-            <span class="title-art"><img v-if="item.posterUrl" :src="item.posterUrl" alt="" /><Tv v-else-if="item.mediaType === 'series'" :size="21" /><Film v-else :size="21" /></span>
-            <div class="title-main"><strong>{{ item.title }}</strong><span>{{ item.mediaType === 'series' ? 'Series' : 'Film' }}<template v-if="item.releaseYear"> · {{ item.releaseYear }}</template><template v-if="item.genre"> · {{ item.genre }}</template></span></div>
+            <RouterLink class="title-art" :to="`/watch/${item.id}`"><img v-if="item.posterUrl" :src="item.posterUrl" alt="" /><Tv v-else-if="item.mediaType === 'series'" :size="21" /><Film v-else :size="21" /></RouterLink>
+            <RouterLink class="title-main" :to="`/watch/${item.id}`"><strong>{{ item.title }}</strong><span>{{ item.mediaType === 'series' ? 'Series' : 'Film' }}<template v-if="item.releaseYear"> · {{ item.releaseYear }}</template><template v-if="item.genre"> · {{ item.genre }}</template></span></RouterLink>
             <div class="title-progress"><strong>{{ episodeLabel(item) }}</strong><span>{{ formatDuration(item.watchedMinutes) }} tercatat</span></div>
             <select class="status-select" :value="item.status" :aria-label="`Status ${item.title}`" @change="changeStatus(item, $event)"><option value="planned">Watchlist</option><option value="watching">Ditonton</option><option value="completed">Selesai</option><option value="dropped">Dihentikan</option></select>
             <button class="row-icon-button play" type="button" aria-label="Catat tontonan" @click="openSessionModal(item)"><Play :size="16" /></button>

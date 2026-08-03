@@ -29,7 +29,9 @@ Hubby Watch menyediakan:
 - daftar season/episode serta pencatatan rentang episode yang sudah selesai;
 - impor seluruh season, seluruh series, atau film lama tanpa memasukkannya ke statistik bulan berjalan;
 - ringkasan waktu menonton keseluruhan dan bulan berjalan;
-- daftar lanjut menonton dan riwayat terbaru.
+- grafik aktivitas menonton tujuh hari terakhir;
+- daftar lanjut menonton dan riwayat terbaru;
+- halaman detail setiap judul dengan sinopsis, progres episode, dan riwayat lengkap.
 
 Setelah login, pengguna masuk ke portal Hubby untuk memilih modul. Hubby Finance tersedia di `/finance`, sedangkan Hubby Watch tersedia di `/watch`; keduanya memakai akun dan workspace yang sama, tetapi memiliki navigasi produk yang terpisah.
 
@@ -134,6 +136,7 @@ Buka `http://localhost:5173`. Jika API belum berjalan, frontend otomatis memakai
 | `GET/PATCH` | `/api/v1/goals`                   | Tujuan keuangan                 |
 | `GET`       | `/api/v1/investments`             | Portofolio investasi            |
 | `GET`       | `/api/v1/watch`                   | Ringkasan dan pustaka tontonan  |
+| `GET`       | `/api/v1/watch/titles/{id}`       | Detail dan progres tontonan     |
 | `POST`      | `/api/v1/watch/titles`            | Menambahkan film atau series    |
 | `POST`      | `/api/v1/watch/sessions`          | Mencatat sesi menonton          |
 | `POST`      | `/api/v1/watch/sessions/batch`    | Menandai rentang episode        |

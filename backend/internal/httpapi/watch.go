@@ -1,13 +1,13 @@
 package httpapi
 
 import (
-	"database/sql"
 	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
@@ -134,12 +134,116 @@ func (api *API) getWatchOverview(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	activityRows, err := api.db.Query(r.Context(), `
+		SELECT TO_CHAR(day::date,'YYYY-MM-DD'),COALESCE(SUM(s.duration_minutes),0),COUNT(s.id)
+		FROM generate_series(CURRENT_DATE - 6,CURRENT_DATE,INTERVAL '1 day') day
+		LEFT JOIN watch_sessions s ON s.watched_at=day::date AND s.workspace_id=$1 AND NOT s.is_backfill
+		GROUP BY day ORDER BY day
+	`, workspaceID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load watch activity")
+		return
+	}
+	defer activityRows.Close()
+	dailyActivity := make([]envelope, 0, 7)
+	for activityRows.Next() {
+		var date string
+		var minutes, sessions int64
+		if activityRows.Scan(&date, &minutes, &sessions) == nil {
+			dailyActivity = append(dailyActivity, envelope{"date": date, "minutes": minutes, "sessions": sessions})
+		}
+	}
+
 	writeJSON(w, http.StatusOK, envelope{"data": envelope{
 		"summary": envelope{
 			"totalTitles": totalTitles, "watchingTitles": watchingTitles,
 			"completedTitles": completedTitles, "totalMinutes": totalMinutes, "monthMinutes": monthMinutes,
 		},
-		"titles": titles, "recentSessions": sessions,
+		"titles": titles, "recentSessions": sessions, "dailyActivity": dailyActivity,
+	}})
+}
+
+func (api *API) getWatchTitleDetail(w http.ResponseWriter, r *http.Request) {
+	workspaceID, err := api.currentWorkspaceID(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to resolve active workspace")
+		return
+	}
+	titleID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid watch title id")
+		return
+	}
+	var title, mediaType, genre, status, imdbID, posterURL, lastWatchedAt string
+	var releaseYear, runtimeMinutes, totalEpisodes, totalSeasons, watchedMinutes, sessionCount, lastSeason, lastEpisode int
+	err = api.db.QueryRow(r.Context(), `
+		SELECT t.title,t.media_type,t.genre,COALESCE(t.release_year,0),t.runtime_minutes,
+		       COALESCE(t.total_episodes,0),COALESCE(t.total_seasons,0),t.status,t.imdb_id,t.poster_url,
+		       COALESCE(stats.minutes,0),COALESCE(stats.sessions,0),
+		       COALESCE(TO_CHAR(last_session.watched_at,'YYYY-MM-DD'),''),
+		       COALESCE(last_session.season_number,0),COALESCE(last_session.episode_number,0)
+		FROM watch_titles t
+		LEFT JOIN LATERAL (SELECT SUM(duration_minutes) minutes,COUNT(*) sessions FROM watch_sessions WHERE title_id=t.id) stats ON TRUE
+		LEFT JOIN LATERAL (SELECT watched_at,season_number,episode_number FROM watch_sessions WHERE title_id=t.id ORDER BY watched_at DESC,id DESC LIMIT 1) last_session ON TRUE
+		WHERE t.id=$1 AND t.workspace_id=$2
+	`, titleID, workspaceID).Scan(&title, &mediaType, &genre, &releaseYear, &runtimeMinutes,
+		&totalEpisodes, &totalSeasons, &status, &imdbID, &posterURL, &watchedMinutes, &sessionCount,
+		&lastWatchedAt, &lastSeason, &lastEpisode)
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeError(w, http.StatusNotFound, "title not found in active workspace")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load watch title")
+		return
+	}
+
+	rows, err := api.db.Query(r.Context(), `
+		SELECT id,TO_CHAR(watched_at,'YYYY-MM-DD'),duration_minutes,COALESCE(season_number,0),
+		       COALESCE(episode_number,0),notes,is_backfill
+		FROM watch_sessions WHERE workspace_id=$1 AND title_id=$2 ORDER BY watched_at DESC,id DESC LIMIT 250
+	`, workspaceID, titleID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load title history")
+		return
+	}
+	defer rows.Close()
+	sessions := make([]envelope, 0)
+	for rows.Next() {
+		var id int64
+		var watchedAt, notes string
+		var duration, season, episode int
+		var isBackfill bool
+		if rows.Scan(&id, &watchedAt, &duration, &season, &episode, &notes, &isBackfill) == nil {
+			sessions = append(sessions, envelope{"id": id, "watchedAt": watchedAt, "durationMinutes": duration,
+				"seasonNumber": season, "episodeNumber": episode, "notes": notes, "isBackfill": isBackfill})
+		}
+	}
+	progressRows, err := api.db.Query(r.Context(), `
+		SELECT season_number,array_agg(DISTINCT episode_number ORDER BY episode_number)
+		FROM watch_sessions WHERE workspace_id=$1 AND title_id=$2 AND season_number IS NOT NULL AND episode_number IS NOT NULL
+		GROUP BY season_number ORDER BY season_number
+	`, workspaceID, titleID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load title progress")
+		return
+	}
+	defer progressRows.Close()
+	seasons := make([]envelope, 0)
+	for progressRows.Next() {
+		var season int
+		var episodes []int32
+		if progressRows.Scan(&season, &episodes) == nil {
+			seasons = append(seasons, envelope{"seasonNumber": season, "watchedEpisodes": episodes})
+		}
+	}
+	writeJSON(w, http.StatusOK, envelope{"data": envelope{
+		"title": envelope{"id": titleID, "title": title, "mediaType": mediaType, "genre": genre,
+			"releaseYear": releaseYear, "runtimeMinutes": runtimeMinutes, "totalEpisodes": totalEpisodes,
+			"totalSeasons": totalSeasons, "status": status, "imdbId": imdbID, "posterUrl": posterURL,
+			"watchedMinutes": watchedMinutes, "sessionCount": sessionCount, "lastWatchedAt": lastWatchedAt,
+			"lastSeason": lastSeason, "lastEpisode": lastEpisode},
+		"sessions": sessions, "seasons": seasons,
 	}})
 }
 
@@ -252,7 +356,7 @@ func (api *API) createWatchSession(w http.ResponseWriter, r *http.Request) {
 	err = api.db.QueryRow(r.Context(), `
 		SELECT media_type,title FROM watch_titles WHERE id=$1 AND workspace_id=$2
 	`, input.TitleID, workspaceID).Scan(&mediaType, &title)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, pgx.ErrNoRows) {
 		writeError(w, http.StatusNotFound, "title not found in active workspace")
 		return
 	}
@@ -345,7 +449,7 @@ func (api *API) createWatchSessionBatch(w http.ResponseWriter, r *http.Request) 
 	}
 	var mediaType string
 	err = api.db.QueryRow(r.Context(), `SELECT media_type FROM watch_titles WHERE id=$1 AND workspace_id=$2`, input.TitleID, workspaceID).Scan(&mediaType)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, pgx.ErrNoRows) {
 		writeError(w, http.StatusNotFound, "title not found in active workspace")
 		return
 	}

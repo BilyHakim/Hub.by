@@ -67,6 +67,7 @@ export const api = {
   createObligationPayment: (id, payload) => request(`/obligations/${id}/payments`, { method: 'POST', body: JSON.stringify(payload) }),
   deleteObligationPayment: (id) => request(`/obligation-payments/${id}`, { method: 'DELETE' }),
   watch: () => request('/watch'),
+  watchTitle: (id) => request(`/watch/titles/${id}`),
   createWatchTitle: (payload) => request('/watch/titles', { method: 'POST', body: JSON.stringify(payload) }),
   updateWatchTitleStatus: (id, status) => request(`/watch/titles/${id}`, {
     method: 'PATCH',

@@ -16,6 +16,7 @@ import BudgetView from './views/BudgetView.vue'
 import ObligationsView from './views/ObligationsView.vue'
 import WatchView from './views/WatchView.vue'
 import HubView from './views/HubView.vue'
+import WatchDetailView from './views/WatchDetailView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -37,6 +38,7 @@ const router = createRouter({
     { path: '/finance/modules/glossary', name: 'glossary', component: GlossaryView, meta: { title: 'Glosarium finansial', product: 'Finance' } },
     { path: '/finance/settings', name: 'settings', component: SettingsView, meta: { title: 'Pengaturan', product: 'Finance' } },
     { path: '/watch', name: 'watch', component: WatchView, meta: { title: 'Watch', product: 'Watch' } },
+    { path: '/watch/:id', name: 'watch-detail', component: WatchDetailView, meta: { title: 'Detail tontonan', product: 'Watch' } },
     { path: '/transactions', redirect: '/finance/transactions' },
     { path: '/goals', redirect: '/finance/goals' },
     { path: '/modules', redirect: '/finance/modules' },
