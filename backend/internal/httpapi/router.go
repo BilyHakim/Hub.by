@@ -16,12 +16,15 @@ type API struct {
 	secureCookies bool
 	loginMu       sync.Mutex
 	loginAttempts map[string]loginAttempt
+	omdbAPIKey    string
+	httpClient    *http.Client
 }
 
-func NewRouter(db *pgxpool.Pool, logger *slog.Logger, frontendOrigin string) http.Handler {
+func NewRouter(db *pgxpool.Pool, logger *slog.Logger, frontendOrigin, omdbAPIKey string) http.Handler {
 	api := &API{
 		db: db, logger: logger, secureCookies: strings.HasPrefix(frontendOrigin, "https://"),
-		loginAttempts: make(map[string]loginAttempt),
+		loginAttempts: make(map[string]loginAttempt), omdbAPIKey: strings.TrimSpace(omdbAPIKey),
+		httpClient: &http.Client{Timeout: 8 * time.Second},
 	}
 	protected := http.NewServeMux()
 	protected.HandleFunc("GET /api/v1/dashboard", api.dashboard)
@@ -62,6 +65,11 @@ func NewRouter(db *pgxpool.Pool, logger *slog.Logger, frontendOrigin string) htt
 	protected.HandleFunc("DELETE /api/v1/watch/titles/{id}", api.deleteWatchTitle)
 	protected.HandleFunc("POST /api/v1/watch/sessions", api.createWatchSession)
 	protected.HandleFunc("DELETE /api/v1/watch/sessions/{id}", api.deleteWatchSession)
+	protected.HandleFunc("POST /api/v1/watch/sessions/batch", api.createWatchSessionBatch)
+	protected.HandleFunc("GET /api/v1/watch/titles/{id}/progress", api.getWatchTitleProgress)
+	protected.HandleFunc("GET /api/v1/watch/catalog/search", api.searchOMDbCatalog)
+	protected.HandleFunc("GET /api/v1/watch/catalog/titles/{imdbID}", api.getOMDbTitle)
+	protected.HandleFunc("GET /api/v1/watch/catalog/titles/{imdbID}/seasons/{season}", api.getOMDbSeason)
 	protected.HandleFunc("GET /api/v1/me", api.getProfile)
 	protected.HandleFunc("PATCH /api/v1/me", api.updateProfile)
 	protected.HandleFunc("GET /api/v1/workspaces", api.listWorkspaces)

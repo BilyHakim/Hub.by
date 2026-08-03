@@ -13,12 +13,19 @@ const titleModalOpen = ref(false)
 const sessionModalOpen = ref(false)
 const search = ref('')
 const filter = ref('all')
+const catalogQuery = ref('')
+const catalogResults = ref([])
+const catalogSearching = ref(false)
+const selectedCatalog = ref(null)
+const episodeCatalog = ref([])
+const episodeProgress = ref([])
+const loadingEpisodes = ref(false)
 const overview = ref({
   summary: { totalTitles: 0, watchingTitles: 0, completedTitles: 0, totalMinutes: 0, monthMinutes: 0 },
   titles: [], recentSessions: [],
 })
-const titleForm = reactive({ mediaType: 'movie', title: '', genre: '', releaseYear: '', runtimeMinutes: 120, totalEpisodes: '' })
-const sessionForm = reactive({ titleId: '', watchedAt: today(), durationMinutes: 45, seasonNumber: 1, episodeNumber: 1, notes: '' })
+const titleForm = reactive({ mediaType: 'movie', title: '', genre: '', releaseYear: '', runtimeMinutes: 120, totalEpisodes: '', imdbId: '', posterUrl: '', totalSeasons: 0 })
+const sessionForm = reactive({ titleId: '', watchedAt: today(), durationMinutes: 45, seasonNumber: 1, episodeNumber: 1, episodeFrom: 1, episodeTo: 1, notes: '', isBackfill: false })
 
 const selectedTitle = computed(() => overview.value.titles.find((item) => item.id === Number(sessionForm.titleId)))
 const filteredTitles = computed(() => {
@@ -30,6 +37,11 @@ const filteredTitles = computed(() => {
   })
 })
 const continueWatching = computed(() => overview.value.titles.filter((item) => item.status === 'watching').slice(0, 4))
+const watchedEpisodeNumbers = computed(() => {
+  const season = episodeProgress.value.find((item) => item.seasonNumber === Number(sessionForm.seasonNumber))
+  return season?.watchedEpisodes || []
+})
+const availableEndEpisodes = computed(() => episodeCatalog.value.filter((item) => item.episodeNumber >= Number(sessionForm.episodeFrom)))
 
 function today() { return new Date().toISOString().slice(0, 10) }
 function formatDuration(minutes = 0) {
@@ -54,32 +66,169 @@ async function loadWatch() {
   finally { loading.value = false }
 }
 function openTitleModal() {
-  Object.assign(titleForm, { mediaType: 'movie', title: '', genre: '', releaseYear: '', runtimeMinutes: 120, totalEpisodes: '' })
+  Object.assign(titleForm, { mediaType: 'movie', title: '', genre: '', releaseYear: '', runtimeMinutes: 120, totalEpisodes: '', imdbId: '', posterUrl: '', totalSeasons: 0 })
+  catalogQuery.value = ''
+  catalogResults.value = []
+  selectedCatalog.value = null
   error.value = ''
   titleModalOpen.value = true
 }
-function openSessionModal(item = overview.value.titles[0]) {
+async function openSessionModal(item = overview.value.titles[0]) {
   if (!item) { openTitleModal(); return }
   Object.assign(sessionForm, {
     titleId: item.id, watchedAt: today(), durationMinutes: item.runtimeMinutes,
     seasonNumber: item.mediaType === 'series' ? (item.lastSeason || 1) : 0,
-    episodeNumber: item.mediaType === 'series' ? (item.lastEpisode + 1 || 1) : 0, notes: '',
+    episodeNumber: item.mediaType === 'series' ? (item.lastEpisode + 1 || 1) : 0,
+    episodeFrom: item.mediaType === 'series' ? (item.lastEpisode + 1 || 1) : 0,
+    episodeTo: item.mediaType === 'series' ? (item.lastEpisode + 1 || 1) : 0, notes: '', isBackfill: false,
   })
   error.value = ''
   sessionModalOpen.value = true
+  if (item.mediaType === 'series') await loadSeriesData()
 }
-function syncSessionDefaults() {
+async function syncSessionDefaults() {
   const item = selectedTitle.value
   if (!item) return
   sessionForm.durationMinutes = item.runtimeMinutes
   sessionForm.seasonNumber = item.mediaType === 'series' ? (item.lastSeason || 1) : 0
   sessionForm.episodeNumber = item.mediaType === 'series' ? (item.lastEpisode + 1 || 1) : 0
+  sessionForm.episodeFrom = sessionForm.episodeNumber
+  sessionForm.episodeTo = sessionForm.episodeNumber
+  episodeCatalog.value = []
+  episodeProgress.value = []
+  if (item.mediaType === 'series') await loadSeriesData()
+}
+async function searchCatalog() {
+  if (catalogQuery.value.trim().length < 2) return
+  catalogSearching.value = true
+  error.value = ''
+  selectedCatalog.value = null
+  try {
+    const result = await api.searchWatchCatalog(catalogQuery.value.trim())
+    catalogResults.value = result.items
+  } catch (requestError) { error.value = requestError.message; catalogResults.value = [] }
+  finally { catalogSearching.value = false }
+}
+async function selectCatalogItem(item) {
+  catalogSearching.value = true
+  error.value = ''
+  try {
+    const detail = await api.watchCatalogTitle(item.imdbId)
+    selectedCatalog.value = detail
+    Object.assign(titleForm, { ...detail, totalEpisodes: 0 })
+  } catch (requestError) { error.value = requestError.message }
+  finally { catalogSearching.value = false }
+}
+async function loadSeriesData() {
+  const item = selectedTitle.value
+  if (!item || item.mediaType !== 'series') return
+  loadingEpisodes.value = true
+  error.value = ''
+  try {
+    const requests = [api.watchProgress(item.id)]
+    if (item.imdbId) requests.push(api.watchCatalogSeason(item.imdbId, Number(sessionForm.seasonNumber)))
+    const [progress, catalog] = await Promise.all(requests)
+    episodeProgress.value = progress.seasons
+    episodeCatalog.value = catalog?.episodes || []
+    const nextEpisode = item.lastSeason === Number(sessionForm.seasonNumber) ? item.lastEpisode + 1 : 1
+    sessionForm.episodeFrom = Math.min(Math.max(nextEpisode, 1), episodeCatalog.value.length || nextEpisode)
+    sessionForm.episodeTo = sessionForm.episodeFrom
+  } catch (requestError) { error.value = requestError.message; episodeCatalog.value = [] }
+  finally { loadingEpisodes.value = false }
+}
+function handleSeasonChange() {
+  sessionForm.episodeFrom = 1
+  sessionForm.episodeTo = 1
+  loadSeriesData()
+}
+function handleEpisodeFromChange() {
+  if (Number(sessionForm.episodeTo) < Number(sessionForm.episodeFrom)) sessionForm.episodeTo = sessionForm.episodeFrom
+}
+function selectEntireSeason() {
+  sessionForm.episodeFrom = 1
+  sessionForm.episodeTo = episodeCatalog.value.at(-1)?.episodeNumber || 1
+  sessionForm.isBackfill = true
+}
+async function markUntilEpisode() {
+  const item = selectedTitle.value
+  const targetSeason = Number(sessionForm.seasonNumber)
+  const targetEpisode = Number(sessionForm.episodeTo)
+  if (!item?.imdbId || targetSeason < 1 || targetEpisode < 1) {
+    error.value = 'Pilih season dan episode terakhir yang sudah kamu tonton.'
+    return
+  }
+  if (!window.confirm(`Tandai ${item.title} sampai Season ${targetSeason} Episode ${targetEpisode} sebagai selesai ditonton?`)) return
+  saving.value = true
+  error.value = ''
+  try {
+    for (let season = 1; season <= targetSeason; season += 1) {
+      const catalog = season === targetSeason && episodeCatalog.value.length
+        ? { episodes: episodeCatalog.value }
+        : await api.watchCatalogSeason(item.imdbId, season)
+      const episodeTo = season === targetSeason ? targetEpisode : catalog.episodes.at(-1)?.episodeNumber
+      if (!episodeTo) continue
+      await api.createWatchSessionBatch({
+        titleId: item.id,
+        watchedAt: sessionForm.watchedAt,
+        durationMinutes: Number(sessionForm.durationMinutes),
+        seasonNumber: season,
+        episodeFrom: 1,
+        episodeTo,
+        notes: 'Impor progres tontonan lama',
+        isBackfill: true,
+      })
+    }
+    sessionModalOpen.value = false
+    await loadWatch()
+  } catch (requestError) { error.value = requestError.message }
+  finally { saving.value = false }
+}
+async function markEntireSeries() {
+  const item = selectedTitle.value
+  if (!item?.imdbId || !item.totalSeasons) {
+    error.value = 'Data jumlah season belum tersedia untuk series ini.'
+    return
+  }
+  if (!window.confirm(`Tandai seluruh ${item.totalSeasons} season ${item.title} sebagai selesai ditonton?`)) return
+  saving.value = true
+  error.value = ''
+  try {
+    for (let season = 1; season <= item.totalSeasons; season += 1) {
+      const catalog = await api.watchCatalogSeason(item.imdbId, season)
+      const lastEpisode = catalog.episodes.at(-1)?.episodeNumber
+      if (!lastEpisode) continue
+      await api.createWatchSessionBatch({
+        titleId: item.id,
+        watchedAt: sessionForm.watchedAt,
+        durationMinutes: Number(sessionForm.durationMinutes),
+        seasonNumber: season,
+        episodeFrom: 1,
+        episodeTo: lastEpisode,
+        notes: 'Impor riwayat tontonan lama',
+        isBackfill: true,
+      })
+    }
+    await api.updateWatchTitleStatus(item.id, 'completed')
+    sessionModalOpen.value = false
+    await loadWatch()
+  } catch (requestError) { error.value = requestError.message }
+  finally { saving.value = false }
 }
 async function addTitle() {
   saving.value = true
   error.value = ''
   try {
-    await api.createWatchTitle({ ...titleForm, releaseYear: Number(titleForm.releaseYear || 0), runtimeMinutes: Number(titleForm.runtimeMinutes), totalEpisodes: titleForm.mediaType === 'series' ? Number(titleForm.totalEpisodes || 0) : 0 })
+    await api.createWatchTitle({
+      title: titleForm.title,
+      mediaType: titleForm.mediaType,
+      genre: titleForm.genre,
+      releaseYear: Number(titleForm.releaseYear || 0),
+      runtimeMinutes: Number(titleForm.runtimeMinutes),
+      totalEpisodes: 0,
+      imdbId: titleForm.imdbId,
+      posterUrl: titleForm.posterUrl,
+      totalSeasons: Number(titleForm.totalSeasons || 0),
+    })
     titleModalOpen.value = false
     await loadWatch()
   } catch (requestError) { error.value = requestError.message }
@@ -89,7 +238,28 @@ async function addSession() {
   saving.value = true
   error.value = ''
   try {
-    await api.createWatchSession({ ...sessionForm, titleId: Number(sessionForm.titleId), durationMinutes: Number(sessionForm.durationMinutes), seasonNumber: Number(sessionForm.seasonNumber || 0), episodeNumber: Number(sessionForm.episodeNumber || 0) })
+    if (selectedTitle.value?.mediaType === 'series') {
+      await api.createWatchSessionBatch({
+        titleId: Number(sessionForm.titleId),
+        watchedAt: sessionForm.watchedAt,
+        durationMinutes: Number(sessionForm.durationMinutes),
+        seasonNumber: Number(sessionForm.seasonNumber),
+        episodeFrom: Number(sessionForm.episodeFrom),
+        episodeTo: Number(sessionForm.episodeTo),
+        notes: sessionForm.notes,
+        isBackfill: sessionForm.isBackfill,
+      })
+    } else {
+      await api.createWatchSession({
+        titleId: Number(sessionForm.titleId),
+        watchedAt: sessionForm.watchedAt,
+        durationMinutes: Number(sessionForm.durationMinutes),
+        seasonNumber: 0,
+        episodeNumber: 0,
+        notes: sessionForm.notes,
+        isBackfill: sessionForm.isBackfill,
+      })
+    }
     sessionModalOpen.value = false
     await loadWatch()
   } catch (requestError) { error.value = requestError.message }
@@ -97,8 +267,24 @@ async function addSession() {
 }
 async function changeStatus(item, event) {
   const previous = item.status
-  item.status = event.target.value
-  try { await api.updateWatchTitleStatus(item.id, item.status); await loadWatch() }
+  const nextStatus = event.target.value
+  item.status = nextStatus
+  try {
+    if (nextStatus === 'completed' && item.mediaType === 'movie' && !item.sessionCount) {
+      await api.createWatchSession({
+        titleId: item.id,
+        watchedAt: today(),
+        durationMinutes: item.runtimeMinutes,
+        seasonNumber: 0,
+        episodeNumber: 0,
+        notes: 'Impor film yang sudah ditonton',
+        isBackfill: true,
+      })
+    } else {
+      await api.updateWatchTitleStatus(item.id, nextStatus)
+    }
+    await loadWatch()
+  }
   catch (requestError) { item.status = previous; error.value = requestError.message }
 }
 async function removeTitle(item) {
@@ -139,7 +325,7 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
       <div class="watch-section-heading"><div><p class="eyebrow">Lanjutkan</p><h2>Terakhir kamu tonton</h2></div></div>
       <div class="continue-grid">
         <button v-for="item in continueWatching" :key="item.id" class="continue-card" type="button" @click="openSessionModal(item)">
-          <span class="continue-art"><Tv v-if="item.mediaType === 'series'" :size="27" /><Film v-else :size="27" /></span>
+          <span class="continue-art"><img v-if="item.posterUrl" :src="item.posterUrl" :alt="`Poster ${item.title}`" /><Tv v-else-if="item.mediaType === 'series'" :size="27" /><Film v-else :size="27" /></span>
           <span class="continue-copy"><small>{{ item.mediaType === 'series' ? 'Series' : 'Film' }} · {{ item.genre || 'Tanpa genre' }}</small><strong>{{ item.title }}</strong><span>{{ episodeLabel(item) }} · {{ formatDate(item.lastWatchedAt) }}</span></span>
           <span class="continue-play"><Play :size="17" fill="currentColor" /></span>
         </button>
@@ -155,7 +341,7 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
         <div v-if="!loading && !filteredTitles.length" class="watch-empty"><Clapperboard :size="28" /><strong>{{ overview.titles.length ? 'Judul tidak ditemukan' : 'Pustakamu masih kosong' }}</strong><p>{{ overview.titles.length ? 'Coba kata kunci atau filter lain.' : 'Tambahkan film atau series pertama untuk mulai tracking.' }}</p><button v-if="!overview.titles.length" class="secondary-button" @click="openTitleModal"><Plus :size="15" /> Tambah judul</button></div>
         <div v-else class="watch-library-list">
           <article v-for="item in filteredTitles" :key="item.id" class="watch-title-row">
-            <span class="title-art"><Tv v-if="item.mediaType === 'series'" :size="21" /><Film v-else :size="21" /></span>
+            <span class="title-art"><img v-if="item.posterUrl" :src="item.posterUrl" alt="" /><Tv v-else-if="item.mediaType === 'series'" :size="21" /><Film v-else :size="21" /></span>
             <div class="title-main"><strong>{{ item.title }}</strong><span>{{ item.mediaType === 'series' ? 'Series' : 'Film' }}<template v-if="item.releaseYear"> · {{ item.releaseYear }}</template><template v-if="item.genre"> · {{ item.genre }}</template></span></div>
             <div class="title-progress"><strong>{{ episodeLabel(item) }}</strong><span>{{ formatDuration(item.watchedMinutes) }} tercatat</span></div>
             <select class="status-select" :value="item.status" :aria-label="`Status ${item.title}`" @change="changeStatus(item, $event)"><option value="planned">Watchlist</option><option value="watching">Ditonton</option><option value="completed">Selesai</option><option value="dropped">Dihentikan</option></select>
@@ -169,21 +355,29 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
         <div class="watch-section-heading"><div><p class="eyebrow">Aktivitas</p><h2>Riwayat terbaru</h2></div><History :size="19" /></div>
         <div v-if="!overview.recentSessions.length" class="watch-empty compact"><History :size="25" /><strong>Belum ada riwayat</strong><p>Sesi yang kamu catat akan muncul di sini.</p></div>
         <div v-else class="history-list">
-          <article v-for="item in overview.recentSessions" :key="item.id"><span class="history-dot" /><div><strong>{{ item.title }}</strong><span><template v-if="item.mediaType === 'series'">S{{ item.seasonNumber }} E{{ item.episodeNumber }} · </template>{{ formatDuration(item.durationMinutes) }}</span><small>{{ formatDate(item.watchedAt) }}</small></div><button type="button" :aria-label="`Hapus riwayat ${item.title}`" @click="removeSession(item)"><Trash2 :size="14" /></button></article>
+          <article v-for="item in overview.recentSessions" :key="item.id"><span class="history-dot" /><div><strong>{{ item.title }}</strong><span><template v-if="item.mediaType === 'series'">S{{ item.seasonNumber }} E{{ item.episodeNumber }} · </template>{{ formatDuration(item.durationMinutes) }}</span><small>{{ item.isBackfill ? 'Riwayat lama' : formatDate(item.watchedAt) }}</small></div><button type="button" :aria-label="`Hapus riwayat ${item.title}`" @click="removeSession(item)"><Trash2 :size="14" /></button></article>
         </div>
       </aside>
     </div>
 
     <Teleport to="body">
       <div v-if="titleModalOpen" class="modal-backdrop" @click.self="titleModalOpen = false">
-        <form class="modal watch-modal" @submit.prevent="addTitle">
+        <form class="modal watch-modal watch-catalog-modal" @submit.prevent="addTitle">
           <button class="modal-close" type="button" aria-label="Tutup" @click="titleModalOpen = false"><X :size="18" /></button>
-          <p class="eyebrow">Pustaka Hubby Watch</p><h2>Tambah judul</h2><p class="modal-description">Masukkan detail dasar film atau series. Katalog dapat diperkaya nanti.</p>
-          <div class="type-switch"><button type="button" :class="{ active: titleForm.mediaType === 'movie' }" @click="titleForm.mediaType = 'movie'">Film</button><button type="button" :class="{ active: titleForm.mediaType === 'series' }" @click="titleForm.mediaType = 'series'">Series</button></div>
-          <label>Judul<input v-model.trim="titleForm.title" maxlength="160" autofocus placeholder="Contoh: Severance" required /></label>
-          <div class="form-grid"><label>Genre<input v-model.trim="titleForm.genre" maxlength="80" placeholder="Drama, Sci-fi" /></label><label>Tahun rilis<input v-model="titleForm.releaseYear" type="number" min="1888" max="2200" placeholder="2022" /></label></div>
-          <div class="form-grid"><label>{{ titleForm.mediaType === 'series' ? 'Durasi per episode' : 'Durasi film' }} (menit)<input v-model="titleForm.runtimeMinutes" type="number" min="1" max="1440" required /></label><label v-if="titleForm.mediaType === 'series'">Total episode (opsional)<input v-model="titleForm.totalEpisodes" type="number" min="1" /></label></div>
-          <p v-if="error" class="form-error">{{ error }}</p><button class="primary-button full-button" :disabled="saving">{{ saving ? 'Menambahkan...' : 'Tambahkan ke pustaka' }}</button>
+          <p class="eyebrow">Katalog OMDb</p><h2>Cari film atau series</h2><p class="modal-description">Cari judul dari OMDb, lalu tambahkan hasil yang tepat ke pustakamu.</p>
+          <label>Cari judul<span class="catalog-search-input"><Search :size="17" /><input v-model.trim="catalogQuery" autofocus placeholder="Contoh: Breaking Bad" @keydown.enter.prevent="searchCatalog" /><button type="button" :disabled="catalogSearching || catalogQuery.length < 2" @click="searchCatalog">{{ catalogSearching ? 'Mencari...' : 'Cari' }}</button></span></label>
+          <div v-if="catalogResults.length && !selectedCatalog" class="catalog-results">
+            <button v-for="item in catalogResults" :key="item.imdbId" type="button" @click="selectCatalogItem(item)">
+              <span class="catalog-poster"><img v-if="item.posterUrl" :src="item.posterUrl" alt="" /><Film v-else :size="20" /></span>
+              <span><strong>{{ item.title }}</strong><small>{{ item.mediaType === 'series' ? 'Series' : 'Film' }} · {{ item.year }}</small></span><Plus :size="17" />
+            </button>
+          </div>
+          <article v-if="selectedCatalog" class="selected-catalog">
+            <span class="selected-poster"><img v-if="selectedCatalog.posterUrl" :src="selectedCatalog.posterUrl" :alt="`Poster ${selectedCatalog.title}`" /><Film v-else :size="28" /></span>
+            <div><small>{{ selectedCatalog.mediaType === 'series' ? 'Series' : 'Film' }} · {{ selectedCatalog.releaseYear }}</small><strong>{{ selectedCatalog.title }}</strong><p>{{ selectedCatalog.genre }}<template v-if="selectedCatalog.totalSeasons"> · {{ selectedCatalog.totalSeasons }} season</template> · {{ selectedCatalog.runtimeMinutes }} menit</p><button type="button" @click="selectedCatalog = null">Pilih judul lain</button></div>
+          </article>
+          <p v-if="error" class="form-error">{{ error }}</p><button class="primary-button full-button" :disabled="saving || !selectedCatalog">{{ saving ? 'Menambahkan...' : 'Tambahkan ke pustaka' }}</button>
+          <p class="catalog-attribution">Data judul disediakan oleh OMDb API.</p>
         </form>
       </div>
 
@@ -192,8 +386,25 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
           <button class="modal-close" type="button" aria-label="Tutup" @click="sessionModalOpen = false"><X :size="18" /></button>
           <p class="eyebrow">Watch log</p><h2>Catat tontonan</h2>
           <label>Judul<select v-model="sessionForm.titleId" required @change="syncSessionDefaults"><option v-for="item in overview.titles" :key="item.id" :value="item.id">{{ item.title }}</option></select></label>
-          <div class="form-grid"><label>Tanggal ditonton<input v-model="sessionForm.watchedAt" type="date" required /></label><label>Durasi (menit)<input v-model="sessionForm.durationMinutes" type="number" min="1" max="1440" required /></label></div>
-          <div v-if="selectedTitle?.mediaType === 'series'" class="form-grid"><label>Season<input v-model="sessionForm.seasonNumber" type="number" min="1" required /></label><label>Episode<input v-model="sessionForm.episodeNumber" type="number" min="1" required /></label></div>
+          <div class="form-grid"><label>Tanggal ditonton<input v-model="sessionForm.watchedAt" type="date" required /></label><label>{{ selectedTitle?.mediaType === 'series' ? 'Durasi per episode' : 'Durasi' }} (menit)<input v-model="sessionForm.durationMinutes" type="number" min="1" max="1440" required /></label></div>
+          <template v-if="selectedTitle?.mediaType === 'series'">
+            <label>Season<select v-if="selectedTitle.totalSeasons" v-model="sessionForm.seasonNumber" @change="handleSeasonChange"><option v-for="season in selectedTitle.totalSeasons" :key="season" :value="season">Season {{ season }}</option></select><input v-else v-model="sessionForm.seasonNumber" type="number" min="1" required @change="handleSeasonChange" /></label>
+            <div class="episode-bulk-actions">
+              <button type="button" :disabled="loadingEpisodes || !episodeCatalog.length" @click="selectEntireSeason"><Check :size="14" /> Centang seluruh season ini</button>
+              <button type="button" :disabled="saving || loadingEpisodes" @click="markUntilEpisode"><Play :size="14" /> Centang sampai episode ini</button>
+              <button type="button" :disabled="saving || !selectedTitle.totalSeasons" @click="markEntireSeries"><ListVideo :size="14" /> Centang seluruh series</button>
+            </div>
+            <div class="form-grid">
+              <label>Episode awal<select v-if="episodeCatalog.length" v-model="sessionForm.episodeFrom" @change="handleEpisodeFromChange"><option v-for="episode in episodeCatalog" :key="episode.episodeNumber" :value="episode.episodeNumber">E{{ episode.episodeNumber }} · {{ episode.title }}</option></select><input v-else v-model="sessionForm.episodeFrom" type="number" min="1" required /></label>
+              <label>Episode akhir<select v-if="episodeCatalog.length" v-model="sessionForm.episodeTo"><option v-for="episode in availableEndEpisodes" :key="episode.episodeNumber" :value="episode.episodeNumber">E{{ episode.episodeNumber }} · {{ episode.title }}</option></select><input v-else v-model="sessionForm.episodeTo" type="number" :min="sessionForm.episodeFrom" required /></label>
+            </div>
+            <p v-if="loadingEpisodes" class="episode-loading">Memuat episode dari OMDb...</p>
+            <div v-else-if="episodeCatalog.length" class="episode-preview">
+              <span v-for="episode in episodeCatalog" :key="episode.episodeNumber" :class="{ watched: watchedEpisodeNumbers.includes(episode.episodeNumber), selected: episode.episodeNumber >= sessionForm.episodeFrom && episode.episodeNumber <= sessionForm.episodeTo }" :title="episode.title">{{ episode.episodeNumber }}<Check v-if="watchedEpisodeNumbers.includes(episode.episodeNumber)" :size="10" /></span>
+            </div>
+            <p class="episode-range-summary">Episode {{ sessionForm.episodeFrom }}–{{ sessionForm.episodeTo }} akan ditandai selesai ({{ Number(sessionForm.episodeTo) - Number(sessionForm.episodeFrom) + 1 }} episode).</p>
+          </template>
+          <label class="checkbox watch-backfill"><input v-model="sessionForm.isBackfill" type="checkbox" /> <span><strong>Ini tontonan lama</strong><small>Total jam tetap dihitung, tetapi tidak masuk statistik bulan ini.</small></span></label>
           <label>Catatan (opsional)<input v-model.trim="sessionForm.notes" maxlength="500" placeholder="Pendapat singkat atau momen penting" /></label>
           <p v-if="error" class="form-error">{{ error }}</p><button class="primary-button full-button" :disabled="saving"><ListVideo :size="17" /> {{ saving ? 'Menyimpan...' : 'Simpan sesi menonton' }}</button>
         </form>

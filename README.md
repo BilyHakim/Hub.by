@@ -23,13 +23,21 @@ Modul pada workbook dipetakan menjadi:
 
 Hubby Watch menyediakan:
 
-- pustaka film dan series dengan status watchlist, sedang ditonton, selesai, atau dihentikan;
+- pencarian katalog film dan series melalui OMDb;
+- pustaka dengan poster dan status watchlist, sedang ditonton, selesai, atau dihentikan;
 - watch log per tanggal beserta durasi dan catatan;
-- posisi season dan episode terakhir;
+- daftar season/episode serta pencatatan rentang episode yang sudah selesai;
+- impor seluruh season, seluruh series, atau film lama tanpa memasukkannya ke statistik bulan berjalan;
 - ringkasan waktu menonton keseluruhan dan bulan berjalan;
 - daftar lanjut menonton dan riwayat terbaru.
 
 Setelah login, pengguna masuk ke portal Hubby untuk memilih modul. Hubby Finance tersedia di `/finance`, sedangkan Hubby Watch tersedia di `/watch`; keduanya memakai akun dan workspace yang sama, tetapi memiliki navigasi produk yang terpisah.
+
+Katalog Hubby Watch memerlukan API key gratis dari [OMDb API](https://www.omdbapi.com/apikey.aspx). Simpan key hanya pada `backend/.env`:
+
+```dotenv
+OMDB_API_KEY=your_free_omdb_api_key
+```
 
 Versi awal ini sudah memiliki dashboard, transaksi, tujuan, data investasi, financial check-up, skema data untuk seluruh modul, serta halaman perencanaan. Kalkulator KPR, pensiun, rebalancing, dan formulir konfigurasi lanjutan ditandai sebagai tahap berikutnya.
 
@@ -128,6 +136,8 @@ Buka `http://localhost:5173`. Jika API belum berjalan, frontend otomatis memakai
 | `GET`       | `/api/v1/watch`                   | Ringkasan dan pustaka tontonan  |
 | `POST`      | `/api/v1/watch/titles`            | Menambahkan film atau series    |
 | `POST`      | `/api/v1/watch/sessions`          | Mencatat sesi menonton          |
+| `POST`      | `/api/v1/watch/sessions/batch`    | Menandai rentang episode        |
+| `GET`       | `/api/v1/watch/catalog/search`    | Mencari katalog OMDb            |
 
 Semua nominal disimpan sebagai bilangan bulat rupiah untuk menghindari masalah pembulatan.
 
