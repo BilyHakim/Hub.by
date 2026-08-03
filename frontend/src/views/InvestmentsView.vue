@@ -59,7 +59,7 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
 
 <template>
   <section class="page planning-detail-page">
-    <RouterLink class="back-link" to="/modules"><ArrowLeft :size="16" /> Kembali ke perencanaan</RouterLink>
+    <RouterLink class="back-link" to="/finance/modules"><ArrowLeft :size="16" /> Kembali ke perencanaan</RouterLink>
     <div class="page-heading compact">
       <div><p class="eyebrow">Portofolio workspace</p><h1>Monitor investasi</h1><p>Pantau nilai pembelian, nilai saat ini, dan performa seluruh aset.</p></div>
       <button class="primary-button" @click="openCreate"><Plus :size="17" />Tambah investasi</button>
@@ -88,7 +88,7 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
       <article class="panel distribution-card">
         <div class="panel-heading"><div><h2>Distribusi portofolio</h2><p>Dikelompokkan berdasarkan jenis aset.</p></div></div>
         <ExpenseDonut :items="distribution" />
-        <RouterLink class="secondary-button full-button" to="/modules/rebalancing">Atur target alokasi</RouterLink>
+        <RouterLink class="secondary-button full-button" to="/finance/modules/rebalancing">Atur target alokasi</RouterLink>
       </article>
     </div>
     <div v-if="showForm" class="modal-backdrop" @click.self="showForm = false">

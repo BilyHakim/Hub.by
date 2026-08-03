@@ -34,7 +34,7 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
 
 <template>
   <section class="page planning-detail-page">
-    <RouterLink class="back-link" to="/modules"><ArrowLeft :size="16" /> Kembali ke perencanaan</RouterLink>
+    <RouterLink class="back-link" to="/finance/modules"><ArrowLeft :size="16" /> Kembali ke perencanaan</RouterLink>
     <div class="page-heading compact">
       <div><p class="eyebrow">Prioritas 1—7</p><h1>Piramida keuangan</h1><p>Bangun fondasi secara berurutan dan tandai pencapaian sesuai kondisimu.</p></div>
     </div>
@@ -63,4 +63,3 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
     <p class="planning-footnote"><Sparkles :size="15" /> Checklist mengikuti struktur prioritas pada workbook dan bersifat manual agar bisa disesuaikan dengan kondisi keluarga.</p>
   </section>
 </template>
-

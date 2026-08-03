@@ -14,31 +14,41 @@ import RetirementView from './views/RetirementView.vue'
 import GlossaryView from './views/GlossaryView.vue'
 import BudgetView from './views/BudgetView.vue'
 import ObligationsView from './views/ObligationsView.vue'
+import WatchView from './views/WatchView.vue'
+import HubView from './views/HubView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/', name: 'dashboard', component: DashboardView, meta: { title: 'Ringkasan' } },
-    { path: '/transactions', name: 'transactions', component: TransactionsView, meta: { title: 'Arus kas' } },
-    { path: '/goals', name: 'goals', component: GoalsView, meta: { title: 'Tujuan keuangan' } },
-    { path: '/modules', name: 'modules', component: ModulesView, meta: { title: 'Perencanaan' } },
-    { path: '/modules/budget', name: 'budget', component: BudgetView, meta: { title: 'Rencana pengeluaran' } },
-    { path: '/modules/obligations', name: 'obligations', component: ObligationsView, meta: { title: 'Utang & piutang' } },
-    { path: '/modules/pyramid', name: 'pyramid', component: PyramidView, meta: { title: 'Piramida keuangan' } },
-    { path: '/modules/checkup', name: 'checkup', component: CheckupView, meta: { title: 'Financial check-up' } },
-    { path: '/modules/emergency-fund', name: 'emergency-fund', component: EmergencyFundView, meta: { title: 'Dana darurat' } },
-    { path: '/modules/mortgage', name: 'mortgage', component: MortgageView, meta: { title: 'Simulasi KPR' } },
-    { path: '/modules/investments', name: 'investments', component: InvestmentsView, meta: { title: 'Monitor investasi' } },
-    { path: '/modules/rebalancing', name: 'rebalancing', component: RebalancingView, meta: { title: 'Rebalancing' } },
-    { path: '/modules/retirement', name: 'retirement', component: RetirementView, meta: { title: 'Persiapan pensiun' } },
-    { path: '/modules/glossary', name: 'glossary', component: GlossaryView, meta: { title: 'Glosarium finansial' } },
-    { path: '/settings', name: 'settings', component: SettingsView, meta: { title: 'Pengaturan' } },
+    { path: '/', name: 'hub', component: HubView, meta: { title: 'Pilih modul', product: 'Hubby', layout: 'portal' } },
+    { path: '/finance', name: 'dashboard', component: DashboardView, meta: { title: 'Ringkasan', product: 'Finance' } },
+    { path: '/finance/transactions', name: 'transactions', component: TransactionsView, meta: { title: 'Arus kas', product: 'Finance' } },
+    { path: '/finance/goals', name: 'goals', component: GoalsView, meta: { title: 'Tujuan keuangan', product: 'Finance' } },
+    { path: '/finance/modules', name: 'modules', component: ModulesView, meta: { title: 'Perencanaan', product: 'Finance' } },
+    { path: '/finance/modules/budget', name: 'budget', component: BudgetView, meta: { title: 'Rencana pengeluaran', product: 'Finance' } },
+    { path: '/finance/modules/obligations', name: 'obligations', component: ObligationsView, meta: { title: 'Utang & piutang', product: 'Finance' } },
+    { path: '/finance/modules/pyramid', name: 'pyramid', component: PyramidView, meta: { title: 'Piramida keuangan', product: 'Finance' } },
+    { path: '/finance/modules/checkup', name: 'checkup', component: CheckupView, meta: { title: 'Financial check-up', product: 'Finance' } },
+    { path: '/finance/modules/emergency-fund', name: 'emergency-fund', component: EmergencyFundView, meta: { title: 'Dana darurat', product: 'Finance' } },
+    { path: '/finance/modules/mortgage', name: 'mortgage', component: MortgageView, meta: { title: 'Simulasi KPR', product: 'Finance' } },
+    { path: '/finance/modules/investments', name: 'investments', component: InvestmentsView, meta: { title: 'Monitor investasi', product: 'Finance' } },
+    { path: '/finance/modules/rebalancing', name: 'rebalancing', component: RebalancingView, meta: { title: 'Rebalancing', product: 'Finance' } },
+    { path: '/finance/modules/retirement', name: 'retirement', component: RetirementView, meta: { title: 'Persiapan pensiun', product: 'Finance' } },
+    { path: '/finance/modules/glossary', name: 'glossary', component: GlossaryView, meta: { title: 'Glosarium finansial', product: 'Finance' } },
+    { path: '/finance/settings', name: 'settings', component: SettingsView, meta: { title: 'Pengaturan', product: 'Finance' } },
+    { path: '/watch', name: 'watch', component: WatchView, meta: { title: 'Watch', product: 'Watch' } },
+    { path: '/transactions', redirect: '/finance/transactions' },
+    { path: '/goals', redirect: '/finance/goals' },
+    { path: '/modules', redirect: '/finance/modules' },
+    { path: '/modules/:pathMatch(.*)*', redirect: (to) => `/finance/modules/${Array.isArray(to.params.pathMatch) ? to.params.pathMatch.join('/') : to.params.pathMatch}` },
+    { path: '/settings', redirect: '/finance/settings' },
   ],
   scrollBehavior: () => ({ top: 0 }),
 })
 
 router.afterEach((to) => {
-  document.title = `${to.meta.title || 'Keuangan'} · Hubby Finance`
+  const product = to.meta.product === 'Watch' ? 'Hubby Watch' : to.meta.product === 'Finance' ? 'Hubby Finance' : 'Hubby'
+  document.title = `${to.meta.title || 'Hubby'} · ${product}`
 })
 
 export default router

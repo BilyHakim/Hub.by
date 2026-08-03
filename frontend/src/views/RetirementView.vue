@@ -49,7 +49,7 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
 
 <template>
   <section class="page planning-detail-page">
-    <RouterLink class="back-link" to="/modules"><ArrowLeft :size="16" /> Kembali ke perencanaan</RouterLink>
+    <RouterLink class="back-link" to="/finance/modules"><ArrowLeft :size="16" /> Kembali ke perencanaan</RouterLink>
     <div class="page-heading compact">
       <div><p class="eyebrow">Pendekatan 4% rule</p><h1>Persiapan pensiun</h1><p>Proyeksikan biaya hidup dan pertumbuhan dana hingga usia pensiun.</p></div>
     </div>

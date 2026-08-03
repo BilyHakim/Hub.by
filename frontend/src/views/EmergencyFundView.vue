@@ -46,7 +46,7 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
 
 <template>
   <section class="page planning-detail-page">
-    <RouterLink class="back-link" to="/modules"><ArrowLeft :size="16" /> Kembali ke perencanaan</RouterLink>
+    <RouterLink class="back-link" to="/finance/modules"><ArrowLeft :size="16" /> Kembali ke perencanaan</RouterLink>
     <div class="page-heading compact">
       <div><p class="eyebrow">Bantalan keuangan</p><h1>Target dana darurat</h1><p>Target = pengeluaran bulanan × jumlah bulan perlindungan.</p></div>
       <div class="period-picker-group">

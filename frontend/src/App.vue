@@ -5,7 +5,7 @@ import {
   LayoutDashboard, ArrowLeftRight, Target, Blocks, Settings,
   Bell, Search, Menu, X, HeartHandshake, ChevronDown, Plus,
   Check, Ellipsis, UserRound, SlidersHorizontal, Users, WalletCards,
-  ArrowDownLeft, ArrowUpRight, LogOut,
+  ArrowDownLeft, ArrowUpRight, LogOut, Clapperboard, LayoutGrid,
 } from '@lucide/vue'
 import { api } from './services/api'
 import LoginView from './components/LoginView.vue'
@@ -43,7 +43,7 @@ const guidanceNotifications = [
     title: 'Catat transaksi hari ini',
     message: 'Jaga ringkasan keuangan tetap akurat dengan mencatat pemasukan atau pengeluaran terbaru.',
     time: 'Hari ini',
-    to: '/transactions',
+    to: '/finance/transactions',
     icon: ArrowLeftRight,
     tone: 'sage',
   },
@@ -52,7 +52,7 @@ const guidanceNotifications = [
     title: 'Saatnya cek tujuan keuangan',
     message: 'Lihat kembali progres tujuan dan sesuaikan target kontribusi bulan ini.',
     time: 'Minggu ini',
-    to: '/goals',
+    to: '/finance/goals',
     icon: Target,
     tone: 'sand',
   },
@@ -61,7 +61,7 @@ const guidanceNotifications = [
     title: 'Fitur perencanaan siap digunakan',
     message: 'Coba alat perencanaan untuk menyusun kondisi keuangan keluarga dengan lebih terarah.',
     time: 'Baru',
-    to: '/modules',
+    to: '/finance/modules',
     icon: Blocks,
     tone: 'lilac',
   },
@@ -82,12 +82,21 @@ const notifications = computed(() => [
 const unreadNotificationCount = computed(() =>
   notifications.value.filter((item) => !readNotificationIds.value.includes(item.id)).length,
 )
-const nav = [
-  { to: '/', label: 'Ringkasan', icon: LayoutDashboard },
-  { to: '/transactions', label: 'Arus kas', icon: ArrowLeftRight },
-  { to: '/goals', label: 'Tujuan keuangan', icon: Target },
-  { to: '/modules', label: 'Perencanaan', icon: Blocks },
+const financeNav = [
+  { to: '/finance', label: 'Ringkasan', icon: LayoutDashboard },
+  { to: '/finance/transactions', label: 'Arus kas', icon: ArrowLeftRight },
+  { to: '/finance/goals', label: 'Tujuan keuangan', icon: Target },
+  { to: '/finance/modules', label: 'Perencanaan', icon: Blocks },
 ]
+const watchNav = [
+  { to: '/watch', label: 'Ringkasan Watch', icon: Clapperboard },
+]
+const isPortal = computed(() => route.meta.layout === 'portal')
+const isFinance = computed(() => route.meta.product === 'Finance')
+const nav = computed(() => isFinance.value ? financeNav : watchNav)
+const productName = computed(() => isFinance.value ? 'finance' : 'watch')
+const navLabel = computed(() => isFinance.value ? 'Keuangan' : 'Tontonan')
+const searchPlaceholder = computed(() => route.meta.product === 'Watch' ? 'Cari film atau series...' : 'Cari transaksi, tujuan...')
 
 function closeMenus() {
   workspaceMenuOpen.value = false
@@ -176,7 +185,7 @@ function toTransactionNotification(item, workspaceId) {
     title: isIncome ? 'Pemasukan baru tercatat' : 'Pengeluaran baru tercatat',
     message: `${formatCurrency(item.amount)} · ${detail} · ${item.account}`,
     time: 'Baru saja',
-    to: '/transactions',
+    to: '/finance/transactions',
     icon: isIncome ? ArrowDownLeft : ArrowUpRight,
     tone: isIncome ? 'sage' : 'rose',
   }
@@ -248,6 +257,7 @@ async function handleAuthenticated() {
   if (await loadIdentity()) {
     authenticated.value = true
     startTransactionPolling()
+    await router.replace('/')
   }
 }
 function handleUnauthorized() {
@@ -362,6 +372,20 @@ onBeforeUnmount(() => {
     <span class="login-brand-mark"><HeartHandshake :size="28" stroke-width="1.8" /></span>
   </div>
   <LoginView v-else-if="!authenticated" @authenticated="handleAuthenticated" />
+  <div v-else-if="isPortal" class="hub-portal-shell">
+    <header class="hub-portal-header">
+      <RouterLink class="hub-portal-brand" to="/">
+        <span class="brand-mark"><HeartHandshake :size="23" stroke-width="1.8" /></span>
+        <strong>hubby</strong>
+      </RouterLink>
+      <div class="hub-portal-profile">
+        <span class="avatar">{{ profile.initials }}</span>
+        <span><strong>{{ profile.displayName }}</strong><small>{{ profile.subtitle }}</small></span>
+        <button type="button" aria-label="Keluar" title="Keluar" @click="handleLogout"><LogOut :size="18" /></button>
+      </div>
+    </header>
+    <RouterView />
+  </div>
   <div v-else class="app-shell">
     <div v-if="sidebarOpen" class="sidebar-backdrop" @click="sidebarOpen = false" />
     <aside class="sidebar" :class="{ 'is-open': sidebarOpen }">
@@ -369,7 +393,7 @@ onBeforeUnmount(() => {
         <span class="brand-mark"><HeartHandshake :size="23" stroke-width="1.8" /></span>
         <span>
           <strong>hubby</strong>
-          <small>finance</small>
+          <small>{{ productName }}</small>
         </span>
         <button class="icon-button mobile-close" aria-label="Tutup menu" @click="sidebarOpen = false"><X :size="19" /></button>
       </div>
@@ -377,12 +401,12 @@ onBeforeUnmount(() => {
       <div class="workspace-wrap" @click.stop>
         <button class="workspace-switcher" type="button" :aria-expanded="workspaceMenuOpen" @click="toggleWorkspaceMenu">
           <span class="avatar avatar-sage">{{ currentWorkspace?.initials }}</span>
-          <span><small>Ruang keuangan</small><strong>{{ currentWorkspace?.name }}</strong></span>
+          <span><small>Ruang bersama</small><strong>{{ currentWorkspace?.name }}</strong></span>
           <ChevronDown :size="16" :class="{ rotated: workspaceMenuOpen }" />
         </button>
         <Transition name="dropdown">
           <div v-if="workspaceMenuOpen" class="dropdown-menu workspace-menu">
-            <div class="dropdown-title"><span>Ruang keuangan</span><small>{{ workspaces.length }} ruang</small></div>
+            <div class="dropdown-title"><span>Ruang bersama</span><small>{{ workspaces.length }} ruang</small></div>
             <button v-for="item in workspaces" :key="item.id" class="workspace-option" type="button" @click="selectWorkspace(item)">
               <span class="avatar avatar-sage">{{ item.initials }}</span>
               <span><strong>{{ item.name }}</strong><small>{{ item.role === 'owner' ? 'Pemilik' : 'Anggota' }}</small></span>
@@ -390,13 +414,13 @@ onBeforeUnmount(() => {
             </button>
             <div class="dropdown-divider" />
             <button class="dropdown-action" type="button" @click="openCreateWorkspace"><Plus :size="17" /> Buat ruang baru</button>
-            <RouterLink class="dropdown-action" to="/modules" @click="closeMenus"><Users :size="17" /> Kelola anggota</RouterLink>
+            <RouterLink v-if="isFinance" class="dropdown-action" to="/finance/modules" @click="closeMenus"><Users :size="17" /> Kelola anggota</RouterLink>
           </div>
         </Transition>
       </div>
 
       <nav class="main-nav" aria-label="Navigasi utama">
-        <p class="nav-label">Keuangan</p>
+        <p class="nav-label">{{ navLabel }}</p>
         <RouterLink v-for="item in nav" :key="item.to" :to="item.to" @click="sidebarOpen = false">
           <component :is="item.icon" :size="19" stroke-width="1.8" />
           {{ item.label }}
@@ -404,7 +428,8 @@ onBeforeUnmount(() => {
       </nav>
 
       <div class="sidebar-bottom">
-        <RouterLink to="/settings"><Settings :size="19" /> Pengaturan</RouterLink>
+        <RouterLink to="/"><LayoutGrid :size="19" /> Semua modul</RouterLink>
+        <RouterLink v-if="isFinance" to="/finance/settings"><Settings :size="19" /> Pengaturan</RouterLink>
         <div class="profile-menu-wrap" @click.stop>
           <button class="user-card" type="button" :aria-expanded="profileMenuOpen" @click="toggleProfileMenu">
             <span class="avatar">{{ profile.initials }}</span>
@@ -419,9 +444,9 @@ onBeforeUnmount(() => {
               </div>
               <div class="dropdown-divider" />
               <button class="dropdown-action" type="button" @click="openProfile"><UserRound :size="17" /> Profil saya</button>
-              <RouterLink class="dropdown-action" to="/settings" @click="closeMenus"><SlidersHorizontal :size="17" /> Pengaturan</RouterLink>
+              <RouterLink v-if="isFinance" class="dropdown-action" to="/finance/settings" @click="closeMenus"><SlidersHorizontal :size="17" /> Pengaturan Finance</RouterLink>
               <button class="dropdown-action logout-action" type="button" @click="handleLogout"><LogOut :size="17" /> Keluar</button>
-              <div class="dropdown-footer"><WalletCards :size="14" /> Hubby Finance · Sesi aman</div>
+              <div class="dropdown-footer"><WalletCards :size="14" /> Hubby {{ isFinance ? 'Finance' : 'Watch' }} · Sesi aman</div>
             </div>
           </Transition>
         </div>
@@ -433,11 +458,11 @@ onBeforeUnmount(() => {
         <button class="icon-button menu-button" aria-label="Buka menu" @click="sidebarOpen = true"><Menu :size="21" /></button>
         <div class="search-box">
           <Search :size="18" />
-          <input aria-label="Cari" placeholder="Cari transaksi, tujuan..." />
+          <input aria-label="Cari" :placeholder="searchPlaceholder" />
           <kbd>⌘ K</kbd>
         </div>
         <div class="topbar-actions">
-          <div class="notification-wrap" @click.stop>
+          <div v-if="isFinance" class="notification-wrap" @click.stop>
             <button
               class="icon-button notification-button"
               :class="{ 'has-notification': unreadNotificationCount > 0 }"

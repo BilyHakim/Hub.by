@@ -48,7 +48,7 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
 
 <template>
   <section class="page planning-detail-page">
-    <RouterLink class="back-link" to="/modules"><ArrowLeft :size="16" /> Kembali ke perencanaan</RouterLink>
+    <RouterLink class="back-link" to="/finance/modules"><ArrowLeft :size="16" /> Kembali ke perencanaan</RouterLink>
     <div class="page-heading compact">
       <div><p class="eyebrow">Kalkulator properti</p><h1>Simulasi KPR</h1><p>Hitung fase bunga fixed dan floating serta dampaknya pada cashflow.</p></div>
     </div>

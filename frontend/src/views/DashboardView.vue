@@ -138,7 +138,7 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
           <MonthPicker v-model="month" @change="loadDashboard" />
           <small v-if="data.periodStart">{{ data.periodStart }} — {{ data.periodEnd }}</small>
         </div>
-        <RouterLink class="primary-button" to="/transactions"><Plus :size="18" /> Catat transaksi</RouterLink>
+        <RouterLink class="primary-button" to="/finance/transactions"><Plus :size="18" /> Catat transaksi</RouterLink>
       </div>
     </div>
 
@@ -174,7 +174,7 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
       <article class="panel cashflow-panel">
         <div class="panel-heading">
           <div><h2>Arus kas</h2><p>Perbandingan 6 bulan terakhir</p></div>
-          <RouterLink to="/transactions">Lihat detail <ArrowRight :size="16" /></RouterLink>
+          <RouterLink to="/finance/transactions">Lihat detail <ArrowRight :size="16" /></RouterLink>
         </div>
         <CashflowChart :points="data.cashflow" />
       </article>
@@ -224,7 +224,7 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
             <strong class="check-value">{{ item.value.toFixed(1) }}%</strong>
           </div>
         </div>
-        <RouterLink class="text-link" to="/modules">Lihat pemeriksaan lengkap <ArrowRight :size="16" /></RouterLink>
+        <RouterLink class="text-link" to="/finance/modules">Lihat pemeriksaan lengkap <ArrowRight :size="16" /></RouterLink>
       </article>
     </div>
   </section>

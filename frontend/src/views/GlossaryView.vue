@@ -26,7 +26,7 @@ const groupedTerms = computed(() => {
 
 <template>
   <section class="page planning-detail-page">
-    <RouterLink class="back-link" to="/modules"><ArrowLeft :size="16" /> Kembali ke perencanaan</RouterLink>
+    <RouterLink class="back-link" to="/finance/modules"><ArrowLeft :size="16" /> Kembali ke perencanaan</RouterLink>
     <div class="page-heading compact">
       <div><p class="eyebrow">Kamus sederhana</p><h1>Glosarium finansial</h1><p>Istilah keuangan dari workbook, dijelaskan dengan bahasa yang mudah dipahami.</p></div>
     </div>

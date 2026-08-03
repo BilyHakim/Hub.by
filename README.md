@@ -1,6 +1,6 @@
 # Hubby
 
-Hubby (Hub Bily) adalah workspace aplikasi bily. Produk pertamanya, **Hubby Finance**, mengubah alur kerja pada workbook `Dashboard Keuangan AmBil _ 2025.xlsx` menjadi aplikasi web yang lebih nyaman dipakai.
+Hubby (Hub Bily) adalah workspace aplikasi bily. Produk pertamanya, **Hubby Finance**, mengubah alur kerja pada workbook `Dashboard Keuangan AmBil _ 2025.xlsx` menjadi aplikasi web yang lebih nyaman dipakai. Produk keduanya, **Hubby Watch**, mencatat film dan series, episode terakhir, serta total waktu menonton.
 
 ## Struktur
 
@@ -20,6 +20,16 @@ Modul pada workbook dipetakan menjadi:
 - monitor dan rebalancing investasi;
 - kalkulator KPR dan persiapan pensiun;
 - piramida keuangan dan glosarium.
+
+Hubby Watch menyediakan:
+
+- pustaka film dan series dengan status watchlist, sedang ditonton, selesai, atau dihentikan;
+- watch log per tanggal beserta durasi dan catatan;
+- posisi season dan episode terakhir;
+- ringkasan waktu menonton keseluruhan dan bulan berjalan;
+- daftar lanjut menonton dan riwayat terbaru.
+
+Setelah login, pengguna masuk ke portal Hubby untuk memilih modul. Hubby Finance tersedia di `/finance`, sedangkan Hubby Watch tersedia di `/watch`; keduanya memakai akun dan workspace yang sama, tetapi memiliki navigasi produk yang terpisah.
 
 Versi awal ini sudah memiliki dashboard, transaksi, tujuan, data investasi, financial check-up, skema data untuk seluruh modul, serta halaman perencanaan. Kalkulator KPR, pensiun, rebalancing, dan formulir konfigurasi lanjutan ditandai sebagai tahap berikutnya.
 
@@ -115,6 +125,9 @@ Buka `http://localhost:5173`. Jika API belum berjalan, frontend otomatis memakai
 | `GET`       | `/api/v1/accounts`                | Rekening dan aset               |
 | `GET/PATCH` | `/api/v1/goals`                   | Tujuan keuangan                 |
 | `GET`       | `/api/v1/investments`             | Portofolio investasi            |
+| `GET`       | `/api/v1/watch`                   | Ringkasan dan pustaka tontonan  |
+| `POST`      | `/api/v1/watch/titles`            | Menambahkan film atau series    |
+| `POST`      | `/api/v1/watch/sessions`          | Mencatat sesi menonton          |
 
 Semua nominal disimpan sebagai bilangan bulat rupiah untuk menghindari masalah pembulatan.
 

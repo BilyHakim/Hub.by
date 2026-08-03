@@ -96,7 +96,7 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
 
 <template>
   <section class="page planning-detail-page obligations-page">
-    <RouterLink class="back-link" to="/modules"><ArrowLeft :size="16" /> Kembali ke perencanaan</RouterLink>
+    <RouterLink class="back-link" to="/finance/modules"><ArrowLeft :size="16" /> Kembali ke perencanaan</RouterLink>
     <div class="page-heading compact">
       <div><p class="eyebrow">Komitmen keuangan</p><h1>Utang & piutang</h1><p>Pantau paylater, cicilan, pinjaman, dan uang yang akan diterima dari berbagai pihak.</p></div>
       <button class="primary-button" @click="openCreate"><Plus :size="17" />Tambah catatan</button>

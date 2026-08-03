@@ -30,12 +30,12 @@ async function submit() {
     <section class="login-card">
       <div class="login-brand">
         <span class="login-brand-mark"><HeartHandshake :size="29" stroke-width="1.8" /></span>
-        <div><strong>hubby</strong><small>finance</small></div>
+        <div><strong>hubby</strong><small>personal hub</small></div>
       </div>
       <div class="login-heading">
-        <p class="eyebrow">Ruang keuangan pribadi</p>
+        <p class="eyebrow">Ruang personalmu</p>
         <h1>Selamat datang kembali</h1>
-        <p>Masuk untuk melanjutkan cerita keuanganmu.</p>
+        <p>Masuk untuk membuka semua modul pribadimu.</p>
       </div>
       <form class="login-form" @submit.prevent="submit">
         <label>
@@ -61,6 +61,6 @@ async function submit() {
       </form>
       <p class="login-security"><LockKeyhole :size="13" /> Sesi dilindungi dengan cookie aman.</p>
     </section>
-    <p class="login-footnote">Hubby Finance · Ruang tenang untuk keuangan keluarga</p>
+    <p class="login-footnote">Hubby · Semua yang penting, dalam satu tempat</p>
   </main>
 </template>

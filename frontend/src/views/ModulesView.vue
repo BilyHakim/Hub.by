@@ -7,16 +7,16 @@ import {
 import { api } from '../services/api'
 
 const modules = [
-  { title: 'Rencana pengeluaran', text: 'Susun anggaran bulanan dan bandingkan otomatis dengan transaksi sebenarnya.', icon: ReceiptText, state: 'Tersedia', tone: 'sand', route: '/modules/budget' },
-  { title: 'Utang & piutang', text: 'Pantau cicilan lintas platform, tenor, pembayaran, dan sisa tagihan.', icon: HandCoins, state: 'Tersedia', tone: 'rose', route: '/modules/obligations' },
-  { title: 'Piramida keuangan', text: 'Lihat urutan prioritas dan progres fondasi keuanganmu.', icon: Pyramid, state: 'Tersedia', tone: 'sage', route: '/modules/pyramid' },
-  { title: 'Financial check-up', text: 'Periksa rasio tabungan, kewajiban, dan likuiditas.', icon: HeartPulse, state: 'Tersedia', tone: 'rose', route: '/modules/checkup' },
-  { title: 'Dana darurat', text: 'Hitung target dana aman berdasarkan kebutuhan bulanan.', icon: ShieldCheck, state: 'Tersedia', tone: 'sand', route: '/modules/emergency-fund' },
-  { title: 'Simulasi KPR', text: 'Uji uang muka, tenor, bunga, dan kemampuan cicilan.', icon: House, state: 'Tersedia', tone: 'blue', route: '/modules/mortgage' },
-  { title: 'Monitor investasi', text: 'Pantau nilai, imbal hasil, dan distribusi portofolio.', icon: ChartNoAxesCombined, state: 'Tersedia', tone: 'lilac', route: '/modules/investments' },
-  { title: 'Rebalancing', text: 'Bandingkan alokasi saat ini dengan komposisi ideal.', icon: Scale, state: 'Tersedia', tone: 'moss', route: '/modules/rebalancing' },
-  { title: 'Persiapan pensiun', text: 'Proyeksikan kebutuhan pensiun dengan pendekatan 4%.', icon: Umbrella, state: 'Tersedia', tone: 'rose', route: '/modules/retirement' },
-  { title: 'Glosarium finansial', text: 'Pahami istilah keuangan dalam bahasa yang sederhana.', icon: BookOpenText, state: 'Tersedia', tone: 'blue', route: '/modules/glossary' },
+  { title: 'Rencana pengeluaran', text: 'Susun anggaran bulanan dan bandingkan otomatis dengan transaksi sebenarnya.', icon: ReceiptText, state: 'Tersedia', tone: 'sand', route: '/finance/modules/budget' },
+  { title: 'Utang & piutang', text: 'Pantau cicilan lintas platform, tenor, pembayaran, dan sisa tagihan.', icon: HandCoins, state: 'Tersedia', tone: 'rose', route: '/finance/modules/obligations' },
+  { title: 'Piramida keuangan', text: 'Lihat urutan prioritas dan progres fondasi keuanganmu.', icon: Pyramid, state: 'Tersedia', tone: 'sage', route: '/finance/modules/pyramid' },
+  { title: 'Financial check-up', text: 'Periksa rasio tabungan, kewajiban, dan likuiditas.', icon: HeartPulse, state: 'Tersedia', tone: 'rose', route: '/finance/modules/checkup' },
+  { title: 'Dana darurat', text: 'Hitung target dana aman berdasarkan kebutuhan bulanan.', icon: ShieldCheck, state: 'Tersedia', tone: 'sand', route: '/finance/modules/emergency-fund' },
+  { title: 'Simulasi KPR', text: 'Uji uang muka, tenor, bunga, dan kemampuan cicilan.', icon: House, state: 'Tersedia', tone: 'blue', route: '/finance/modules/mortgage' },
+  { title: 'Monitor investasi', text: 'Pantau nilai, imbal hasil, dan distribusi portofolio.', icon: ChartNoAxesCombined, state: 'Tersedia', tone: 'lilac', route: '/finance/modules/investments' },
+  { title: 'Rebalancing', text: 'Bandingkan alokasi saat ini dengan komposisi ideal.', icon: Scale, state: 'Tersedia', tone: 'moss', route: '/finance/modules/rebalancing' },
+  { title: 'Persiapan pensiun', text: 'Proyeksikan kebutuhan pensiun dengan pendekatan 4%.', icon: Umbrella, state: 'Tersedia', tone: 'rose', route: '/finance/modules/retirement' },
+  { title: 'Glosarium finansial', text: 'Pahami istilah keuangan dalam bahasa yang sederhana.', icon: BookOpenText, state: 'Tersedia', tone: 'blue', route: '/finance/modules/glossary' },
 ]
 
 const loading = ref(true)
@@ -50,7 +50,7 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
         <p v-if="nextLevel">Fokus berikutnya: {{ nextLevel.title }} — {{ nextLevel.progress.toFixed(0) }}% selesai.</p>
         <p v-else>Seluruh fondasi sudah terpenuhi. Pertahankan dan evaluasi secara berkala.</p>
       </div>
-      <RouterLink class="secondary-button" to="/modules/pyramid">Lihat piramida <ArrowUpRight :size="16" /></RouterLink>
+      <RouterLink class="secondary-button" to="/finance/modules/pyramid">Lihat piramida <ArrowUpRight :size="16" /></RouterLink>
     </div>
     <div class="modules-grid">
       <article v-for="item in modules" :key="item.title" class="module-card">
