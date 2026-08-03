@@ -75,6 +75,7 @@ func NewRouter(db *pgxpool.Pool, logger *slog.Logger, frontendOrigin, omdbAPIKey
 	protected.HandleFunc("PATCH /api/v1/me", api.updateProfile)
 	protected.HandleFunc("GET /api/v1/workspaces", api.listWorkspaces)
 	protected.HandleFunc("POST /api/v1/workspaces", api.createWorkspace)
+	protected.HandleFunc("DELETE /api/v1/workspaces/{id}", api.deleteWorkspace)
 	protected.HandleFunc("PATCH /api/v1/me/workspace", api.selectWorkspace)
 	protected.HandleFunc("GET /api/v1/modules/pyramid", api.getPyramid)
 	protected.HandleFunc("PATCH /api/v1/modules/pyramid/items/{id}", api.updatePyramidItem)

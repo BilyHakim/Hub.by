@@ -35,6 +35,8 @@ Hubby Watch menyediakan:
 
 Setelah login, pengguna masuk ke portal Hubby untuk memilih modul. Hubby Finance tersedia di `/finance`, sedangkan Hubby Watch tersedia di `/watch`; keduanya memakai akun dan workspace yang sama, tetapi memiliki navigasi produk yang terpisah.
 
+Pemilik dapat menghapus ruang bersama selama masih memiliki ruang lain dan tidak ada anggota lain di ruang tersebut. Penghapusan bersifat permanen dan menghapus seluruh data Finance serta Watch dalam ruang itu.
+
 Katalog Hubby Watch memerlukan API key gratis dari [OMDb API](https://www.omdbapi.com/apikey.aspx). Simpan key hanya pada `backend/.env`:
 
 ```dotenv
@@ -135,6 +137,7 @@ Buka `http://localhost:5173`. Jika API belum berjalan, frontend otomatis memakai
 | `GET`       | `/api/v1/accounts`                | Rekening dan aset               |
 | `GET/PATCH` | `/api/v1/goals`                   | Tujuan keuangan                 |
 | `GET`       | `/api/v1/investments`             | Portofolio investasi            |
+| `DELETE`    | `/api/v1/workspaces/{id}`         | Menghapus ruang bersama         |
 | `GET`       | `/api/v1/watch`                   | Ringkasan dan pustaka tontonan  |
 | `GET`       | `/api/v1/watch/titles/{id}`       | Detail dan progres tontonan     |
 | `POST`      | `/api/v1/watch/titles`            | Menambahkan film atau series    |

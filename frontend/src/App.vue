@@ -5,7 +5,7 @@ import {
   LayoutDashboard, ArrowLeftRight, Target, Blocks, Settings,
   Bell, Search, Menu, X, HeartHandshake, ChevronDown, Plus,
   Check, Ellipsis, UserRound, SlidersHorizontal, Users, WalletCards,
-  ArrowDownLeft, ArrowUpRight, LogOut, Clapperboard, LayoutGrid,
+  ArrowDownLeft, ArrowUpRight, LogOut, Clapperboard, LayoutGrid, Trash2,
 } from '@lucide/vue'
 import { api } from './services/api'
 import LoginView from './components/LoginView.vue'
@@ -19,11 +19,16 @@ const workspaceMenuOpen = ref(false)
 const profileMenuOpen = ref(false)
 const notificationMenuOpen = ref(false)
 const createWorkspaceOpen = ref(false)
+const deleteWorkspaceOpen = ref(false)
 const profileModalOpen = ref(false)
 const savingWorkspace = ref(false)
+const deletingWorkspace = ref(false)
 const savingProfile = ref(false)
 const toast = ref('')
 const workspaceName = ref('')
+const workspaceDeleteConfirmation = ref('')
+const workspaceDeleteError = ref('')
+const workspaceToDelete = ref(null)
 const selectedWorkspaceId = ref(Number(localStorage.getItem('hubby-workspace-id')) || 1)
 
 const profile = reactive({
@@ -317,6 +322,37 @@ async function createWorkspace() {
   await selectWorkspace(created)
   notify(`${name} berhasil dibuat`)
 }
+function openDeleteWorkspace(item) {
+  workspaceMenuOpen.value = false
+  workspaceToDelete.value = item
+  workspaceDeleteConfirmation.value = ''
+  workspaceDeleteError.value = ''
+  deleteWorkspaceOpen.value = true
+}
+async function deleteWorkspace() {
+  const item = workspaceToDelete.value
+  if (!item || workspaceDeleteConfirmation.value !== item.name) return
+  deletingWorkspace.value = true
+  workspaceDeleteError.value = ''
+  try {
+    const result = await api.deleteWorkspace(item.id)
+    workspaces.value = workspaces.value.filter((workspace) => workspace.id !== item.id)
+    const current = result.currentWorkspace
+    selectedWorkspaceId.value = current.id
+    localStorage.setItem('hubby-workspace-id', String(current.id))
+    deleteWorkspaceOpen.value = false
+    workspaceToDelete.value = null
+    window.dispatchEvent(new CustomEvent('hubby:workspace-changed', {
+      detail: { workspaceId: current.id, workspaceName: current.name },
+    }))
+    notify(`${item.name} beserta seluruh datanya telah dihapus`)
+    checkForNewTransactions()
+  } catch (requestError) {
+    workspaceDeleteError.value = requestError.message
+  } finally {
+    deletingWorkspace.value = false
+  }
+}
 function openProfile() {
   profileMenuOpen.value = false
   Object.assign(profileForm, {
@@ -345,6 +381,7 @@ function handleKeydown(event) {
   if (event.key === 'Escape') {
     closeMenus()
     createWorkspaceOpen.value = false
+    deleteWorkspaceOpen.value = false
     profileModalOpen.value = false
   }
 }
@@ -407,11 +444,14 @@ onBeforeUnmount(() => {
         <Transition name="dropdown">
           <div v-if="workspaceMenuOpen" class="dropdown-menu workspace-menu">
             <div class="dropdown-title"><span>Ruang bersama</span><small>{{ workspaces.length }} ruang</small></div>
-            <button v-for="item in workspaces" :key="item.id" class="workspace-option" type="button" @click="selectWorkspace(item)">
-              <span class="avatar avatar-sage">{{ item.initials }}</span>
-              <span><strong>{{ item.name }}</strong><small>{{ item.role === 'owner' ? 'Pemilik' : 'Anggota' }}</small></span>
-              <Check v-if="item.id === selectedWorkspaceId" :size="17" />
-            </button>
+            <div v-for="item in workspaces" :key="item.id" class="workspace-option-row">
+              <button class="workspace-option" type="button" @click="selectWorkspace(item)">
+                <span class="avatar avatar-sage">{{ item.initials }}</span>
+                <span><strong>{{ item.name }}</strong><small>{{ item.role === 'owner' ? 'Pemilik' : 'Anggota' }}</small></span>
+                <Check v-if="item.id === selectedWorkspaceId" :size="17" />
+              </button>
+              <button v-if="item.role === 'owner' && workspaces.length > 1" class="workspace-delete-button" type="button" :aria-label="`Hapus ${item.name}`" @click="openDeleteWorkspace(item)"><Trash2 :size="14" /></button>
+            </div>
             <div class="dropdown-divider" />
             <button class="dropdown-action" type="button" @click="openCreateWorkspace"><Plus :size="17" /> Buat ruang baru</button>
             <RouterLink v-if="isFinance" class="dropdown-action" to="/finance/modules" @click="closeMenus"><Users :size="17" /> Kelola anggota</RouterLink>
@@ -538,6 +578,19 @@ onBeforeUnmount(() => {
           <p class="modal-description">Pisahkan rencana keluarga, pribadi, atau bisnis dalam ruang yang berbeda.</p>
           <label>Nama ruang<input v-model="workspaceName" minlength="2" maxlength="80" autofocus placeholder="Contoh: Keuangan Pribadi" required /></label>
           <button class="primary-button full-button" :disabled="savingWorkspace">{{ savingWorkspace ? 'Membuat...' : 'Buat ruang keuangan' }}</button>
+        </form>
+      </div>
+
+      <div v-if="deleteWorkspaceOpen" class="modal-backdrop" @click.self="deleteWorkspaceOpen = false">
+        <form class="modal shell-modal workspace-delete-modal" @submit.prevent="deleteWorkspace">
+          <div class="modal-heading">
+            <div><p class="eyebrow danger-eyebrow">Tindakan permanen</p><h2>Hapus ruang bersama?</h2></div>
+            <button type="button" class="icon-button" @click="deleteWorkspaceOpen = false"><X :size="20" /></button>
+          </div>
+          <p class="workspace-delete-warning">Seluruh transaksi, rekening, tujuan, investasi, film, series, dan riwayat dalam <strong>{{ workspaceToDelete?.name }}</strong> akan dihapus permanen.</p>
+          <label>Ketik <strong>{{ workspaceToDelete?.name }}</strong> untuk mengonfirmasi<input v-model="workspaceDeleteConfirmation" autocomplete="off" :placeholder="workspaceToDelete?.name" required /></label>
+          <p v-if="workspaceDeleteError" class="form-error">{{ workspaceDeleteError }}</p>
+          <button class="danger-button full-button" :disabled="deletingWorkspace || workspaceDeleteConfirmation !== workspaceToDelete?.name">{{ deletingWorkspace ? 'Menghapus...' : 'Hapus ruang dan seluruh data' }}</button>
         </form>
       </div>
 

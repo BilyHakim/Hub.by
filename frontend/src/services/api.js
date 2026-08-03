@@ -85,6 +85,7 @@ export const api = {
   updateMe: (payload) => request('/me', { method: 'PATCH', body: JSON.stringify(payload) }),
   workspaces: () => request('/workspaces'),
   createWorkspace: (name) => request('/workspaces', { method: 'POST', body: JSON.stringify({ name }) }),
+  deleteWorkspace: (id) => request(`/workspaces/${id}`, { method: 'DELETE' }),
   selectWorkspace: (workspaceId) => request('/me/workspace', {
     method: 'PATCH',
     body: JSON.stringify({ workspaceId }),

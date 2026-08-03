@@ -2,10 +2,14 @@ package httpapi
 
 import (
 	"context"
+	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type profileInput struct {
@@ -211,6 +215,100 @@ func (api *API) selectWorkspace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, envelope{"data": envelope{"currentWorkspaceId": input.WorkspaceID}})
+}
+
+func (api *API) deleteWorkspace(w http.ResponseWriter, r *http.Request) {
+	userID := authenticatedUserID(r.Context())
+	workspaceID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || workspaceID <= 0 {
+		writeError(w, http.StatusBadRequest, "invalid workspace id")
+		return
+	}
+	tx, err := api.db.Begin(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to delete workspace")
+		return
+	}
+	defer tx.Rollback(context.Background())
+
+	var role, workspaceName string
+	err = tx.QueryRow(r.Context(), `
+		SELECT wm.role,w.name FROM workspace_members wm
+		JOIN workspaces w ON w.id=wm.workspace_id
+		WHERE wm.workspace_id=$1 AND wm.user_id=$2 FOR UPDATE OF w
+	`, workspaceID, userID).Scan(&role, &workspaceName)
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeError(w, http.StatusNotFound, "workspace not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load workspace")
+		return
+	}
+	if role != "owner" {
+		writeError(w, http.StatusForbidden, "only the workspace owner can delete it")
+		return
+	}
+
+	var workspaceCount, memberCount int
+	if err = tx.QueryRow(r.Context(), `SELECT COUNT(*) FROM workspace_members WHERE user_id=$1`, userID).Scan(&workspaceCount); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to validate workspace")
+		return
+	}
+	if workspaceCount <= 1 {
+		writeError(w, http.StatusConflict, "the last workspace cannot be deleted")
+		return
+	}
+	if err = tx.QueryRow(r.Context(), `SELECT COUNT(*) FROM workspace_members WHERE workspace_id=$1`, workspaceID).Scan(&memberCount); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to validate workspace members")
+		return
+	}
+	if memberCount > 1 {
+		writeError(w, http.StatusConflict, "remove other members before deleting this workspace")
+		return
+	}
+
+	var fallbackID int64
+	var fallbackName, fallbackInitials, fallbackRole string
+	err = tx.QueryRow(r.Context(), `
+		SELECT w.id,w.name,w.initials,wm.role FROM workspace_members wm
+		JOIN workspaces w ON w.id=wm.workspace_id
+		WHERE wm.user_id=$1 AND w.id<>$2 ORDER BY w.created_at,w.id LIMIT 1
+	`, userID, workspaceID).Scan(&fallbackID, &fallbackName, &fallbackInitials, &fallbackRole)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to select replacement workspace")
+		return
+	}
+	if _, err = tx.Exec(r.Context(), `
+		UPDATE users SET current_workspace_id=$1,updated_at=now() WHERE id=$2 AND current_workspace_id=$3
+	`, fallbackID, userID, workspaceID); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to switch active workspace")
+		return
+	}
+	if _, err = tx.Exec(r.Context(), `DELETE FROM workspaces WHERE id=$1 AND owner_user_id=$2`, workspaceID, userID); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to delete workspace")
+		return
+	}
+	var currentID int64
+	var currentName, currentInitials, currentRole string
+	err = tx.QueryRow(r.Context(), `
+		SELECT w.id,w.name,w.initials,wm.role FROM users u
+		JOIN workspaces w ON w.id=u.current_workspace_id
+		JOIN workspace_members wm ON wm.workspace_id=w.id AND wm.user_id=u.id
+		WHERE u.id=$1
+	`, userID).Scan(&currentID, &currentName, &currentInitials, &currentRole)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to resolve active workspace")
+		return
+	}
+	if err = tx.Commit(r.Context()); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to delete workspace")
+		return
+	}
+	writeJSON(w, http.StatusOK, envelope{"data": envelope{
+		"deletedWorkspaceId": workspaceID, "deletedWorkspaceName": workspaceName,
+		"currentWorkspace": envelope{"id": currentID, "name": currentName, "initials": currentInitials, "role": currentRole},
+	}})
 }
 
 func makeInitials(value string) string {
