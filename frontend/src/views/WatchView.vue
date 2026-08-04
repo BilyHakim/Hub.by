@@ -24,7 +24,7 @@ const overview = ref({
   summary: { totalTitles: 0, watchingTitles: 0, completedTitles: 0, totalMinutes: 0, monthMinutes: 0 },
   titles: [], recentSessions: [], dailyActivity: [],
 })
-const titleForm = reactive({ mediaType: 'movie', title: '', genre: '', releaseYear: '', runtimeMinutes: 120, totalEpisodes: '', imdbId: '', posterUrl: '', totalSeasons: 0 })
+const titleForm = reactive({ mediaType: 'movie', title: '', genre: '', releaseYear: '', runtimeMinutes: 120, totalEpisodes: '', catalogId: '', posterUrl: '', totalSeasons: 0 })
 const sessionForm = reactive({ titleId: '', watchedAt: today(), durationMinutes: 45, seasonNumber: 1, episodeNumber: 1, episodeFrom: 1, episodeTo: 1, notes: '', isBackfill: false })
 
 const selectedTitle = computed(() => overview.value.titles.find((item) => item.id === Number(sessionForm.titleId)))
@@ -71,7 +71,7 @@ async function loadWatch() {
   finally { loading.value = false }
 }
 function openTitleModal() {
-  Object.assign(titleForm, { mediaType: 'movie', title: '', genre: '', releaseYear: '', runtimeMinutes: 120, totalEpisodes: '', imdbId: '', posterUrl: '', totalSeasons: 0 })
+  Object.assign(titleForm, { mediaType: 'movie', title: '', genre: '', releaseYear: '', runtimeMinutes: 120, totalEpisodes: '', catalogId: '', posterUrl: '', totalSeasons: 0 })
   catalogQuery.value = ''
   catalogResults.value = []
   selectedCatalog.value = null
@@ -118,7 +118,7 @@ async function selectCatalogItem(item) {
   catalogSearching.value = true
   error.value = ''
   try {
-    const detail = await api.watchCatalogTitle(item.imdbId)
+    const detail = await api.watchCatalogTitle(item.catalogId, item.mediaType)
     selectedCatalog.value = detail
     Object.assign(titleForm, { ...detail, totalEpisodes: 0 })
   } catch (requestError) { error.value = requestError.message }
@@ -131,7 +131,7 @@ async function loadSeriesData() {
   error.value = ''
   try {
     const requests = [api.watchProgress(item.id)]
-    if (item.imdbId) requests.push(api.watchCatalogSeason(item.imdbId, Number(sessionForm.seasonNumber)))
+    if (item.catalogId) requests.push(api.watchCatalogSeason(item.catalogId, Number(sessionForm.seasonNumber)))
     const [progress, catalog] = await Promise.all(requests)
     episodeProgress.value = progress.seasons
     episodeCatalog.value = catalog?.episodes || []
@@ -157,7 +157,7 @@ async function markUntilEpisode() {
   const item = selectedTitle.value
   const targetSeason = Number(sessionForm.seasonNumber)
   const targetEpisode = Number(sessionForm.episodeTo)
-  if (!item?.imdbId || targetSeason < 1 || targetEpisode < 1) {
+  if (!item?.catalogId || targetSeason < 1 || targetEpisode < 1) {
     error.value = 'Pilih season dan episode terakhir yang sudah kamu tonton.'
     return
   }
@@ -168,7 +168,7 @@ async function markUntilEpisode() {
     for (let season = 1; season <= targetSeason; season += 1) {
       const catalog = season === targetSeason && episodeCatalog.value.length
         ? { episodes: episodeCatalog.value }
-        : await api.watchCatalogSeason(item.imdbId, season)
+        : await api.watchCatalogSeason(item.catalogId, season)
       const episodeTo = season === targetSeason ? targetEpisode : catalog.episodes.at(-1)?.episodeNumber
       if (!episodeTo) continue
       await api.createWatchSessionBatch({
@@ -189,7 +189,7 @@ async function markUntilEpisode() {
 }
 async function markEntireSeries() {
   const item = selectedTitle.value
-  if (!item?.imdbId || !item.totalSeasons) {
+  if (!item?.catalogId || !item.totalSeasons) {
     error.value = 'Data jumlah season belum tersedia untuk series ini.'
     return
   }
@@ -198,7 +198,7 @@ async function markEntireSeries() {
   error.value = ''
   try {
     for (let season = 1; season <= item.totalSeasons; season += 1) {
-      const catalog = await api.watchCatalogSeason(item.imdbId, season)
+      const catalog = await api.watchCatalogSeason(item.catalogId, season)
       const lastEpisode = catalog.episodes.at(-1)?.episodeNumber
       if (!lastEpisode) continue
       await api.createWatchSessionBatch({
@@ -229,7 +229,7 @@ async function addTitle() {
       releaseYear: Number(titleForm.releaseYear || 0),
       runtimeMinutes: Number(titleForm.runtimeMinutes),
       totalEpisodes: 0,
-      imdbId: titleForm.imdbId,
+      catalogId: titleForm.catalogId,
       posterUrl: titleForm.posterUrl,
       totalSeasons: Number(titleForm.totalSeasons || 0),
     })
@@ -382,10 +382,10 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
       <div v-if="titleModalOpen" class="modal-backdrop" @click.self="titleModalOpen = false">
         <form class="modal watch-modal watch-catalog-modal" @submit.prevent="addTitle">
           <button class="modal-close" type="button" aria-label="Tutup" @click="titleModalOpen = false"><X :size="18" /></button>
-          <p class="eyebrow">Katalog OMDb</p><h2>Cari film atau series</h2><p class="modal-description">Cari judul dari OMDb, lalu tambahkan hasil yang tepat ke pustakamu.</p>
+          <p class="eyebrow">Katalog TMDB</p><h2>Cari film atau series</h2><p class="modal-description">Cari judul dari TMDB, lalu tambahkan hasil yang tepat ke pustakamu.</p>
           <label>Cari judul<span class="catalog-search-input"><Search :size="17" /><input v-model.trim="catalogQuery" autofocus placeholder="Contoh: Breaking Bad" @keydown.enter.prevent="searchCatalog" /><button type="button" :disabled="catalogSearching || catalogQuery.length < 2" @click="searchCatalog">{{ catalogSearching ? 'Mencari...' : 'Cari' }}</button></span></label>
           <div v-if="catalogResults.length && !selectedCatalog" class="catalog-results">
-            <button v-for="item in catalogResults" :key="item.imdbId" type="button" @click="selectCatalogItem(item)">
+            <button v-for="item in catalogResults" :key="item.catalogId" type="button" @click="selectCatalogItem(item)">
               <span class="catalog-poster"><img v-if="item.posterUrl" :src="item.posterUrl" alt="" /><Film v-else :size="20" /></span>
               <span><strong>{{ item.title }}</strong><small>{{ item.mediaType === 'series' ? 'Series' : 'Film' }} · {{ item.year }}</small></span><Plus :size="17" />
             </button>
@@ -395,7 +395,7 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
             <div><small>{{ selectedCatalog.mediaType === 'series' ? 'Series' : 'Film' }} · {{ selectedCatalog.releaseYear }}</small><strong>{{ selectedCatalog.title }}</strong><p>{{ selectedCatalog.genre }}<template v-if="selectedCatalog.totalSeasons"> · {{ selectedCatalog.totalSeasons }} season</template> · {{ selectedCatalog.runtimeMinutes }} menit</p><button type="button" @click="selectedCatalog = null">Pilih judul lain</button></div>
           </article>
           <p v-if="error" class="form-error">{{ error }}</p><button class="primary-button full-button" :disabled="saving || !selectedCatalog">{{ saving ? 'Menambahkan...' : 'Tambahkan ke pustaka' }}</button>
-          <p class="catalog-attribution">Data judul disediakan oleh OMDb API.</p>
+          <p class="catalog-attribution"><a href="https://www.themoviedb.org" target="_blank" rel="noopener noreferrer"><img src="https://www.themoviedb.org/assets/2/v4/logos/v2/blue_long_2-9665a76b1ae401a510ec1e0ca40ddcb3b0cfe45f1d51b77a308fea0845885648.svg" alt="The Movie Database (TMDB)" /></a><span>This product uses the TMDB API but is not endorsed or certified by TMDB.</span></p>
         </form>
       </div>
 
@@ -416,7 +416,7 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
               <label>Episode awal<select v-if="episodeCatalog.length" v-model="sessionForm.episodeFrom" @change="handleEpisodeFromChange"><option v-for="episode in episodeCatalog" :key="episode.episodeNumber" :value="episode.episodeNumber">E{{ episode.episodeNumber }} · {{ episode.title }}</option></select><input v-else v-model="sessionForm.episodeFrom" type="number" min="1" required /></label>
               <label>Episode akhir<select v-if="episodeCatalog.length" v-model="sessionForm.episodeTo"><option v-for="episode in availableEndEpisodes" :key="episode.episodeNumber" :value="episode.episodeNumber">E{{ episode.episodeNumber }} · {{ episode.title }}</option></select><input v-else v-model="sessionForm.episodeTo" type="number" :min="sessionForm.episodeFrom" required /></label>
             </div>
-            <p v-if="loadingEpisodes" class="episode-loading">Memuat episode dari OMDb...</p>
+            <p v-if="loadingEpisodes" class="episode-loading">Memuat episode dari TMDB...</p>
             <div v-else-if="episodeCatalog.length" class="episode-preview">
               <span v-for="episode in episodeCatalog" :key="episode.episodeNumber" :class="{ watched: watchedEpisodeNumbers.includes(episode.episodeNumber), selected: episode.episodeNumber >= sessionForm.episodeFrom && episode.episodeNumber <= sessionForm.episodeTo }" :title="episode.title">{{ episode.episodeNumber }}<Check v-if="watchedEpisodeNumbers.includes(episode.episodeNumber)" :size="10" /></span>
             </div>

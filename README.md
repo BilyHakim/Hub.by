@@ -23,7 +23,7 @@ Modul pada workbook dipetakan menjadi:
 
 Hubby Watch menyediakan:
 
-- pencarian katalog film dan series melalui OMDb;
+- pencarian katalog film dan series melalui TMDB;
 - pustaka dengan poster dan status watchlist, sedang ditonton, selesai, atau dihentikan;
 - watch log per tanggal beserta durasi dan catatan;
 - daftar season/episode serta pencatatan rentang episode yang sudah selesai;
@@ -37,10 +37,10 @@ Setelah login, pengguna masuk ke portal Hubby untuk memilih modul. Hubby Finance
 
 Pemilik dapat menghapus ruang bersama selama masih memiliki ruang lain dan tidak ada anggota lain di ruang tersebut. Penghapusan bersifat permanen dan menghapus seluruh data Finance serta Watch dalam ruang itu.
 
-Katalog Hubby Watch memerlukan API key gratis dari [OMDb API](https://www.omdbapi.com/apikey.aspx). Simpan key hanya pada `backend/.env`:
+Katalog Hubby Watch memerlukan API Read Access Token dari [TMDB](https://www.themoviedb.org/settings/api). Simpan token hanya pada `backend/.env`:
 
 ```dotenv
-OMDB_API_KEY=your_free_omdb_api_key
+TMDB_API_TOKEN=your_tmdb_api_read_access_token
 ```
 
 Versi awal ini sudah memiliki dashboard, transaksi, tujuan, data investasi, financial check-up, skema data untuk seluruh modul, serta halaman perencanaan. Kalkulator KPR, pensiun, rebalancing, dan formulir konfigurasi lanjutan ditandai sebagai tahap berikutnya.
@@ -143,7 +143,7 @@ Buka `http://localhost:5173`. Jika API belum berjalan, frontend otomatis memakai
 | `POST`      | `/api/v1/watch/titles`            | Menambahkan film atau series    |
 | `POST`      | `/api/v1/watch/sessions`          | Mencatat sesi menonton          |
 | `POST`      | `/api/v1/watch/sessions/batch`    | Menandai rentang episode        |
-| `GET`       | `/api/v1/watch/catalog/search`    | Mencari katalog OMDb            |
+| `GET`       | `/api/v1/watch/catalog/search`    | Mencari katalog TMDB            |
 
 Semua nominal disimpan sebagai bilangan bulat rupiah untuk menghindari masalah pembulatan.
 

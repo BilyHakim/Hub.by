@@ -13,7 +13,7 @@ type Config struct {
 	FrontendOrigin      string
 	AuthEmail           string
 	AuthInitialPassword string
-	OMDbAPIKey          string
+	TMDBAPIToken        string
 	TelegramBotToken    string
 	TelegramPairingCode string
 	TelegramLocalUserID int64
@@ -31,7 +31,7 @@ func Load() Config {
 		FrontendOrigin:      valueOrDefault("FRONTEND_ORIGIN", "http://localhost:5173"),
 		AuthEmail:           valueOrDefault("AUTH_EMAIL", "bily@hubby.local"),
 		AuthInitialPassword: os.Getenv("AUTH_INITIAL_PASSWORD"),
-		OMDbAPIKey:          os.Getenv("OMDB_API_KEY"),
+		TMDBAPIToken:        os.Getenv("TMDB_API_TOKEN"),
 		TelegramBotToken:    os.Getenv("TELEGRAM_BOT_TOKEN"),
 		TelegramPairingCode: os.Getenv("TELEGRAM_PAIRING_CODE"),
 		TelegramLocalUserID: int64OrDefault("TELEGRAM_LOCAL_USER_ID", 1),

@@ -18,7 +18,7 @@ type watchTitleInput struct {
 	ReleaseYear    int    `json:"releaseYear"`
 	RuntimeMinutes int    `json:"runtimeMinutes"`
 	TotalEpisodes  int    `json:"totalEpisodes"`
-	IMDbID         string `json:"imdbId"`
+	CatalogID      string `json:"catalogId"`
 	PosterURL      string `json:"posterUrl"`
 	TotalSeasons   int    `json:"totalSeasons"`
 }
@@ -72,7 +72,7 @@ func (api *API) getWatchOverview(w http.ResponseWriter, r *http.Request) {
 		       COALESCE(t.total_episodes,0),t.status,COALESCE(stats.minutes,0),COALESCE(stats.sessions,0),
 		       COALESCE(TO_CHAR(last_session.watched_at,'YYYY-MM-DD'),''),
 		       COALESCE(last_session.season_number,0),COALESCE(last_session.episode_number,0),
-		       t.imdb_id,t.poster_url,COALESCE(t.total_seasons,0)
+		       t.catalog_id,t.poster_url,COALESCE(t.total_seasons,0)
 		FROM watch_titles t
 		LEFT JOIN LATERAL (
 			SELECT SUM(duration_minutes) AS minutes,COUNT(*) AS sessions
@@ -94,16 +94,16 @@ func (api *API) getWatchOverview(w http.ResponseWriter, r *http.Request) {
 	titles := make([]envelope, 0)
 	for rows.Next() {
 		var id int64
-		var title, mediaType, genre, status, lastWatchedAt, imdbID, posterURL string
+		var title, mediaType, genre, status, lastWatchedAt, catalogID, posterURL string
 		var releaseYear, runtimeMinutes, totalEpisodes, minutes, sessions, season, episode, totalSeasons int
 		if rows.Scan(&id, &title, &mediaType, &genre, &releaseYear, &runtimeMinutes, &totalEpisodes,
-			&status, &minutes, &sessions, &lastWatchedAt, &season, &episode, &imdbID, &posterURL, &totalSeasons) == nil {
+			&status, &minutes, &sessions, &lastWatchedAt, &season, &episode, &catalogID, &posterURL, &totalSeasons) == nil {
 			titles = append(titles, envelope{
 				"id": id, "title": title, "mediaType": mediaType, "genre": genre,
 				"releaseYear": releaseYear, "runtimeMinutes": runtimeMinutes, "totalEpisodes": totalEpisodes,
 				"status": status, "watchedMinutes": minutes, "sessionCount": sessions,
 				"lastWatchedAt": lastWatchedAt, "lastSeason": season, "lastEpisode": episode,
-				"imdbId": imdbID, "posterUrl": posterURL, "totalSeasons": totalSeasons,
+				"catalogId": catalogID, "posterUrl": posterURL, "totalSeasons": totalSeasons,
 			})
 		}
 	}
@@ -174,11 +174,11 @@ func (api *API) getWatchTitleDetail(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid watch title id")
 		return
 	}
-	var title, mediaType, genre, status, imdbID, posterURL, lastWatchedAt string
+	var title, mediaType, genre, status, catalogID, posterURL, lastWatchedAt string
 	var releaseYear, runtimeMinutes, totalEpisodes, totalSeasons, watchedMinutes, sessionCount, lastSeason, lastEpisode int
 	err = api.db.QueryRow(r.Context(), `
 		SELECT t.title,t.media_type,t.genre,COALESCE(t.release_year,0),t.runtime_minutes,
-		       COALESCE(t.total_episodes,0),COALESCE(t.total_seasons,0),t.status,t.imdb_id,t.poster_url,
+		       COALESCE(t.total_episodes,0),COALESCE(t.total_seasons,0),t.status,t.catalog_id,t.poster_url,
 		       COALESCE(stats.minutes,0),COALESCE(stats.sessions,0),
 		       COALESCE(TO_CHAR(last_session.watched_at,'YYYY-MM-DD'),''),
 		       COALESCE(last_session.season_number,0),COALESCE(last_session.episode_number,0)
@@ -187,7 +187,7 @@ func (api *API) getWatchTitleDetail(w http.ResponseWriter, r *http.Request) {
 		LEFT JOIN LATERAL (SELECT watched_at,season_number,episode_number FROM watch_sessions WHERE title_id=t.id ORDER BY watched_at DESC,id DESC LIMIT 1) last_session ON TRUE
 		WHERE t.id=$1 AND t.workspace_id=$2
 	`, titleID, workspaceID).Scan(&title, &mediaType, &genre, &releaseYear, &runtimeMinutes,
-		&totalEpisodes, &totalSeasons, &status, &imdbID, &posterURL, &watchedMinutes, &sessionCount,
+		&totalEpisodes, &totalSeasons, &status, &catalogID, &posterURL, &watchedMinutes, &sessionCount,
 		&lastWatchedAt, &lastSeason, &lastEpisode)
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeError(w, http.StatusNotFound, "title not found in active workspace")
@@ -240,7 +240,7 @@ func (api *API) getWatchTitleDetail(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, envelope{"data": envelope{
 		"title": envelope{"id": titleID, "title": title, "mediaType": mediaType, "genre": genre,
 			"releaseYear": releaseYear, "runtimeMinutes": runtimeMinutes, "totalEpisodes": totalEpisodes,
-			"totalSeasons": totalSeasons, "status": status, "imdbId": imdbID, "posterUrl": posterURL,
+			"totalSeasons": totalSeasons, "status": status, "catalogId": catalogID, "posterUrl": posterURL,
 			"watchedMinutes": watchedMinutes, "sessionCount": sessionCount, "lastWatchedAt": lastWatchedAt,
 			"lastSeason": lastSeason, "lastEpisode": lastEpisode},
 		"sessions": sessions, "seasons": seasons,
@@ -264,10 +264,10 @@ func (api *API) createWatchTitle(w http.ResponseWriter, r *http.Request) {
 	}
 	var id int64
 	err = api.db.QueryRow(r.Context(), `
-		INSERT INTO watch_titles(workspace_id,title,media_type,genre,release_year,runtime_minutes,total_episodes,imdb_id,poster_url,total_seasons)
+		INSERT INTO watch_titles(workspace_id,title,media_type,genre,release_year,runtime_minutes,total_episodes,catalog_id,poster_url,total_seasons)
 		VALUES($1,$2,$3,$4,NULLIF($5,0),$6,NULLIF($7,0),$8,$9,NULLIF($10,0)) RETURNING id
 	`, workspaceID, input.Title, input.MediaType, input.Genre, input.ReleaseYear,
-		input.RuntimeMinutes, input.TotalEpisodes, input.IMDbID, input.PosterURL, input.TotalSeasons).Scan(&id)
+		input.RuntimeMinutes, input.TotalEpisodes, input.CatalogID, input.PosterURL, input.TotalSeasons).Scan(&id)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
@@ -530,7 +530,7 @@ func validWatchTitle(input *watchTitleInput) bool {
 	input.Title = strings.TrimSpace(input.Title)
 	input.MediaType = strings.TrimSpace(input.MediaType)
 	input.Genre = strings.TrimSpace(input.Genre)
-	input.IMDbID = strings.TrimSpace(input.IMDbID)
+	input.CatalogID = strings.TrimSpace(input.CatalogID)
 	input.PosterURL = strings.TrimSpace(input.PosterURL)
 	if input.MediaType == "movie" {
 		input.TotalEpisodes = 0
@@ -540,7 +540,7 @@ func validWatchTitle(input *watchTitleInput) bool {
 		(input.ReleaseYear == 0 || input.ReleaseYear >= 1888 && input.ReleaseYear <= 2200) &&
 		input.RuntimeMinutes >= 1 && input.RuntimeMinutes <= 1440 &&
 		(input.MediaType == "movie" || input.TotalEpisodes >= 0) &&
-		(input.IMDbID == "" || validIMDbID(input.IMDbID)) && len(input.PosterURL) <= 1000 &&
+		(input.CatalogID == "" || validCatalogID(input.CatalogID)) && len(input.PosterURL) <= 1000 &&
 		input.TotalSeasons >= 0 && input.TotalSeasons <= 100
 }
 
@@ -565,6 +565,6 @@ func watchTitleResponse(id int64, input watchTitleInput) envelope {
 		"releaseYear": input.ReleaseYear, "runtimeMinutes": input.RuntimeMinutes,
 		"totalEpisodes": input.TotalEpisodes, "status": "planned", "watchedMinutes": 0,
 		"sessionCount": 0, "lastWatchedAt": "", "lastSeason": 0, "lastEpisode": 0,
-		"imdbId": input.IMDbID, "posterUrl": input.PosterURL, "totalSeasons": input.TotalSeasons,
+		"catalogId": input.CatalogID, "posterUrl": input.PosterURL, "totalSeasons": input.TotalSeasons,
 	}
 }

@@ -28,9 +28,9 @@ function formatDate(value) {
 }
 function statusLabel(status) { return { planned: 'Watchlist', watching: 'Sedang ditonton', completed: 'Selesai', dropped: 'Dihentikan' }[status] || status }
 async function loadSeason() {
-  if (title.value.mediaType !== 'series' || !title.value.imdbId) return
+  if (title.value.mediaType !== 'series' || !title.value.catalogId) return
   loadingSeason.value = true
-  try { seasonCatalog.value = (await api.watchCatalogSeason(title.value.imdbId, selectedSeason.value)).episodes }
+  try { seasonCatalog.value = (await api.watchCatalogSeason(title.value.catalogId, selectedSeason.value)).episodes }
   catch (requestError) { error.value = requestError.message; seasonCatalog.value = [] }
   finally { loadingSeason.value = false }
 }
@@ -40,8 +40,8 @@ async function loadDetail() {
   try {
     detail.value = await api.watchTitle(route.params.id)
     selectedSeason.value = detail.value.title.lastSeason || 1
-    if (detail.value.title.imdbId) {
-      catalogDetail.value = await api.watchCatalogTitle(detail.value.title.imdbId).catch(() => null)
+    if (detail.value.title.catalogId) {
+      catalogDetail.value = await api.watchCatalogTitle(detail.value.title.catalogId, detail.value.title.mediaType).catch(() => null)
     }
     await loadSeason()
   } catch (requestError) { error.value = requestError.message }
@@ -81,7 +81,7 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
           <p v-if="loadingSeason" class="detail-muted">Memuat episode...</p>
           <div v-else class="detail-episode-list">
             <article v-for="episode in seasonCatalog" :key="episode.episodeNumber" :class="{ watched: watchedEpisodes.includes(episode.episodeNumber) }">
-              <span>{{ episode.episodeNumber }}</span><div><strong>{{ episode.title }}</strong><small>{{ episode.released || 'Tanggal tidak tersedia' }}<template v-if="episode.imdbRating"> · <Star :size="10" fill="currentColor" /> {{ episode.imdbRating }}</template></small></div><Check v-if="watchedEpisodes.includes(episode.episodeNumber)" :size="17" />
+              <span>{{ episode.episodeNumber }}</span><div><strong>{{ episode.title }}</strong><small>{{ episode.released || 'Tanggal tidak tersedia' }}<template v-if="episode.rating"> · <Star :size="10" fill="currentColor" /> {{ episode.rating }}</template></small></div><Check v-if="watchedEpisodes.includes(episode.episodeNumber)" :size="17" />
             </article>
           </div>
         </section>

@@ -542,7 +542,10 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
 .episode-preview > span.watched { color: var(--sage); border-color: #b9cbc1; background: var(--sage-light); }
 .episode-preview > span.watched.selected { color: white; background: var(--sage-dark); }
 .episode-range-summary { margin-top: -3px; padding: 8px 9px; border-radius: 8px; background: var(--sand-light); color: #7b5b35; }
-.catalog-attribution { margin: 10px 0 -5px; color: #9aa19c; font-size: 8px; text-align: center; }
+.catalog-attribution { display: flex; align-items: center; justify-content: center; gap: 9px; margin: 10px 0 -5px; color: #9aa19c; font-size: 8px; text-align: left; }
+.catalog-attribution a { display: inline-flex; flex: none; }
+.catalog-attribution img { width: 78px; height: auto; display: block; }
+.catalog-attribution span { max-width: 265px; }
 .episode-bulk-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin: -3px 0 14px; }
 .episode-bulk-actions button { min-height: 35px; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 5px 8px; color: var(--sage); border: 1px solid #c8d6ce; border-radius: 9px; background: var(--sage-light); font-size: 9px; font-weight: 700; cursor: pointer; }
 .episode-bulk-actions button:nth-child(2) { color: #8a612e; border-color: #ead6b8; background: var(--sand-light); }
