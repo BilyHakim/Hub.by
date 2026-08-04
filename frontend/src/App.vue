@@ -6,6 +6,7 @@ import {
   Bell, Search, Menu, X, HeartHandshake, ChevronDown, Plus,
   Check, Ellipsis, UserRound, SlidersHorizontal, Users, WalletCards,
   ArrowDownLeft, ArrowUpRight, LogOut, Clapperboard, LayoutGrid, Trash2,
+  ChevronLeft,
 } from '@lucide/vue'
 import { api } from './services/api'
 import LoginView from './components/LoginView.vue'
@@ -15,6 +16,7 @@ const router = useRouter()
 const authChecking = ref(true)
 const authenticated = ref(false)
 const sidebarOpen = ref(false)
+const sidebarHidden = ref(false)
 const workspaceMenuOpen = ref(false)
 const profileMenuOpen = ref(false)
 const notificationMenuOpen = ref(false)
@@ -107,6 +109,14 @@ function closeMenus() {
   workspaceMenuOpen.value = false
   profileMenuOpen.value = false
   notificationMenuOpen.value = false
+}
+function showSidebar() {
+  if (window.matchMedia('(max-width: 800px)').matches) sidebarOpen.value = true
+  else sidebarHidden.value = false
+}
+function hideSidebar() {
+  closeMenus()
+  sidebarHidden.value = true
 }
 function toggleWorkspaceMenu() {
   profileMenuOpen.value = false
@@ -423,7 +433,7 @@ onBeforeUnmount(() => {
     </header>
     <RouterView />
   </div>
-  <div v-else class="app-shell">
+  <div v-else class="app-shell" :class="{ 'sidebar-hidden': sidebarHidden }">
     <div v-if="sidebarOpen" class="sidebar-backdrop" @click="sidebarOpen = false" />
     <aside class="sidebar" :class="{ 'is-open': sidebarOpen }">
       <div class="brand">
@@ -432,6 +442,7 @@ onBeforeUnmount(() => {
           <strong>hubby</strong>
           <small>{{ productName }}</small>
         </span>
+        <button class="sidebar-toggle" type="button" aria-label="Sembunyikan navigasi" title="Sembunyikan navigasi" @click="hideSidebar"><ChevronLeft :size="19" /></button>
         <button class="icon-button mobile-close" aria-label="Tutup menu" @click="sidebarOpen = false"><X :size="19" /></button>
       </div>
 
@@ -495,7 +506,7 @@ onBeforeUnmount(() => {
 
     <main class="main-content">
       <header class="topbar">
-        <button class="icon-button menu-button" aria-label="Buka menu" @click="sidebarOpen = true"><Menu :size="21" /></button>
+        <button class="icon-button menu-button" :class="{ 'desktop-visible': sidebarHidden }" aria-label="Tampilkan navigasi" title="Tampilkan navigasi" @click="showSidebar"><Menu :size="21" /></button>
         <div class="search-box">
           <Search :size="18" />
           <input aria-label="Cari" :placeholder="searchPlaceholder" />
