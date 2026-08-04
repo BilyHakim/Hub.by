@@ -152,7 +152,6 @@ function handleEpisodeFromChange() {
 function selectEntireSeason() {
   sessionForm.episodeFrom = 1
   sessionForm.episodeTo = episodeCatalog.value.at(-1)?.episodeNumber || 1
-  sessionForm.isBackfill = true
 }
 async function markUntilEpisode() {
   const item = selectedTitle.value
@@ -179,8 +178,8 @@ async function markUntilEpisode() {
         seasonNumber: season,
         episodeFrom: 1,
         episodeTo,
-        notes: 'Impor progres tontonan lama',
-        isBackfill: true,
+        notes: sessionForm.notes,
+        isBackfill: sessionForm.isBackfill,
       })
     }
     sessionModalOpen.value = false
@@ -209,8 +208,8 @@ async function markEntireSeries() {
         seasonNumber: season,
         episodeFrom: 1,
         episodeTo: lastEpisode,
-        notes: 'Impor riwayat tontonan lama',
-        isBackfill: true,
+        notes: sessionForm.notes,
+        isBackfill: sessionForm.isBackfill,
       })
     }
     await api.updateWatchTitleStatus(item.id, 'completed')
@@ -282,8 +281,8 @@ async function changeStatus(item, event) {
         durationMinutes: item.runtimeMinutes,
         seasonNumber: 0,
         episodeNumber: 0,
-        notes: 'Impor film yang sudah ditonton',
-        isBackfill: true,
+        notes: 'Film ditandai selesai',
+        isBackfill: false,
       })
     } else {
       await api.updateWatchTitleStatus(item.id, nextStatus)
