@@ -84,6 +84,7 @@ export const api = {
   books: () => request('/books'),
   bookTitle: (id) => request(`/books/titles/${id}`),
   createBookTitle: (payload) => request('/books/titles', { method: 'POST', body: JSON.stringify(payload) }),
+  updateBookTitle: (id, payload) => request(`/books/titles/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   updateBookTitleStatus: (id, status) => request(`/books/titles/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
   deleteBookTitle: (id) => request(`/books/titles/${id}`, { method: 'DELETE' }),
   createReadingSession: (payload) => request('/books/sessions', { method: 'POST', body: JSON.stringify(payload) }),

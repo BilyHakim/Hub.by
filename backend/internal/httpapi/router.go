@@ -74,6 +74,7 @@ func NewRouter(db *pgxpool.Pool, logger *slog.Logger, frontendOrigin, tmdbAPITok
 	protected.HandleFunc("GET /api/v1/books", api.getBooksOverview)
 	protected.HandleFunc("GET /api/v1/books/titles/{id}", api.getBookTitleDetail)
 	protected.HandleFunc("POST /api/v1/books/titles", api.createBookTitle)
+	protected.HandleFunc("PUT /api/v1/books/titles/{id}", api.updateBookTitle)
 	protected.HandleFunc("PATCH /api/v1/books/titles/{id}", api.updateBookTitleStatus)
 	protected.HandleFunc("DELETE /api/v1/books/titles/{id}", api.deleteBookTitle)
 	protected.HandleFunc("POST /api/v1/books/sessions", api.createReadingSession)

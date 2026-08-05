@@ -218,6 +218,60 @@ func (api *API) createBookTitle(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, envelope{"data": bookEnvelope(id, input.Title, input.Author, input.Description, input.CoverURL, "planned", input.CatalogID, "", input.PublishYear, input.TotalPages, 0, 0)})
 }
 
+func (api *API) updateBookTitle(w http.ResponseWriter, r *http.Request) {
+	workspaceID, err := api.currentWorkspaceID(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to resolve active workspace")
+		return
+	}
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid book id")
+		return
+	}
+	var input bookTitleInput
+	if decodeJSON(r, &input) != nil {
+		writeError(w, http.StatusBadRequest, "invalid book request body")
+		return
+	}
+	// The catalog association belongs to the original entry and is not editable.
+	input.CatalogID = ""
+	if !validBookTitle(&input) {
+		writeError(w, http.StatusUnprocessableEntity, "invalid book values")
+		return
+	}
+
+	var updatedID int64
+	err = api.db.QueryRow(r.Context(), `
+		UPDATE book_titles b
+		SET title=$1,author=$2,description=$3,cover_url=$4,publish_year=NULLIF($5,0),total_pages=$6,updated_at=now()
+		WHERE b.id=$7 AND b.workspace_id=$8
+		  AND $6 >= COALESCE((SELECT MAX(s.end_page) FROM reading_sessions s WHERE s.title_id=b.id),0)
+		RETURNING b.id
+	`, input.Title, input.Author, input.Description, input.CoverURL, input.PublishYear, input.TotalPages, id, workspaceID).Scan(&updatedID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		var exists bool
+		if lookupErr := api.db.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM book_titles WHERE id=$1 AND workspace_id=$2)`, id, workspaceID).Scan(&exists); lookupErr != nil {
+			writeError(w, http.StatusInternalServerError, "failed to update book")
+			return
+		}
+		if !exists {
+			writeError(w, http.StatusNotFound, "book not found in active workspace")
+			return
+		}
+		writeError(w, http.StatusUnprocessableEntity, "total pages cannot be lower than the current reading progress")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to update book")
+		return
+	}
+	writeJSON(w, http.StatusOK, envelope{"data": envelope{
+		"id": updatedID, "title": input.Title, "author": input.Author, "description": input.Description,
+		"coverUrl": input.CoverURL, "publishYear": input.PublishYear, "totalPages": input.TotalPages,
+	}})
+}
+
 func (api *API) updateBookTitleStatus(w http.ResponseWriter, r *http.Request) {
 	workspaceID, err := api.currentWorkspaceID(r.Context())
 	id, parseErr := strconv.ParseInt(r.PathValue("id"), 10, 64)

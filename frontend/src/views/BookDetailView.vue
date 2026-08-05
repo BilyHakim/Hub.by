@@ -1,13 +1,16 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { ArrowLeft, BookOpen, CalendarDays, Clock3, History, Library, Trash2 } from '@lucide/vue'
+import { ArrowLeft, BookOpen, CalendarDays, Clock3, History, Library, Pencil, Trash2, X } from '@lucide/vue'
 import { api } from '../services/api'
 
 const route = useRoute()
 const loading = ref(true)
+const saving = ref(false)
 const error = ref('')
+const editModalOpen = ref(false)
 const detail = ref({ title: {}, sessions: [] })
+const editForm = reactive({ title: '', author: '', description: '', coverUrl: '', publishYear: 0, totalPages: 1 })
 const title = computed(() => detail.value.title || {})
 const progress = computed(() => title.value.totalPages ? Math.min(100, Math.round((title.value.currentPage / title.value.totalPages) * 100)) : 0)
 const firstReadAt = computed(() => {
@@ -32,6 +35,35 @@ function formatDate(value) {
   return new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(`${value}T00:00:00`))
 }
 function statusLabel(status) { return { planned: 'Ingin dibaca', reading: 'Sedang dibaca', completed: 'Selesai', dropped: 'Dihentikan' }[status] || status }
+function openEditModal() {
+  Object.assign(editForm, {
+    title: title.value.title || '',
+    author: title.value.author || '',
+    description: title.value.description || '',
+    coverUrl: title.value.coverUrl || '',
+    publishYear: title.value.publishYear || 0,
+    totalPages: title.value.totalPages || 1,
+  })
+  error.value = ''
+  editModalOpen.value = true
+}
+async function saveBook() {
+  saving.value = true
+  error.value = ''
+  try {
+    await api.updateBookTitle(title.value.id, {
+      title: editForm.title,
+      author: editForm.author,
+      description: editForm.description,
+      coverUrl: editForm.coverUrl,
+      publishYear: Number(editForm.publishYear || 0),
+      totalPages: Number(editForm.totalPages),
+    })
+    editModalOpen.value = false
+    await loadDetail()
+  } catch (requestError) { error.value = requestError.message }
+  finally { saving.value = false }
+}
 async function loadDetail() {
   loading.value = true
   error.value = ''
@@ -58,7 +90,7 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
       <section class="watch-detail-hero watch-panel">
         <span class="detail-poster"><img v-if="title.coverUrl" :src="title.coverUrl" :alt="`Sampul ${title.title}`" /><BookOpen v-else :size="42" /></span>
         <div class="detail-copy">
-          <div class="detail-badges"><span>Buku</span><span :class="`status-${title.status}`">{{ statusLabel(title.status) }}</span></div>
+          <div class="detail-heading-row"><div class="detail-badges"><span>Buku</span><span :class="`status-${title.status}`">{{ statusLabel(title.status) }}</span></div><button class="detail-edit-button" type="button" @click="openEditModal"><Pencil :size="14" /> Edit buku</button></div>
           <h1>{{ title.title }}</h1>
           <p class="detail-meta">{{ title.author || 'Penulis tidak diketahui' }}<template v-if="title.publishYear"> · {{ title.publishYear }}</template></p>
           <p class="detail-plot">{{ title.description || 'Buku ini ditambahkan dari katalog Open Library. Catat progres membaca untuk melihat perjalananmu.' }}</p>
@@ -71,5 +103,26 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
         <aside class="watch-panel detail-history-panel"><div class="watch-section-heading"><div><p class="eyebrow">Reading log</p><h2>Riwayat membaca</h2></div><History :size="19" /></div><div v-if="!detail.sessions.length" class="watch-empty compact"><BookOpen :size="25" /><strong>Belum ada progres</strong></div><div v-else class="detail-history-list"><article v-for="session in detail.sessions" :key="session.id"><span class="history-dot" /><div><strong>Halaman {{ session.startPage + 1 }}–{{ session.endPage }}</strong><span>{{ session.pagesRead }} halaman dibaca</span><small>{{ formatDate(session.readAt) }}</small></div><button @click="removeSession(session)"><Trash2 :size="14" /></button></article></div></aside>
       </div>
     </template>
+
+    <Teleport to="body">
+      <div v-if="editModalOpen" class="modal-backdrop" @click.self="editModalOpen = false">
+        <form class="modal watch-modal book-edit-modal" @submit.prevent="saveBook">
+          <button class="modal-close" type="button" @click="editModalOpen = false"><X :size="18" /></button>
+          <p class="eyebrow">Pustaka buku</p>
+          <h2>Edit buku</h2>
+          <p class="modal-description">Perbarui informasi buku tanpa mengubah riwayat membacamu.</p>
+          <label>Judul buku<input v-model.trim="editForm.title" maxlength="200" required /></label>
+          <div class="form-grid">
+            <label>Penulis (opsional)<input v-model.trim="editForm.author" maxlength="200" placeholder="Nama penulis" /></label>
+            <label>Tahun terbit (opsional)<input v-model="editForm.publishYear" type="number" min="1000" max="2200" placeholder="2026" /></label>
+          </div>
+          <label>Jumlah halaman<input v-model="editForm.totalPages" type="number" :min="Math.max(1, title.currentPage || 0)" max="100000" required /><small class="field-help">Tidak boleh lebih kecil dari progres saat ini ({{ title.currentPage }} halaman).</small></label>
+          <label>URL sampul (opsional)<input v-model.trim="editForm.coverUrl" type="url" maxlength="1000" placeholder="https://contoh.com/sampul.jpg" /></label>
+          <label>Deskripsi (opsional)<textarea v-model.trim="editForm.description" maxlength="4000" rows="4" placeholder="Sinopsis atau catatan singkat tentang buku" /></label>
+          <p v-if="error" class="form-error">{{ error }}</p>
+          <button class="primary-button full-button" :disabled="saving">{{ saving ? 'Menyimpan...' : 'Simpan perubahan' }}</button>
+        </form>
+      </div>
+    </Teleport>
   </section>
 </template>

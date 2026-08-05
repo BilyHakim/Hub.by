@@ -580,6 +580,7 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
 .detail-poster { width: 175px; aspect-ratio: 2 / 3; display: grid; place-items: center; overflow: hidden; color: #746494; border-radius: 14px; background: var(--lilac-light); }
 .detail-poster img { width: 100%; height: 100%; object-fit: cover; }
 .detail-copy { min-width: 0; display: flex; flex-direction: column; }
+.detail-heading-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .detail-badges { display: flex; gap: 6px; margin-bottom: 10px; }
 .detail-badges span { padding: 5px 8px; color: #746494; border-radius: 20px; background: var(--lilac-light); font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
 .detail-badges .status-watching { color: #8a612e; background: var(--sand-light); }
@@ -587,6 +588,8 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
 .detail-badges .status-completed { color: var(--sage); background: var(--sage-light); }
 .detail-badges .status-dropped { color: #a25750; background: var(--rose-light); }
 .detail-copy h1 { margin-bottom: 7px; font-size: clamp(27px, 4vw, 40px); }
+.detail-edit-button { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; color: var(--sage); border: 1px solid #c7d5ce; border-radius: 8px; background: var(--sage-light); font-size: 9px; font-weight: 700; cursor: pointer; }
+.detail-edit-button:hover { color: white; border-color: var(--sage); background: var(--sage); }
 .detail-meta { color: var(--muted); font-size: 11px; }
 .detail-plot { max-width: 760px; color: #5d6963; font-size: 12px; line-height: 1.65; }
 .detail-facts { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 9px; margin-top: auto; }
@@ -628,6 +631,7 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
 .book-progress-labels strong { color: var(--ink); font-size: 10px; }
 .book-source-link { margin: 30px 0 0; font-size: 9px; }
 .book-detail-facts { grid-template-columns: repeat(4, minmax(0,1fr)); }
+.book-edit-modal { width: min(590px, 100%); max-height: calc(100vh - 40px); overflow-y: auto; }
 
 @media (max-width: 1050px) {
   .watch-detail-grid { grid-template-columns: 1fr; }
