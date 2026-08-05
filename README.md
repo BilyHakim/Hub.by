@@ -1,6 +1,6 @@
 # Hubby
 
-Hubby (Hub Bily) adalah workspace aplikasi bily. Produk pertamanya, **Hubby Finance**, mengubah alur kerja pada workbook `Dashboard Keuangan AmBil _ 2025.xlsx` menjadi aplikasi web yang lebih nyaman dipakai. Produk keduanya, **Hubby Watch**, mencatat film dan series, episode terakhir, serta total waktu menonton.
+Hubby (Hub Bily) adalah workspace aplikasi bily. **Hubby Finance** mengelola rencana keuangan, **Hubby Watch** mencatat film dan series, sedangkan **Hubby Books** melacak pustaka dan progres membaca.
 
 ## Struktur
 
@@ -33,9 +33,19 @@ Hubby Watch menyediakan:
 - daftar lanjut menonton dan riwayat terbaru;
 - halaman detail setiap judul dengan sinopsis, progres episode, dan riwayat lengkap.
 
-Setelah login, pengguna masuk ke portal Hubby untuk memilih modul. Hubby Finance tersedia di `/finance`, sedangkan Hubby Watch tersedia di `/watch`; keduanya memakai akun dan workspace yang sama, tetapi memiliki navigasi produk yang terpisah.
+Hubby Books menyediakan:
 
-Pemilik dapat menghapus ruang bersama selama masih memiliki ruang lain dan tidak ada anggota lain di ruang tersebut. Penghapusan bersifat permanen dan menghapus seluruh data Finance serta Watch dalam ruang itu.
+- pencarian buku gratis melalui Open Library tanpa API key;
+- pustaka dengan sampul, penulis, tahun terbit, jumlah halaman, dan status membaca;
+- pencatatan halaman terakhir beserta tanggal dan catatan;
+- ringkasan halaman yang dibaca keseluruhan dan bulan berjalan;
+- grafik aktivitas membaca tujuh hari terakhir;
+- daftar buku yang sedang dibaca dan riwayat terbaru;
+- halaman detail dengan persentase progres dan reading log lengkap.
+
+Setelah login, pengguna masuk ke portal Hubby untuk memilih modul. Hubby Finance tersedia di `/finance`, Hubby Watch di `/watch`, dan Hubby Books di `/books`; semuanya memakai akun dan workspace yang sama dengan navigasi produk terpisah.
+
+Pemilik dapat menghapus ruang bersama selama masih memiliki ruang lain dan tidak ada anggota lain di ruang tersebut. Penghapusan bersifat permanen dan menghapus seluruh data Finance, Watch, serta Books dalam ruang itu.
 
 Katalog Hubby Watch memerlukan API Read Access Token dari [TMDB](https://www.themoviedb.org/settings/api). Simpan token hanya pada `backend/.env`:
 
@@ -144,6 +154,11 @@ Buka `http://localhost:5173`. Jika API belum berjalan, frontend otomatis memakai
 | `POST`      | `/api/v1/watch/sessions`          | Mencatat sesi menonton          |
 | `POST`      | `/api/v1/watch/sessions/batch`    | Menandai rentang episode        |
 | `GET`       | `/api/v1/watch/catalog/search`    | Mencari katalog TMDB            |
+| `GET`       | `/api/v1/books`                   | Ringkasan dan pustaka buku      |
+| `GET`       | `/api/v1/books/titles/{id}`       | Detail dan progres buku         |
+| `POST`      | `/api/v1/books/titles`            | Menambahkan buku                |
+| `POST`      | `/api/v1/books/sessions`          | Mencatat progres membaca        |
+| `GET`       | `/api/v1/books/catalog/search`    | Mencari katalog Open Library    |
 
 Semua nominal disimpan sebagai bilangan bulat rupiah untuk menghindari masalah pembulatan.
 

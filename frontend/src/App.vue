@@ -6,7 +6,7 @@ import {
   Bell, Search, Menu, X, HeartHandshake, ChevronDown, Plus,
   Check, Ellipsis, UserRound, SlidersHorizontal, Users, WalletCards,
   ArrowDownLeft, ArrowUpRight, LogOut, Clapperboard, LayoutGrid, Trash2,
-  ChevronLeft,
+  ChevronLeft, BookOpen,
 } from '@lucide/vue'
 import { api } from './services/api'
 import LoginView from './components/LoginView.vue'
@@ -98,12 +98,16 @@ const financeNav = [
 const watchNav = [
   { to: '/watch', label: 'Ringkasan Watch', icon: Clapperboard },
 ]
+const booksNav = [
+  { to: '/books', label: 'Ringkasan Books', icon: BookOpen },
+]
 const isPortal = computed(() => route.meta.layout === 'portal')
 const isFinance = computed(() => route.meta.product === 'Finance')
-const nav = computed(() => isFinance.value ? financeNav : watchNav)
-const productName = computed(() => isFinance.value ? 'finance' : 'watch')
-const navLabel = computed(() => isFinance.value ? 'Keuangan' : 'Tontonan')
-const searchPlaceholder = computed(() => route.meta.product === 'Watch' ? 'Cari film atau series...' : 'Cari transaksi, tujuan...')
+const isBooks = computed(() => route.meta.product === 'Books')
+const nav = computed(() => isFinance.value ? financeNav : isBooks.value ? booksNav : watchNav)
+const productName = computed(() => isFinance.value ? 'finance' : isBooks.value ? 'books' : 'watch')
+const navLabel = computed(() => isFinance.value ? 'Keuangan' : isBooks.value ? 'Bacaan' : 'Tontonan')
+const searchPlaceholder = computed(() => route.meta.product === 'Watch' ? 'Cari film atau series...' : route.meta.product === 'Books' ? 'Cari buku atau penulis...' : 'Cari transaksi, tujuan...')
 
 function closeMenus() {
   workspaceMenuOpen.value = false
@@ -497,7 +501,7 @@ onBeforeUnmount(() => {
               <button class="dropdown-action" type="button" @click="openProfile"><UserRound :size="17" /> Profil saya</button>
               <RouterLink v-if="isFinance" class="dropdown-action" to="/finance/settings" @click="closeMenus"><SlidersHorizontal :size="17" /> Pengaturan Finance</RouterLink>
               <button class="dropdown-action logout-action" type="button" @click="handleLogout"><LogOut :size="17" /> Keluar</button>
-              <div class="dropdown-footer"><WalletCards :size="14" /> Hubby {{ isFinance ? 'Finance' : 'Watch' }} · Sesi aman</div>
+              <div class="dropdown-footer"><WalletCards :size="14" /> Hubby {{ isFinance ? 'Finance' : isBooks ? 'Books' : 'Watch' }} · Sesi aman</div>
             </div>
           </Transition>
         </div>
@@ -598,7 +602,7 @@ onBeforeUnmount(() => {
             <div><p class="eyebrow danger-eyebrow">Tindakan permanen</p><h2>Hapus ruang bersama?</h2></div>
             <button type="button" class="icon-button" @click="deleteWorkspaceOpen = false"><X :size="20" /></button>
           </div>
-          <p class="workspace-delete-warning">Seluruh transaksi, rekening, tujuan, investasi, film, series, dan riwayat dalam <strong>{{ workspaceToDelete?.name }}</strong> akan dihapus permanen.</p>
+          <p class="workspace-delete-warning">Seluruh transaksi, rekening, tujuan, investasi, film, series, buku, dan riwayat dalam <strong>{{ workspaceToDelete?.name }}</strong> akan dihapus permanen.</p>
           <label>Ketik <strong>{{ workspaceToDelete?.name }}</strong> untuk mengonfirmasi<input v-model="workspaceDeleteConfirmation" autocomplete="off" :placeholder="workspaceToDelete?.name" required /></label>
           <p v-if="workspaceDeleteError" class="form-error">{{ workspaceDeleteError }}</p>
           <button class="danger-button full-button" :disabled="deletingWorkspace || workspaceDeleteConfirmation !== workspaceToDelete?.name">{{ deletingWorkspace ? 'Menghapus...' : 'Hapus ruang dan seluruh data' }}</button>

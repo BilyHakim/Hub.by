@@ -83,22 +83,26 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
 .hub-hero-mark { width: 51px; height: 51px; display: grid; place-items: center; margin: 0 auto 18px; color: white; border-radius: 16px 16px 16px 5px; background: var(--sage); box-shadow: 0 12px 28px rgba(73,104,92,.2); }
 .hub-hero h1 { margin-bottom: 12px; font-size: clamp(30px, 5vw, 45px); line-height: 1.12; }
 .hub-hero > p:last-child { max-width: 570px; margin: 0 auto; color: var(--muted); font-size: 14px; line-height: 1.65; }
-.hub-module-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 20px; }
+.hub-module-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 20px; }
 .hub-module-card { position: relative; min-height: 320px; display: flex; flex-direction: column; align-items: flex-start; overflow: hidden; padding: 28px; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); box-shadow: var(--shadow); transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
 .hub-module-card::after { content: ''; position: absolute; right: -75px; bottom: -95px; width: 220px; height: 220px; border-radius: 50%; opacity: .65; pointer-events: none; }
 .hub-module-card:hover { transform: translateY(-4px); border-color: #cad5cf; box-shadow: 0 18px 45px rgba(31,47,41,.09); }
 .hub-module-finance::after { background: var(--sage-light); }
 .hub-module-watch::after { background: var(--lilac-light); }
+.hub-module-books::after { background: var(--sand-light); }
 .hub-module-icon { width: 57px; height: 57px; display: grid; place-items: center; margin-bottom: 25px; color: var(--sage); border-radius: 15px; background: var(--sage-light); }
 .hub-module-watch .hub-module-icon { color: #746494; background: var(--lilac-light); }
+.hub-module-books .hub-module-icon { color: #9b6229; background: var(--sand-light); }
 .hub-module-state { position: absolute; top: 29px; right: 28px; padding: 5px 8px; color: var(--sage); border-radius: 20px; background: var(--sage-light); font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
 .hub-module-watch .hub-module-state { color: #746494; background: var(--lilac-light); }
+.hub-module-books .hub-module-state { color: #9b6229; background: var(--sand-light); }
 .hub-module-card h2 { margin-bottom: 8px; font-size: 22px; }
 .hub-module-card > p { max-width: 390px; margin-bottom: 20px; color: var(--muted); font-size: 12px; line-height: 1.55; }
 .hub-feature-list { display: flex; flex-wrap: wrap; gap: 7px; }
 .hub-feature-list > span { display: flex; align-items: center; gap: 5px; padding: 6px 8px; color: #65716b; border: 1px solid var(--line); border-radius: 8px; background: rgba(255,255,255,.72); font-size: 9px; }
 .hub-open-module { position: relative; z-index: 1; display: flex; align-items: center; gap: 7px; margin-top: auto; padding-top: 25px; color: var(--sage); font-size: 11px; font-weight: 700; }
 .hub-module-watch .hub-open-module { color: #746494; }
+.hub-module-books .hub-open-module { color: #9b6229; }
 .logout-action { color: #a25750; }
 .logout-action:hover { color: #93463f; background: var(--rose-light); }
 
@@ -498,6 +502,7 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
 .status-select { width: 100%; height: 31px; padding: 0 6px; }
 .row-icon-button { width: 31px; height: 31px; display: grid; place-items: center; padding: 0; color: var(--muted); border: 0; border-radius: 8px; background: transparent; cursor: pointer; }
 .row-icon-button.play { color: var(--sage); background: var(--sage-light); }
+.row-icon-button:disabled { opacity: .35; cursor: not-allowed; }
 .row-icon-button.danger:hover { color: var(--rose); background: var(--rose-light); }
 .history-panel > .watch-section-heading { padding-bottom: 12px; color: var(--muted); border-bottom: 1px solid var(--line); }
 .history-list { display: grid; }
@@ -568,6 +573,7 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
 .detail-badges { display: flex; gap: 6px; margin-bottom: 10px; }
 .detail-badges span { padding: 5px 8px; color: #746494; border-radius: 20px; background: var(--lilac-light); font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
 .detail-badges .status-watching { color: #8a612e; background: var(--sand-light); }
+.detail-badges .status-reading { color: #8a612e; background: var(--sand-light); }
 .detail-badges .status-completed { color: var(--sage); background: var(--sage-light); }
 .detail-badges .status-dropped { color: #a25750; background: var(--rose-light); }
 .detail-copy h1 { margin-bottom: 7px; font-size: clamp(27px, 4vw, 40px); }
@@ -601,6 +607,16 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
 .detail-history-list button { width: 27px; height: 27px; display: grid; place-items: center; padding: 0; color: var(--muted); border: 0; border-radius: 7px; background: transparent; cursor: pointer; }
 .detail-history-list button:hover { color: var(--rose); background: var(--rose-light); }
 .title-main:hover strong { color: var(--sage); }
+
+/* Hubby Books */
+.book-attribution { margin: 10px 0 -5px; color: #9aa19c; font-size: 8px; text-align: center; }
+.book-attribution a, .book-source-link a { color: var(--sage); font-weight: 700; }
+.reading-progress-hint { margin: -4px 0 12px; padding: 8px 9px; color: #6d6252; border-radius: 8px; background: var(--sand-light); font-size: 9px; }
+.book-progress-track { height: 15px; overflow: hidden; margin-top: 24px; border-radius: 20px; background: var(--surface-2); }
+.book-progress-track i { height: 100%; display: block; border-radius: inherit; background: linear-gradient(90deg, var(--sage), #91ad9f); transition: width .4s ease; }
+.book-progress-labels { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; color: var(--muted); font-size: 9px; }
+.book-progress-labels strong { color: var(--ink); font-size: 10px; }
+.book-source-link { margin: 30px 0 0; font-size: 9px; }
 
 @media (max-width: 1050px) {
   .watch-detail-grid { grid-template-columns: 1fr; }

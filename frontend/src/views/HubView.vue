@@ -1,5 +1,5 @@
 <script setup>
-import { ArrowUpRight, BarChart3, Clapperboard, Clock3, Film, PiggyBank, Sparkles, WalletCards } from '@lucide/vue'
+import { ArrowUpRight, BarChart3, BookOpen, BookMarked, Clapperboard, Clock3, Film, PiggyBank, Sparkles, WalletCards } from '@lucide/vue'
 
 const modules = [
   {
@@ -22,6 +22,17 @@ const modules = [
     features: [
       { icon: Film, label: 'Pustaka tontonan' },
       { icon: Clock3, label: 'Waktu menonton' },
+    ],
+  },
+  {
+    name: 'Hubby Books',
+    description: 'Bangun kebiasaan membaca, simpan pustaka, dan lanjutkan dari halaman terakhir.',
+    to: '/books',
+    icon: BookOpen,
+    tone: 'books',
+    features: [
+      { icon: BookMarked, label: 'Progres halaman' },
+      { icon: BarChart3, label: 'Aktivitas membaca' },
     ],
   },
 ]
