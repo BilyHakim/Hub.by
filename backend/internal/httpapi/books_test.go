@@ -23,6 +23,10 @@ func TestValidBookTitle(t *testing.T) {
 	if !validBookTitle(&input) {
 		t.Fatal("expected a valid book")
 	}
+	manual := bookTitleInput{Title: "Buku lokal", Author: "Penulis", TotalPages: 240}
+	if !validBookTitle(&manual) {
+		t.Fatal("expected a manual book without catalog id to be valid")
+	}
 	input.TotalPages = 0
 	if validBookTitle(&input) {
 		t.Fatal("expected zero pages to be invalid")

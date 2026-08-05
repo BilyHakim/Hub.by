@@ -522,6 +522,16 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
 .watch-modal { position: relative; }
 .watch-modal > h2 { margin-bottom: 15px; font-size: 21px; }
 .watch-catalog-modal { width: min(610px, 100%); max-height: calc(100vh - 40px); overflow-y: auto; }
+.book-entry-tabs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; margin: -3px 0 17px; padding: 4px; border-radius: 11px; background: var(--surface-2); }
+.book-entry-tabs button { min-height: 36px; display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--muted); border: 0; border-radius: 8px; background: transparent; font-size: 10px; font-weight: 700; cursor: pointer; }
+.book-entry-tabs button.active { color: var(--sage); background: white; box-shadow: 0 2px 8px rgba(31,47,41,.07); }
+.catalog-empty { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 10px; margin: 2px 0 14px; padding: 12px; color: var(--sage); border: 1px dashed #bdcec5; border-radius: 10px; background: var(--sage-light); }
+.catalog-empty span { display: flex; flex-direction: column; gap: 2px; }
+.catalog-empty strong { color: var(--ink); font-size: 10px; }
+.catalog-empty small { color: var(--muted); font-size: 8px; }
+.catalog-empty button { padding: 7px 9px; color: white; border: 0; border-radius: 7px; background: var(--sage); font-size: 9px; font-weight: 700; cursor: pointer; }
+.watch-modal textarea { width: 100%; min-height: 82px; padding: 10px 11px; resize: vertical; color: var(--ink); border: 1px solid var(--line); border-radius: 9px; outline: 0; background: white; font: inherit; line-height: 1.5; }
+.watch-modal textarea:focus { border-color: #8ca399; box-shadow: 0 0 0 3px rgba(73,104,92,.08); }
 .catalog-search-input { height: 44px; display: flex; align-items: center; gap: 8px; padding-left: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 10px; background: white; }
 .catalog-search-input input { min-width: 0; flex: 1; height: 100% !important; padding: 0 !important; border: 0 !important; box-shadow: none !important; }
 .catalog-search-input button { align-self: stretch; min-width: 74px; color: white; border: 0; border-radius: 0 9px 9px 0; background: var(--sage); font-size: 10px; font-weight: 700; cursor: pointer; }

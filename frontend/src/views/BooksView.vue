@@ -11,11 +11,13 @@ const saving = ref(false)
 const error = ref('')
 const titleModalOpen = ref(false)
 const sessionModalOpen = ref(false)
+const titleEntryMode = ref('catalog')
 const search = ref('')
 const filter = ref('all')
 const catalogQuery = ref('')
 const catalogResults = ref([])
 const catalogSearching = ref(false)
+const catalogSearched = ref(false)
 const selectedCatalog = ref(null)
 const overview = ref({
   summary: { totalTitles: 0, readingTitles: 0, completedTitles: 0, totalPages: 0, monthPages: 0 },
@@ -55,11 +57,32 @@ async function loadBooks() {
 }
 function openTitleModal() {
   Object.assign(bookForm, { catalogId: '', title: '', author: '', description: '', coverUrl: '', publishYear: 0, totalPages: 300 })
+  titleEntryMode.value = 'catalog'
   catalogQuery.value = ''
   catalogResults.value = []
+  catalogSearched.value = false
   selectedCatalog.value = null
   error.value = ''
   titleModalOpen.value = true
+}
+function useCatalogEntry() {
+  titleEntryMode.value = 'catalog'
+  Object.assign(bookForm, { catalogId: '', title: '', author: '', description: '', coverUrl: '', publishYear: 0, totalPages: 300 })
+  selectedCatalog.value = null
+  catalogSearched.value = false
+  error.value = ''
+}
+function useManualEntry() {
+  const searchedTitle = catalogQuery.value.trim()
+  titleEntryMode.value = 'manual'
+  Object.assign(bookForm, { catalogId: '', title: searchedTitle, author: '', description: '', coverUrl: '', publishYear: 0, totalPages: 300 })
+  selectedCatalog.value = null
+  error.value = ''
+}
+function handleCatalogInput() {
+  catalogSearched.value = false
+  catalogResults.value = []
+  selectedCatalog.value = null
 }
 function openSessionModal(item = overview.value.titles.find((book) => book.status !== 'completed')) {
   if (!item) { openTitleModal(); return }
@@ -74,9 +97,13 @@ function syncSessionDefaults() {
 async function searchCatalog() {
   if (catalogQuery.value.trim().length < 2) return
   catalogSearching.value = true
+  catalogSearched.value = false
   error.value = ''
   selectedCatalog.value = null
-  try { catalogResults.value = (await api.searchBookCatalog(catalogQuery.value.trim())).items }
+  try {
+    catalogResults.value = (await api.searchBookCatalog(catalogQuery.value.trim())).items
+    catalogSearched.value = true
+  }
   catch (requestError) { error.value = requestError.message; catalogResults.value = [] }
   finally { catalogSearching.value = false }
 }
@@ -198,7 +225,42 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
     </div>
 
     <Teleport to="body">
-      <div v-if="titleModalOpen" class="modal-backdrop" @click.self="titleModalOpen = false"><form class="modal watch-modal watch-catalog-modal" @submit.prevent="addTitle"><button class="modal-close" type="button" @click="titleModalOpen = false"><X :size="18" /></button><p class="eyebrow">Katalog Open Library</p><h2>Cari buku</h2><p class="modal-description">Cari berdasarkan judul, penulis, atau ISBN.</p><label>Cari buku<span class="catalog-search-input"><Search :size="17" /><input v-model.trim="catalogQuery" autofocus placeholder="Contoh: Atomic Habits" @keydown.enter.prevent="searchCatalog" /><button type="button" :disabled="catalogSearching || catalogQuery.length < 2" @click="searchCatalog">{{ catalogSearching ? 'Mencari...' : 'Cari' }}</button></span></label><div v-if="catalogResults.length && !selectedCatalog" class="catalog-results"><button v-for="item in catalogResults" :key="item.catalogId" type="button" @click="selectCatalogItem(item)"><span class="catalog-poster"><img v-if="item.coverUrl" :src="item.coverUrl" alt="" /><BookOpen v-else :size="20" /></span><span><strong>{{ item.title }}</strong><small>{{ item.author || 'Penulis tidak diketahui' }} · {{ item.publishYear || 'Tahun tidak tersedia' }}</small></span><Plus :size="17" /></button></div><article v-if="selectedCatalog" class="selected-catalog"><span class="selected-poster"><img v-if="bookForm.coverUrl" :src="bookForm.coverUrl" :alt="`Sampul ${bookForm.title}`" /><BookOpen v-else :size="28" /></span><div><small>{{ bookForm.author }}</small><strong>{{ bookForm.title }}</strong><p>{{ bookForm.publishYear || 'Tahun tidak tersedia' }}</p><button type="button" @click="selectedCatalog = null">Pilih buku lain</button></div></article><label v-if="selectedCatalog">Jumlah halaman<input v-model="bookForm.totalPages" type="number" min="1" max="100000" required /><small class="field-help">Sesuaikan dengan edisi buku yang kamu baca.</small></label><p v-if="error" class="form-error">{{ error }}</p><button class="primary-button full-button" :disabled="saving || !selectedCatalog">{{ saving ? 'Menambahkan...' : 'Tambahkan ke pustaka' }}</button><p class="book-attribution">Data buku dan sampul disediakan oleh <a href="https://openlibrary.org" target="_blank" rel="noopener noreferrer">Open Library</a>.</p></form></div>
+      <div v-if="titleModalOpen" class="modal-backdrop" @click.self="titleModalOpen = false">
+        <form class="modal watch-modal watch-catalog-modal" @submit.prevent="addTitle">
+          <button class="modal-close" type="button" @click="titleModalOpen = false"><X :size="18" /></button>
+          <p class="eyebrow">Tambah ke pustaka</p>
+          <h2>{{ titleEntryMode === 'catalog' ? 'Cari buku' : 'Tambah buku manual' }}</h2>
+          <div class="book-entry-tabs" role="tablist" aria-label="Cara menambahkan buku">
+            <button type="button" role="tab" :aria-selected="titleEntryMode === 'catalog'" :class="{ active: titleEntryMode === 'catalog' }" @click="useCatalogEntry"><Search :size="15" /> Open Library</button>
+            <button type="button" role="tab" :aria-selected="titleEntryMode === 'manual'" :class="{ active: titleEntryMode === 'manual' }" @click="useManualEntry"><BookPlus :size="15" /> Isi manual</button>
+          </div>
+
+          <template v-if="titleEntryMode === 'catalog'">
+            <p class="modal-description">Cari berdasarkan judul, penulis, atau ISBN.</p>
+            <label>Cari buku<span class="catalog-search-input"><Search :size="17" /><input v-model.trim="catalogQuery" autofocus placeholder="Contoh: Atomic Habits" @input="handleCatalogInput" @keydown.enter.prevent="searchCatalog" /><button type="button" :disabled="catalogSearching || catalogQuery.length < 2" @click="searchCatalog">{{ catalogSearching ? 'Mencari...' : 'Cari' }}</button></span></label>
+            <div v-if="catalogResults.length && !selectedCatalog" class="catalog-results"><button v-for="item in catalogResults" :key="item.catalogId" type="button" @click="selectCatalogItem(item)"><span class="catalog-poster"><img v-if="item.coverUrl" :src="item.coverUrl" alt="" /><BookOpen v-else :size="20" /></span><span><strong>{{ item.title }}</strong><small>{{ item.author || 'Penulis tidak diketahui' }} · {{ item.publishYear || 'Tahun tidak tersedia' }}</small></span><Plus :size="17" /></button></div>
+            <div v-if="catalogSearched && !catalogResults.length && !selectedCatalog" class="catalog-empty"><BookOpen :size="20" /><span><strong>Bukunya tidak ditemukan?</strong><small>Kamu tetap bisa menambahkannya sendiri.</small></span><button type="button" @click="useManualEntry">Isi manual</button></div>
+            <article v-if="selectedCatalog" class="selected-catalog"><span class="selected-poster"><img v-if="bookForm.coverUrl" :src="bookForm.coverUrl" :alt="`Sampul ${bookForm.title}`" /><BookOpen v-else :size="28" /></span><div><small>{{ bookForm.author }}</small><strong>{{ bookForm.title }}</strong><p>{{ bookForm.publishYear || 'Tahun tidak tersedia' }}</p><button type="button" @click="selectedCatalog = null">Pilih buku lain</button></div></article>
+            <label v-if="selectedCatalog">Jumlah halaman<input v-model="bookForm.totalPages" type="number" min="1" max="100000" required /><small class="field-help">Sesuaikan dengan edisi buku yang kamu baca.</small></label>
+          </template>
+
+          <template v-else>
+            <p class="modal-description">Isi informasi dasar buku. Penulis, tahun, deskripsi, dan sampul boleh dikosongkan.</p>
+            <label>Judul buku<input v-model.trim="bookForm.title" maxlength="200" required placeholder="Masukkan judul buku" /></label>
+            <div class="form-grid">
+              <label>Penulis (opsional)<input v-model.trim="bookForm.author" maxlength="200" placeholder="Nama penulis" /></label>
+              <label>Tahun terbit (opsional)<input v-model="bookForm.publishYear" type="number" min="1000" max="2200" placeholder="2026" /></label>
+            </div>
+            <label>Jumlah halaman<input v-model="bookForm.totalPages" type="number" min="1" max="100000" required /></label>
+            <label>URL sampul (opsional)<input v-model.trim="bookForm.coverUrl" type="url" maxlength="1000" placeholder="https://contoh.com/sampul.jpg" /></label>
+            <label>Deskripsi (opsional)<textarea v-model.trim="bookForm.description" maxlength="4000" rows="3" placeholder="Sinopsis atau catatan singkat tentang buku" /></label>
+          </template>
+
+          <p v-if="error" class="form-error">{{ error }}</p>
+          <button class="primary-button full-button" :disabled="saving || (titleEntryMode === 'catalog' && !selectedCatalog)">{{ saving ? 'Menambahkan...' : 'Tambahkan ke pustaka' }}</button>
+          <p v-if="titleEntryMode === 'catalog'" class="book-attribution">Data buku dan sampul disediakan oleh <a href="https://openlibrary.org" target="_blank" rel="noopener noreferrer">Open Library</a>.</p>
+        </form>
+      </div>
       <div v-if="sessionModalOpen" class="modal-backdrop" @click.self="sessionModalOpen = false"><form class="modal watch-modal" @submit.prevent="addSession"><button class="modal-close" type="button" @click="sessionModalOpen = false"><X :size="18" /></button><p class="eyebrow">Reading log</p><h2>Catat progres membaca</h2><label>Buku<select v-model="sessionForm.titleId" required @change="syncSessionDefaults"><option v-for="item in overview.titles.filter((book) => book.currentPage < book.totalPages)" :key="item.id" :value="item.id">{{ item.title }}</option></select></label><div class="form-grid"><label>Tanggal membaca<input v-model="sessionForm.readAt" type="date" required /></label><label>Halaman saat ini<input v-model="sessionForm.currentPage" type="number" :min="selectedTitle?.currentPage + 1" :max="selectedTitle?.totalPages" required /></label></div><p v-if="selectedTitle" class="reading-progress-hint">Progres sebelumnya halaman {{ selectedTitle.currentPage }} dari {{ selectedTitle.totalPages }}.</p><label>Catatan (opsional)<input v-model.trim="sessionForm.notes" maxlength="500" placeholder="Insight atau kutipan favorit" /></label><p v-if="error" class="form-error">{{ error }}</p><button class="primary-button full-button" :disabled="saving">{{ saving ? 'Menyimpan...' : 'Simpan progres' }}</button></form></div>
     </Teleport>
   </section>
