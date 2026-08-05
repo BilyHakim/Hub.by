@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { ArrowLeft, BookOpen, CalendarDays, Check, History, Library, Trash2 } from '@lucide/vue'
+import { ArrowLeft, BookOpen, CalendarDays, Clock3, History, Library, Trash2 } from '@lucide/vue'
 import { api } from '../services/api'
 
 const route = useRoute()
@@ -10,6 +10,22 @@ const error = ref('')
 const detail = ref({ title: {}, sessions: [] })
 const title = computed(() => detail.value.title || {})
 const progress = computed(() => title.value.totalPages ? Math.min(100, Math.round((title.value.currentPage / title.value.totalPages) * 100)) : 0)
+const firstReadAt = computed(() => {
+  if (title.value.firstReadAt) return title.value.firstReadAt
+  return detail.value.sessions
+    .map((session) => session.readAt)
+    .filter(Boolean)
+    .sort()[0] || ''
+})
+const readingDays = computed(() => {
+  if (!firstReadAt.value) return 0
+  const start = new Date(`${firstReadAt.value}T00:00:00`)
+  const end = title.value.status === 'completed' && title.value.lastReadAt
+    ? new Date(`${title.value.lastReadAt}T00:00:00`)
+    : new Date()
+  end.setHours(0, 0, 0, 0)
+  return Math.max(1, Math.floor((end - start) / 86400000) + 1)
+})
 
 function formatDate(value) {
   if (!value) return 'Belum pernah dibaca'
@@ -46,7 +62,7 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
           <h1>{{ title.title }}</h1>
           <p class="detail-meta">{{ title.author || 'Penulis tidak diketahui' }}<template v-if="title.publishYear"> · {{ title.publishYear }}</template></p>
           <p class="detail-plot">{{ title.description || 'Buku ini ditambahkan dari katalog Open Library. Catat progres membaca untuk melihat perjalananmu.' }}</p>
-          <div class="detail-facts"><span><Library :size="16" /><strong>{{ title.currentPage }}/{{ title.totalPages }}</strong><small>Halaman saat ini</small></span><span><Check :size="16" /><strong>{{ progress }}%</strong><small>Progres membaca</small></span><span><CalendarDays :size="16" /><strong>{{ title.lastReadAt ? formatDate(title.lastReadAt) : '–' }}</strong><small>Terakhir dibaca</small></span></div>
+          <div class="detail-facts book-detail-facts"><span><Library :size="16" /><strong>{{ title.currentPage }}/{{ title.totalPages }}</strong><small>Halaman saat ini</small></span><span><CalendarDays :size="16" /><strong>{{ firstReadAt ? formatDate(firstReadAt) : '–' }}</strong><small>Mulai dibaca</small></span><span><Clock3 :size="16" /><strong>{{ readingDays ? `${readingDays} hari` : '–' }}</strong><small>Durasi membaca</small></span><span><CalendarDays :size="16" /><strong>{{ title.lastReadAt ? formatDate(title.lastReadAt) : '–' }}</strong><small>Terakhir dibaca</small></span></div>
         </div>
       </section>
 

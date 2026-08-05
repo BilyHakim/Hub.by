@@ -155,15 +155,16 @@ func (api *API) getBookTitleDetail(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid book id")
 		return
 	}
-	var title, author, description, coverURL, status, catalogID, lastReadAt string
+	var title, author, description, coverURL, status, catalogID, firstReadAt, lastReadAt string
 	var publishYear, totalPages, currentPage, pagesRead int
 	err = api.db.QueryRow(r.Context(), `
 		SELECT b.title,b.author,b.description,b.cover_url,COALESCE(b.publish_year,0),b.total_pages,b.status,b.catalog_id,
-		       COALESCE(stats.current_page,0),COALESCE(stats.pages_read,0),COALESCE(TO_CHAR(stats.last_read_at,'YYYY-MM-DD'),'')
+		       COALESCE(stats.current_page,0),COALESCE(stats.pages_read,0),
+		       COALESCE(TO_CHAR(stats.first_read_at,'YYYY-MM-DD'),''),COALESCE(TO_CHAR(stats.last_read_at,'YYYY-MM-DD'),'')
 		FROM book_titles b
-		LEFT JOIN LATERAL (SELECT MAX(end_page) current_page,SUM(pages_read) pages_read,MAX(read_at) last_read_at FROM reading_sessions WHERE title_id=b.id) stats ON TRUE
+		LEFT JOIN LATERAL (SELECT MAX(end_page) current_page,SUM(pages_read) pages_read,MIN(read_at) first_read_at,MAX(read_at) last_read_at FROM reading_sessions WHERE title_id=b.id) stats ON TRUE
 		WHERE b.id=$1 AND b.workspace_id=$2
-	`, id, workspaceID).Scan(&title, &author, &description, &coverURL, &publishYear, &totalPages, &status, &catalogID, &currentPage, &pagesRead, &lastReadAt)
+	`, id, workspaceID).Scan(&title, &author, &description, &coverURL, &publishYear, &totalPages, &status, &catalogID, &currentPage, &pagesRead, &firstReadAt, &lastReadAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeError(w, http.StatusNotFound, "book not found in active workspace")
 		return
@@ -177,8 +178,10 @@ func (api *API) getBookTitleDetail(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to load reading history")
 		return
 	}
+	book := bookEnvelope(id, title, author, description, coverURL, status, catalogID, lastReadAt, publishYear, totalPages, currentPage, pagesRead)
+	book["firstReadAt"] = firstReadAt
 	writeJSON(w, http.StatusOK, envelope{"data": envelope{
-		"title":    bookEnvelope(id, title, author, description, coverURL, status, catalogID, lastReadAt, publishYear, totalPages, currentPage, pagesRead),
+		"title":    book,
 		"sessions": sessions,
 	}})
 }
