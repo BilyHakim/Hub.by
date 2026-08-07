@@ -2,7 +2,7 @@
 import { computed, ref, onBeforeUnmount, onMounted } from 'vue'
 import {
   WalletCards, TrendingUp, Landmark, PiggyBank,
-  ArrowRight, CircleCheck, CircleAlert, Sparkles, Plus,
+  ArrowRight, CircleCheck, CircleAlert, Sparkles, Plus, ClipboardList,
 } from '@lucide/vue'
 import MetricCard from '../components/MetricCard.vue'
 import CashflowChart from '../components/CashflowChart.vue'
@@ -138,6 +138,7 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
           <MonthPicker v-model="month" @change="loadDashboard" />
           <small v-if="data.periodStart">{{ data.periodStart }} — {{ data.periodEnd }}</small>
         </div>
+        <RouterLink class="secondary-button dashboard-plan-shortcut" to="/finance/modules/budget"><ClipboardList :size="18" /> Rencana keuangan</RouterLink>
         <RouterLink class="primary-button" to="/finance/transactions"><Plus :size="18" /> Catat transaksi</RouterLink>
       </div>
     </div>

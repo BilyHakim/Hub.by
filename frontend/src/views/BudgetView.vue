@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import {
-  ArrowLeft, BadgeCheck, CircleAlert, Equal, ReceiptText, Save,
+  ArrowLeft, BadgeCheck, CalendarDays, CircleAlert, Equal, ReceiptText, Save,
   Sparkles, Target, TrendingDown, WalletCards,
 } from '@lucide/vue'
 import MonthPicker from '../components/MonthPicker.vue'
@@ -15,6 +15,9 @@ const saving = ref(false)
 const dirty = ref(false)
 const error = ref('')
 const saved = ref(false)
+const transactions = ref([])
+const selectedCategoryId = ref(null)
+const transactionError = ref('')
 const data = ref({
   month: month.value, periodStart: '', periodEnd: '',
   planned: 0, actual: 0, remaining: 0, items: [],
@@ -28,6 +31,13 @@ const totalPlanned = computed(() => Object.values(plans.value).reduce((sum, valu
 const totalActual = computed(() => data.value.items.reduce((sum, item) => sum + Number(item.actual || 0), 0))
 const totalRemaining = computed(() => totalPlanned.value - totalActual.value)
 const usage = computed(() => totalPlanned.value > 0 ? totalActual.value / totalPlanned.value * 100 : 0)
+const selectedCategory = computed(() => data.value.items.find((item) => item.categoryId === selectedCategoryId.value) || null)
+const selectedTransactions = computed(() => transactions.value.filter((item) =>
+  item.type === 'expense' && Number(item.category?.id) === Number(selectedCategoryId.value),
+))
+const dateLabel = (date) => new Intl.DateTimeFormat('id-ID', {
+  day: 'numeric', month: 'short', year: 'numeric',
+}).format(new Date(`${date}T00:00:00`))
 
 function actualStatus(item) {
   const planned = Number(plans.value[item.categoryId] || 0)
@@ -52,13 +62,23 @@ async function load(targetMonth = month.value) {
   loading.value = true
   error.value = ''
   saved.value = false
+  transactionError.value = ''
   try {
     const result = await api.budget(targetMonth)
     data.value = result
     plans.value = Object.fromEntries(result.items.map((item) => [item.categoryId, item.planned]))
     month.value = result.month
     loadedMonth.value = result.month
+    if (!result.items.some((item) => item.categoryId === selectedCategoryId.value)) {
+      selectedCategoryId.value = result.items[0]?.categoryId || null
+    }
     dirty.value = false
+    try {
+      transactions.value = await api.transactions(result.month) || []
+    } catch {
+      transactions.value = []
+      transactionError.value = 'Rincian transaksi belum dapat dimuat.'
+    }
   } catch (loadError) {
     error.value = loadError.message
   } finally {
@@ -174,11 +194,24 @@ onBeforeUnmount(() => {
           <strong>Belum ada kategori pengeluaran</strong>
           <p>Tambahkan kategori melalui halaman Arus kas, lalu kembali ke halaman ini.</p>
         </div>
-        <div v-for="item in data.items" :key="item.categoryId" class="budget-row">
-          <div class="budget-category">
+        <div
+          v-for="item in data.items"
+          :key="item.categoryId"
+          class="budget-row"
+          :class="{ selected: selectedCategoryId === item.categoryId }"
+          @mouseenter="selectedCategoryId = item.categoryId"
+        >
+          <button
+            class="budget-category"
+            type="button"
+            :aria-pressed="selectedCategoryId === item.categoryId"
+            :aria-label="`Lihat transaksi kategori ${item.categoryName}`"
+            @click="selectedCategoryId = item.categoryId"
+            @focus="selectedCategoryId = item.categoryId"
+          >
             <span :style="{ background: item.color }" />
-            <div><strong>{{ item.categoryName }}</strong><small>Pengeluaran kategori ini</small></div>
-          </div>
+            <div><strong>{{ item.categoryName }}</strong><small>Sorot untuk lihat transaksi</small></div>
+          </button>
           <MoneyInput
             :model-value="plans[item.categoryId] || 0"
             :aria-label="`Rencana ${item.categoryName}`"
@@ -205,6 +238,32 @@ onBeforeUnmount(() => {
           <strong>{{ currency(totalActual) }}</strong>
           <strong :class="{ negative: totalRemaining < 0 }">{{ totalRemaining < 0 ? '-' : '' }}{{ currency(Math.abs(totalRemaining)) }}</strong>
         </div>
+      </div>
+    </article>
+
+    <article v-if="selectedCategory" class="panel budget-transactions-panel" aria-live="polite">
+      <div class="panel-heading budget-transactions-heading">
+        <div>
+          <h2>Transaksi {{ selectedCategory.categoryName }}</h2>
+          <p>Rincian pengeluaran pada periode {{ data.periodStart }} — {{ data.periodEnd }}.</p>
+        </div>
+        <span class="budget-transaction-count">{{ selectedTransactions.length }} transaksi · {{ currency(selectedCategory.actual) }}</span>
+      </div>
+      <div v-if="transactionError" class="budget-transaction-empty"><CircleAlert :size="22" /><span>{{ transactionError }}</span></div>
+      <div v-else-if="selectedTransactions.length" class="budget-transaction-list">
+        <div v-for="transaction in selectedTransactions" :key="transaction.id" class="budget-transaction-row">
+          <span class="budget-transaction-icon" :style="{ color: selectedCategory.color, background: `${selectedCategory.color}1a` }"><ReceiptText :size="17" /></span>
+          <div class="budget-transaction-name">
+            <strong>{{ transaction.description || selectedCategory.categoryName }}</strong>
+            <small>{{ transaction.account?.name || 'Rekening tidak diketahui' }}</small>
+          </div>
+          <span class="budget-transaction-date"><CalendarDays :size="14" />{{ dateLabel(transaction.occurredAt) }}</span>
+          <strong class="budget-transaction-amount">{{ currency(transaction.amount) }}</strong>
+        </div>
+      </div>
+      <div v-else class="budget-transaction-empty">
+        <ReceiptText :size="24" />
+        <div><strong>Belum ada transaksi {{ selectedCategory.categoryName }}</strong><span>Realisasi kategori ini masih kosong pada periode terpilih.</span></div>
       </div>
     </article>
 

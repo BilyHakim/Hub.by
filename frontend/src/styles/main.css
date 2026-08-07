@@ -788,9 +788,12 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
 .budget-table-scroll { overflow-x: auto; }
 .budget-table-head, .budget-row, .budget-total-row { min-width: 760px; display: grid; grid-template-columns: minmax(180px, 1.2fr) minmax(180px, 1fr) minmax(160px, .9fr) minmax(190px, 1fr); align-items: center; gap: 16px; }
 .budget-table-head { min-height: 42px; padding: 0 19px; color: var(--muted); background: var(--surface-2); font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
-.budget-row { min-height: 76px; padding: 11px 19px; border-top: 1px solid #eeece6; }
+.budget-row { min-height: 76px; padding: 11px 19px; border-top: 1px solid #eeece6; transition: background .16s ease, box-shadow .16s ease; }
 .budget-row:first-of-type { border-top: 0; }
+.budget-row:hover, .budget-row.selected { background: #f7faf7; box-shadow: inset 3px 0 var(--sage); }
 .budget-category { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.budget-category { width: 100%; padding: 0; color: inherit; border: 0; background: transparent; text-align: left; cursor: pointer; }
+.budget-category:focus-visible { outline: 2px solid var(--sage); outline-offset: 4px; border-radius: 5px; }
 .budget-category > span { width: 9px; height: 38px; flex: none; border-radius: 99px; }
 .budget-category > div, .budget-difference > div { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .budget-category strong, .budget-actual strong, .budget-difference strong { font-size: 10px; }
@@ -811,6 +814,22 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
 .budget-empty { min-height: 230px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--muted); text-align: center; }
 .budget-empty strong { margin: 10px 0 4px; color: var(--ink); font-size: 12px; }
 .budget-empty p { margin: 0; font-size: 9px; }
+.budget-transactions-panel { margin-top: 15px; overflow: hidden; }
+.budget-transactions-heading { margin: 0; padding: 17px 19px; border-bottom: 1px solid var(--line); }
+.budget-transaction-count { flex: none; padding: 7px 10px; color: var(--sage); border-radius: 99px; background: var(--sage-light); font-size: 9px; font-weight: 700; }
+.budget-transaction-list { max-height: 330px; overflow-y: auto; }
+.budget-transaction-row { min-height: 64px; display: grid; grid-template-columns: auto minmax(160px, 1fr) 150px 140px; align-items: center; gap: 12px; padding: 10px 19px; border-top: 1px solid #eeece6; }
+.budget-transaction-row:first-child { border-top: 0; }
+.budget-transaction-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 9px; }
+.budget-transaction-name { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.budget-transaction-name strong { overflow: hidden; font-size: 10px; white-space: nowrap; text-overflow: ellipsis; }
+.budget-transaction-name small, .budget-transaction-date { color: var(--muted); font-size: 9px; }
+.budget-transaction-date { display: flex; align-items: center; gap: 5px; }
+.budget-transaction-amount { justify-self: end; font-family: 'Manrope'; font-size: 10px; }
+.budget-transaction-empty { min-height: 130px; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 20px; color: var(--muted); text-align: center; }
+.budget-transaction-empty > div { display: flex; flex-direction: column; gap: 3px; }
+.budget-transaction-empty strong { color: var(--ink); font-size: 10px; }
+.budget-transaction-empty span { font-size: 9px; }
 .checkup-hero { background: linear-gradient(115deg,#49685c,#637b70); }
 .checkup-score { margin-left: auto; font-family: 'Manrope'; font-size: 28px; font-weight: 700; }
 .checkup-score small { font-size: 11px; }
@@ -1126,6 +1145,10 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
   .budget-summary-grid { grid-template-columns: 1fr 1fr; }
   .budget-table-heading { align-items: stretch; flex-direction: column; }
   .budget-table-heading .primary-button { width: 100%; }
+  .budget-transactions-heading { align-items: flex-start; flex-direction: column; }
+  .budget-transaction-row { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .budget-transaction-date { grid-column: 2; }
+  .budget-transaction-amount { grid-column: 3; grid-row: 1 / span 2; }
   .hero-progress { width: 100%; margin-left: 61px; text-align: left; }
   .pyramid-level { grid-template-columns: 40px 1fr; padding: 13px; }
   .level-number { width: 38px; height: 38px; border-radius: 10px; font-size: 14px; }
