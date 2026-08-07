@@ -816,6 +816,7 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
 .budget-empty strong { margin: 10px 0 4px; color: var(--ink); font-size: 12px; }
 .budget-empty p { margin: 0; font-size: 9px; }
 .budget-detail-modal { position: relative; width: min(760px, 100%); max-height: calc(100vh - 40px); padding: 0; overflow: hidden; }
+.budget-detail-modal .modal-close { z-index: 2; }
 .budget-detail-heading { position: relative; padding: 23px 70px 18px 22px; border-bottom: 1px solid var(--line); }
 .budget-detail-heading h2 { margin: 0 0 5px; font-size: 18px; }
 .budget-detail-heading > p:not(.eyebrow) { margin: 0 0 12px; color: var(--muted); font-size: 10px; }
