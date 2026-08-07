@@ -1,8 +1,8 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import {
-  ArrowLeft, BadgeCheck, CalendarDays, CircleAlert, Equal, ReceiptText, Save,
-  Sparkles, Target, TrendingDown, WalletCards,
+  ArrowLeft, BadgeCheck, CalendarDays, CircleAlert, Equal, Eye, ReceiptText, Save,
+  Sparkles, Target, TrendingDown, WalletCards, X,
 } from '@lucide/vue'
 import MonthPicker from '../components/MonthPicker.vue'
 import MoneyInput from '../components/MoneyInput.vue'
@@ -18,6 +18,7 @@ const saved = ref(false)
 const transactions = ref([])
 const selectedCategoryId = ref(null)
 const transactionError = ref('')
+const detailOpen = ref(false)
 const data = ref({
   month: month.value, periodStart: '', periodEnd: '',
   planned: 0, actual: 0, remaining: 0, items: [],
@@ -56,6 +57,16 @@ function updatePlan(categoryId, value) {
   plans.value = { ...plans.value, [categoryId]: Number(value || 0) }
   dirty.value = true
   saved.value = false
+}
+function openDetail(categoryId) {
+  selectedCategoryId.value = categoryId
+  detailOpen.value = true
+}
+function closeDetail() {
+  detailOpen.value = false
+}
+function handleKeydown(event) {
+  if (event.key === 'Escape' && detailOpen.value) closeDetail()
 }
 
 async function load(targetMonth = month.value) {
@@ -132,11 +143,13 @@ onMounted(() => {
   window.addEventListener('hubby:workspace-changed', handleWorkspaceChange)
   window.addEventListener('hubby:transactions-updated', handleTransactionsUpdated)
   window.addEventListener('beforeunload', beforeUnload)
+  window.addEventListener('keydown', handleKeydown)
 })
 onBeforeUnmount(() => {
   window.removeEventListener('hubby:workspace-changed', handleWorkspaceChange)
   window.removeEventListener('hubby:transactions-updated', handleTransactionsUpdated)
   window.removeEventListener('beforeunload', beforeUnload)
+  window.removeEventListener('keydown', handleKeydown)
 })
 </script>
 
@@ -187,7 +200,7 @@ onBeforeUnmount(() => {
 
       <div class="budget-table-scroll">
         <div class="budget-table-head">
-          <span>Kategori</span><span>Rencana</span><span>Sebenarnya</span><span>Sisa / kekurangan</span>
+          <span>Kategori</span><span>Rencana</span><span>Sebenarnya</span><span>Sisa / kekurangan</span><span>Detail</span>
         </div>
         <div v-if="!loading && data.items.length === 0" class="budget-empty">
           <ReceiptText :size="28" />
@@ -198,20 +211,12 @@ onBeforeUnmount(() => {
           v-for="item in data.items"
           :key="item.categoryId"
           class="budget-row"
-          :class="{ selected: selectedCategoryId === item.categoryId }"
-          @mouseenter="selectedCategoryId = item.categoryId"
+          :class="{ selected: detailOpen && selectedCategoryId === item.categoryId }"
         >
-          <button
-            class="budget-category"
-            type="button"
-            :aria-pressed="selectedCategoryId === item.categoryId"
-            :aria-label="`Lihat transaksi kategori ${item.categoryName}`"
-            @click="selectedCategoryId = item.categoryId"
-            @focus="selectedCategoryId = item.categoryId"
-          >
+          <div class="budget-category">
             <span :style="{ background: item.color }" />
-            <div><strong>{{ item.categoryName }}</strong><small>Sorot untuk lihat transaksi</small></div>
-          </button>
+            <div><strong>{{ item.categoryName }}</strong><small>Pengeluaran kategori ini</small></div>
+          </div>
           <MoneyInput
             :model-value="plans[item.categoryId] || 0"
             :aria-label="`Rencana ${item.categoryName}`"
@@ -231,42 +236,48 @@ onBeforeUnmount(() => {
               <small v-else>Sisa anggaran</small>
             </div>
           </div>
+          <button class="budget-detail-button" type="button" @click="openDetail(item.categoryId)"><Eye :size="15" /> Lihat detail</button>
         </div>
         <div v-if="data.items.length" class="budget-total-row">
           <strong>Total pengeluaran</strong>
           <strong>{{ currency(totalPlanned) }}</strong>
           <strong>{{ currency(totalActual) }}</strong>
           <strong :class="{ negative: totalRemaining < 0 }">{{ totalRemaining < 0 ? '-' : '' }}{{ currency(Math.abs(totalRemaining)) }}</strong>
+          <span aria-hidden="true" />
         </div>
-      </div>
-    </article>
-
-    <article v-if="selectedCategory" class="panel budget-transactions-panel" aria-live="polite">
-      <div class="panel-heading budget-transactions-heading">
-        <div>
-          <h2>Transaksi {{ selectedCategory.categoryName }}</h2>
-          <p>Rincian pengeluaran pada periode {{ data.periodStart }} — {{ data.periodEnd }}.</p>
-        </div>
-        <span class="budget-transaction-count">{{ selectedTransactions.length }} transaksi · {{ currency(selectedCategory.actual) }}</span>
-      </div>
-      <div v-if="transactionError" class="budget-transaction-empty"><CircleAlert :size="22" /><span>{{ transactionError }}</span></div>
-      <div v-else-if="selectedTransactions.length" class="budget-transaction-list">
-        <div v-for="transaction in selectedTransactions" :key="transaction.id" class="budget-transaction-row">
-          <span class="budget-transaction-icon" :style="{ color: selectedCategory.color, background: `${selectedCategory.color}1a` }"><ReceiptText :size="17" /></span>
-          <div class="budget-transaction-name">
-            <strong>{{ transaction.description || selectedCategory.categoryName }}</strong>
-            <small>{{ transaction.account?.name || 'Rekening tidak diketahui' }}</small>
-          </div>
-          <span class="budget-transaction-date"><CalendarDays :size="14" />{{ dateLabel(transaction.occurredAt) }}</span>
-          <strong class="budget-transaction-amount">{{ currency(transaction.amount) }}</strong>
-        </div>
-      </div>
-      <div v-else class="budget-transaction-empty">
-        <ReceiptText :size="24" />
-        <div><strong>Belum ada transaksi {{ selectedCategory.categoryName }}</strong><span>Realisasi kategori ini masih kosong pada periode terpilih.</span></div>
       </div>
     </article>
 
     <p class="planning-footnote"><Sparkles :size="15" /> Realisasi memakai tanggal periode keuangan aktif, jadi tetap mengikuti pengaturan tanggal gajian Anda.</p>
+
+    <Teleport to="body">
+      <div v-if="detailOpen && selectedCategory" class="modal-backdrop" @click.self="closeDetail">
+        <article class="modal budget-detail-modal" role="dialog" aria-modal="true" :aria-label="`Detail transaksi ${selectedCategory.categoryName}`">
+          <button class="modal-close" type="button" aria-label="Tutup detail" @click="closeDetail"><X :size="18" /></button>
+          <div class="budget-detail-heading">
+            <p class="eyebrow">Rincian kategori</p>
+            <h2>Transaksi {{ selectedCategory.categoryName }}</h2>
+            <p>Pengeluaran pada periode {{ data.periodStart }} — {{ data.periodEnd }}.</p>
+            <span class="budget-transaction-count">{{ selectedTransactions.length }} transaksi · {{ currency(selectedCategory.actual) }}</span>
+          </div>
+          <div v-if="transactionError" class="budget-transaction-empty"><CircleAlert :size="22" /><span>{{ transactionError }}</span></div>
+          <div v-else-if="selectedTransactions.length" class="budget-transaction-list">
+            <div v-for="transaction in selectedTransactions" :key="transaction.id" class="budget-transaction-row">
+              <span class="budget-transaction-icon" :style="{ color: selectedCategory.color, background: `${selectedCategory.color}1a` }"><ReceiptText :size="17" /></span>
+              <div class="budget-transaction-name">
+                <strong>{{ transaction.description || selectedCategory.categoryName }}</strong>
+                <small>{{ transaction.account?.name || 'Rekening tidak diketahui' }}</small>
+              </div>
+              <span class="budget-transaction-date"><CalendarDays :size="14" />{{ dateLabel(transaction.occurredAt) }}</span>
+              <strong class="budget-transaction-amount">{{ currency(transaction.amount) }}</strong>
+            </div>
+          </div>
+          <div v-else class="budget-transaction-empty">
+            <ReceiptText :size="24" />
+            <div><strong>Belum ada transaksi {{ selectedCategory.categoryName }}</strong><span>Realisasi kategori ini masih kosong pada periode terpilih.</span></div>
+          </div>
+        </article>
+      </div>
+    </Teleport>
   </section>
 </template>
