@@ -399,8 +399,8 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
         </form>
       </div>
 
-      <div v-if="sessionModalOpen" class="modal-backdrop" @click.self="sessionModalOpen = false">
-        <form class="modal watch-modal" @submit.prevent="addSession">
+      <div v-if="sessionModalOpen" class="modal-backdrop watch-session-backdrop" @click.self="sessionModalOpen = false">
+        <form class="modal watch-modal watch-session-modal" @submit.prevent="addSession">
           <button class="modal-close" type="button" aria-label="Tutup" @click="sessionModalOpen = false"><X :size="18" /></button>
           <p class="eyebrow">Watch log</p><h2>Catat tontonan</h2>
           <label>Judul<select v-model="sessionForm.titleId" required @change="syncSessionDefaults"><option v-for="item in overview.titles" :key="item.id" :value="item.id">{{ item.title }}</option></select></label>
@@ -424,7 +424,7 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
           </template>
           <label class="checkbox watch-backfill"><input v-model="sessionForm.isBackfill" type="checkbox" /> <span><strong>Ini tontonan lama</strong><small>Total jam tetap dihitung, tetapi tidak masuk statistik bulan ini.</small></span></label>
           <label>Catatan (opsional)<input v-model.trim="sessionForm.notes" maxlength="500" placeholder="Pendapat singkat atau momen penting" /></label>
-          <p v-if="error" class="form-error">{{ error }}</p><button class="primary-button full-button" :disabled="saving"><ListVideo :size="17" /> {{ saving ? 'Menyimpan...' : 'Simpan sesi menonton' }}</button>
+          <p v-if="error" class="form-error">{{ error }}</p><button class="primary-button full-button watch-session-submit" :disabled="saving"><ListVideo :size="17" /> {{ saving ? 'Menyimpan...' : 'Simpan sesi menonton' }}</button>
         </form>
       </div>
     </Teleport>

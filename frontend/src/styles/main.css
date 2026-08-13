@@ -521,6 +521,7 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
 .watch-empty.compact { min-height: 180px; padding: 20px 8px; }
 .watch-modal { position: relative; }
 .watch-modal > h2 { margin-bottom: 15px; font-size: 21px; }
+.watch-session-modal { max-height: calc(100vh - 40px); max-height: calc(100dvh - 40px); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; -webkit-overflow-scrolling: touch; }
 .watch-catalog-modal { width: min(610px, 100%); max-height: calc(100vh - 40px); overflow-y: auto; }
 .book-entry-tabs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; margin: -3px 0 17px; padding: 4px; border-radius: 11px; background: var(--surface-2); }
 .book-entry-tabs button { min-height: 36px; display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--muted); border: 0; border-radius: 8px; background: transparent; font-size: 10px; font-weight: 700; cursor: pointer; }
@@ -1119,6 +1120,9 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
   .insight-banner .secondary-button { width: 100%; }
   .form-grid { grid-template-columns: 1fr; gap: 0; }
   .modal { padding: 19px; }
+  .watch-session-backdrop { align-items: start; padding: 12px; }
+  .watch-session-modal { max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); padding-bottom: 12px; }
+  .watch-session-submit { position: sticky; bottom: 0; z-index: 2; min-height: 42px; box-shadow: 0 -12px 18px 10px var(--surface); }
   .resource-layout { grid-template-columns: 1fr; }
   .resource-list { max-height: 220px; }
   .resource-manager-modal { max-height: calc(100vh - 30px); overflow-y: auto; }
