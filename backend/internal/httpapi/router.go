@@ -62,6 +62,7 @@ func NewRouter(db *pgxpool.Pool, logger *slog.Logger, frontendOrigin, tmdbAPITok
 	protected.HandleFunc("GET /api/v1/watch", api.getWatchOverview)
 	protected.HandleFunc("GET /api/v1/watch/titles/{id}", api.getWatchTitleDetail)
 	protected.HandleFunc("POST /api/v1/watch/titles", api.createWatchTitle)
+	protected.HandleFunc("PUT /api/v1/watch/titles/{id}", api.updateWatchTitle)
 	protected.HandleFunc("PATCH /api/v1/watch/titles/{id}", api.updateWatchTitleStatus)
 	protected.HandleFunc("DELETE /api/v1/watch/titles/{id}", api.deleteWatchTitle)
 	protected.HandleFunc("POST /api/v1/watch/sessions", api.createWatchSession)

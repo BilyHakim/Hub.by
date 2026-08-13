@@ -24,7 +24,7 @@ const overview = ref({
   summary: { totalTitles: 0, watchingTitles: 0, completedTitles: 0, totalMinutes: 0, monthMinutes: 0 },
   titles: [], recentSessions: [], dailyActivity: [],
 })
-const titleForm = reactive({ mediaType: 'movie', title: '', genre: '', releaseYear: '', runtimeMinutes: 120, totalEpisodes: '', catalogId: '', posterUrl: '', totalSeasons: 0 })
+const titleForm = reactive({ mediaType: 'movie', title: '', synopsis: '', genre: '', releaseYear: '', runtimeMinutes: 120, totalEpisodes: '', catalogId: '', posterUrl: '', totalSeasons: 0 })
 const sessionForm = reactive({ titleId: '', watchedAt: today(), durationMinutes: 45, seasonNumber: 1, episodeNumber: 1, episodeFrom: 1, episodeTo: 1, notes: '', isBackfill: false })
 
 const selectedTitle = computed(() => overview.value.titles.find((item) => item.id === Number(sessionForm.titleId)))
@@ -71,7 +71,7 @@ async function loadWatch() {
   finally { loading.value = false }
 }
 function openTitleModal() {
-  Object.assign(titleForm, { mediaType: 'movie', title: '', genre: '', releaseYear: '', runtimeMinutes: 120, totalEpisodes: '', catalogId: '', posterUrl: '', totalSeasons: 0 })
+  Object.assign(titleForm, { mediaType: 'movie', title: '', synopsis: '', genre: '', releaseYear: '', runtimeMinutes: 120, totalEpisodes: '', catalogId: '', posterUrl: '', totalSeasons: 0 })
   catalogQuery.value = ''
   catalogResults.value = []
   selectedCatalog.value = null
@@ -120,7 +120,7 @@ async function selectCatalogItem(item) {
   try {
     const detail = await api.watchCatalogTitle(item.catalogId, item.mediaType)
     selectedCatalog.value = detail
-    Object.assign(titleForm, { ...detail, totalEpisodes: 0 })
+    Object.assign(titleForm, { ...detail, synopsis: detail.plot || '', totalEpisodes: 0 })
   } catch (requestError) { error.value = requestError.message }
   finally { catalogSearching.value = false }
 }
@@ -224,6 +224,7 @@ async function addTitle() {
   try {
     await api.createWatchTitle({
       title: titleForm.title,
+      synopsis: titleForm.synopsis,
       mediaType: titleForm.mediaType,
       genre: titleForm.genre,
       releaseYear: Number(titleForm.releaseYear || 0),

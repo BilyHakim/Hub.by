@@ -69,6 +69,7 @@ export const api = {
   watch: () => request('/watch'),
   watchTitle: (id) => request(`/watch/titles/${id}`),
   createWatchTitle: (payload) => request('/watch/titles', { method: 'POST', body: JSON.stringify(payload) }),
+  updateWatchTitle: (id, payload) => request(`/watch/titles/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   updateWatchTitleStatus: (id, status) => request(`/watch/titles/${id}`, {
     method: 'PATCH',
     body: JSON.stringify({ status }),

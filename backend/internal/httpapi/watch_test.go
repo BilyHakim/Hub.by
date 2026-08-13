@@ -23,6 +23,20 @@ func TestMovieIgnoresEpisodeCount(t *testing.T) {
 	}
 }
 
+func TestValidWatchTitleMetadata(t *testing.T) {
+	input := watchTitleMetadataInput{Title: "  Spy x Family  ", Synopsis: "  English synopsis.  "}
+	if !validWatchTitleMetadata(&input) {
+		t.Fatal("expected valid watch title metadata")
+	}
+	if input.Title != "Spy x Family" || input.Synopsis != "English synopsis." {
+		t.Fatal("expected metadata to be trimmed")
+	}
+	input.Title = ""
+	if validWatchTitleMetadata(&input) {
+		t.Fatal("expected empty title to be invalid")
+	}
+}
+
 func TestValidWatchSession(t *testing.T) {
 	input := watchSessionInput{TitleID: 1, WatchedAt: "2026-08-03", DurationMinutes: 48, SeasonNumber: 1, EpisodeNumber: 2}
 	if _, ok := validWatchSession(&input); !ok {

@@ -13,6 +13,7 @@ import (
 
 type watchTitleInput struct {
 	Title          string `json:"title"`
+	Synopsis       string `json:"synopsis"`
 	MediaType      string `json:"mediaType"`
 	Genre          string `json:"genre"`
 	ReleaseYear    int    `json:"releaseYear"`
@@ -21,6 +22,11 @@ type watchTitleInput struct {
 	CatalogID      string `json:"catalogId"`
 	PosterURL      string `json:"posterUrl"`
 	TotalSeasons   int    `json:"totalSeasons"`
+}
+
+type watchTitleMetadataInput struct {
+	Title    string `json:"title"`
+	Synopsis string `json:"synopsis"`
 }
 
 type watchSessionBatchInput struct {
@@ -174,10 +180,10 @@ func (api *API) getWatchTitleDetail(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid watch title id")
 		return
 	}
-	var title, mediaType, genre, status, catalogID, posterURL, lastWatchedAt string
+	var title, synopsis, mediaType, genre, status, catalogID, posterURL, lastWatchedAt string
 	var releaseYear, runtimeMinutes, totalEpisodes, totalSeasons, watchedMinutes, sessionCount, lastSeason, lastEpisode int
 	err = api.db.QueryRow(r.Context(), `
-		SELECT t.title,t.media_type,t.genre,COALESCE(t.release_year,0),t.runtime_minutes,
+		SELECT t.title,t.synopsis,t.media_type,t.genre,COALESCE(t.release_year,0),t.runtime_minutes,
 		       COALESCE(t.total_episodes,0),COALESCE(t.total_seasons,0),t.status,t.catalog_id,t.poster_url,
 		       COALESCE(stats.minutes,0),COALESCE(stats.sessions,0),
 		       COALESCE(TO_CHAR(last_session.watched_at,'YYYY-MM-DD'),''),
@@ -186,7 +192,7 @@ func (api *API) getWatchTitleDetail(w http.ResponseWriter, r *http.Request) {
 		LEFT JOIN LATERAL (SELECT SUM(duration_minutes) minutes,COUNT(*) sessions FROM watch_sessions WHERE title_id=t.id) stats ON TRUE
 		LEFT JOIN LATERAL (SELECT watched_at,season_number,episode_number FROM watch_sessions WHERE title_id=t.id ORDER BY watched_at DESC,id DESC LIMIT 1) last_session ON TRUE
 		WHERE t.id=$1 AND t.workspace_id=$2
-	`, titleID, workspaceID).Scan(&title, &mediaType, &genre, &releaseYear, &runtimeMinutes,
+	`, titleID, workspaceID).Scan(&title, &synopsis, &mediaType, &genre, &releaseYear, &runtimeMinutes,
 		&totalEpisodes, &totalSeasons, &status, &catalogID, &posterURL, &watchedMinutes, &sessionCount,
 		&lastWatchedAt, &lastSeason, &lastEpisode)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -238,7 +244,7 @@ func (api *API) getWatchTitleDetail(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeJSON(w, http.StatusOK, envelope{"data": envelope{
-		"title": envelope{"id": titleID, "title": title, "mediaType": mediaType, "genre": genre,
+		"title": envelope{"id": titleID, "title": title, "synopsis": synopsis, "mediaType": mediaType, "genre": genre,
 			"releaseYear": releaseYear, "runtimeMinutes": runtimeMinutes, "totalEpisodes": totalEpisodes,
 			"totalSeasons": totalSeasons, "status": status, "catalogId": catalogID, "posterUrl": posterURL,
 			"watchedMinutes": watchedMinutes, "sessionCount": sessionCount, "lastWatchedAt": lastWatchedAt,
@@ -264,9 +270,9 @@ func (api *API) createWatchTitle(w http.ResponseWriter, r *http.Request) {
 	}
 	var id int64
 	err = api.db.QueryRow(r.Context(), `
-		INSERT INTO watch_titles(workspace_id,title,media_type,genre,release_year,runtime_minutes,total_episodes,catalog_id,poster_url,total_seasons)
-		VALUES($1,$2,$3,$4,NULLIF($5,0),$6,NULLIF($7,0),$8,$9,NULLIF($10,0)) RETURNING id
-	`, workspaceID, input.Title, input.MediaType, input.Genre, input.ReleaseYear,
+		INSERT INTO watch_titles(workspace_id,title,synopsis,media_type,genre,release_year,runtime_minutes,total_episodes,catalog_id,poster_url,total_seasons)
+		VALUES($1,$2,$3,$4,$5,NULLIF($6,0),$7,NULLIF($8,0),$9,$10,NULLIF($11,0)) RETURNING id
+	`, workspaceID, input.Title, input.Synopsis, input.MediaType, input.Genre, input.ReleaseYear,
 		input.RuntimeMinutes, input.TotalEpisodes, input.CatalogID, input.PosterURL, input.TotalSeasons).Scan(&id)
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -278,6 +284,36 @@ func (api *API) createWatchTitle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, envelope{"data": watchTitleResponse(id, input)})
+}
+
+func (api *API) updateWatchTitle(w http.ResponseWriter, r *http.Request) {
+	workspaceID, err := api.currentWorkspaceID(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to resolve active workspace")
+		return
+	}
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid watch title id")
+		return
+	}
+	var input watchTitleMetadataInput
+	if decodeJSON(r, &input) != nil || !validWatchTitleMetadata(&input) {
+		writeError(w, http.StatusUnprocessableEntity, "invalid watch title metadata")
+		return
+	}
+	result, err := api.db.Exec(r.Context(), `
+		UPDATE watch_titles SET title=$1,synopsis=$2,updated_at=now() WHERE id=$3 AND workspace_id=$4
+	`, input.Title, input.Synopsis, id, workspaceID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to update watch title")
+		return
+	}
+	if result.RowsAffected() == 0 {
+		writeError(w, http.StatusNotFound, "title not found in active workspace")
+		return
+	}
+	writeJSON(w, http.StatusOK, envelope{"data": envelope{"id": id, "title": input.Title, "synopsis": input.Synopsis}})
 }
 
 func (api *API) updateWatchTitleStatus(w http.ResponseWriter, r *http.Request) {
@@ -528,6 +564,7 @@ func (api *API) getWatchTitleProgress(w http.ResponseWriter, r *http.Request) {
 
 func validWatchTitle(input *watchTitleInput) bool {
 	input.Title = strings.TrimSpace(input.Title)
+	input.Synopsis = strings.TrimSpace(input.Synopsis)
 	input.MediaType = strings.TrimSpace(input.MediaType)
 	input.Genre = strings.TrimSpace(input.Genre)
 	input.CatalogID = strings.TrimSpace(input.CatalogID)
@@ -535,13 +572,19 @@ func validWatchTitle(input *watchTitleInput) bool {
 	if input.MediaType == "movie" {
 		input.TotalEpisodes = 0
 	}
-	return len(input.Title) >= 1 && len(input.Title) <= 160 &&
+	return len(input.Title) >= 1 && len(input.Title) <= 160 && len(input.Synopsis) <= 5000 &&
 		(input.MediaType == "movie" || input.MediaType == "series") && len(input.Genre) <= 80 &&
 		(input.ReleaseYear == 0 || input.ReleaseYear >= 1888 && input.ReleaseYear <= 2200) &&
 		input.RuntimeMinutes >= 1 && input.RuntimeMinutes <= 1440 &&
 		(input.MediaType == "movie" || input.TotalEpisodes >= 0) &&
 		(input.CatalogID == "" || validCatalogID(input.CatalogID)) && len(input.PosterURL) <= 1000 &&
 		input.TotalSeasons >= 0 && input.TotalSeasons <= 100
+}
+
+func validWatchTitleMetadata(input *watchTitleMetadataInput) bool {
+	input.Title = strings.TrimSpace(input.Title)
+	input.Synopsis = strings.TrimSpace(input.Synopsis)
+	return len(input.Title) >= 1 && len(input.Title) <= 160 && len(input.Synopsis) <= 5000
 }
 
 func validWatchSession(input *watchSessionInput) (time.Time, bool) {
@@ -561,7 +604,7 @@ func validWatchStatus(status string) bool {
 
 func watchTitleResponse(id int64, input watchTitleInput) envelope {
 	return envelope{
-		"id": id, "title": input.Title, "mediaType": input.MediaType, "genre": input.Genre,
+		"id": id, "title": input.Title, "synopsis": input.Synopsis, "mediaType": input.MediaType, "genre": input.Genre,
 		"releaseYear": input.ReleaseYear, "runtimeMinutes": input.RuntimeMinutes,
 		"totalEpisodes": input.TotalEpisodes, "status": "planned", "watchedMinutes": 0,
 		"sessionCount": 0, "lastWatchedAt": "", "lastSeason": 0, "lastEpisode": 0,

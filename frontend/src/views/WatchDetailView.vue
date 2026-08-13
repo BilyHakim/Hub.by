@@ -1,7 +1,7 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { ArrowLeft, CalendarDays, Check, Clock3, Film, History, Star, Trash2, Tv } from '@lucide/vue'
+import { ArrowLeft, CalendarDays, Check, Clock3, Film, History, Pencil, Star, Trash2, Tv, X } from '@lucide/vue'
 import { api } from '../services/api'
 
 const route = useRoute()
@@ -12,10 +12,15 @@ const catalogDetail = ref(null)
 const seasonCatalog = ref([])
 const selectedSeason = ref(1)
 const loadingSeason = ref(false)
+const editModalOpen = ref(false)
+const saving = ref(false)
+const editError = ref('')
+const editForm = reactive({ title: '', synopsis: '' })
 
 const title = computed(() => detail.value.title || {})
 const watchedEpisodes = computed(() => detail.value.seasons.find((item) => item.seasonNumber === selectedSeason.value)?.watchedEpisodes || [])
 const seasonProgress = computed(() => seasonCatalog.value.length ? Math.round((watchedEpisodes.value.length / seasonCatalog.value.length) * 100) : 0)
+const displayedSynopsis = computed(() => title.value.synopsis || catalogDetail.value?.plot || '')
 
 function formatDuration(minutes = 0) {
   const hours = Math.floor(Number(minutes) / 60)
@@ -52,6 +57,21 @@ async function removeSession(session) {
   try { await api.deleteWatchSession(session.id); await loadDetail() }
   catch (requestError) { error.value = requestError.message }
 }
+function openEditModal() {
+  Object.assign(editForm, { title: title.value.title || '', synopsis: displayedSynopsis.value })
+  editError.value = ''
+  editModalOpen.value = true
+}
+async function saveTitle() {
+  saving.value = true
+  editError.value = ''
+  try {
+    const updated = await api.updateWatchTitle(route.params.id, editForm)
+    Object.assign(detail.value.title, updated)
+    editModalOpen.value = false
+  } catch (requestError) { editError.value = requestError.message }
+  finally { saving.value = false }
+}
 function handleWorkspaceChange() { loadDetail() }
 onMounted(() => { loadDetail(); window.addEventListener('hubby:workspace-changed', handleWorkspaceChange) })
 onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', handleWorkspaceChange))
@@ -66,10 +86,13 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
       <section class="watch-detail-hero watch-panel">
         <span class="detail-poster"><img v-if="title.posterUrl" :src="title.posterUrl" :alt="`Poster ${title.title}`" /><Tv v-else-if="title.mediaType === 'series'" :size="42" /><Film v-else :size="42" /></span>
         <div class="detail-copy">
-          <div class="detail-badges"><span>{{ title.mediaType === 'series' ? 'Series' : 'Film' }}</span><span :class="`status-${title.status}`">{{ statusLabel(title.status) }}</span></div>
+          <div class="detail-heading-row">
+            <div class="detail-badges"><span>{{ title.mediaType === 'series' ? 'Series' : 'Film' }}</span><span :class="`status-${title.status}`">{{ statusLabel(title.status) }}</span></div>
+            <button class="detail-edit-button" type="button" @click="openEditModal"><Pencil :size="14" /> Edit detail</button>
+          </div>
           <h1>{{ title.title }}</h1>
           <p class="detail-meta">{{ title.releaseYear || 'Tahun tidak diketahui' }} · {{ title.genre || 'Tanpa genre' }} · {{ title.runtimeMinutes }} menit</p>
-          <p class="detail-plot">{{ catalogDetail?.plot || 'Belum ada sinopsis untuk judul ini.' }}</p>
+          <p class="detail-plot">{{ displayedSynopsis || 'Belum ada sinopsis untuk judul ini.' }}</p>
           <div class="detail-facts"><span><Clock3 :size="16" /><strong>{{ formatDuration(title.watchedMinutes) }}</strong><small>Total ditonton</small></span><span><History :size="16" /><strong>{{ title.sessionCount }}</strong><small>{{ title.mediaType === 'series' ? 'Episode tercatat' : 'Sesi tercatat' }}</small></span><span><CalendarDays :size="16" /><strong>{{ title.lastWatchedAt ? formatDate(title.lastWatchedAt) : '–' }}</strong><small>Terakhir ditonton</small></span></div>
         </div>
       </section>
@@ -93,5 +116,18 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
         </aside>
       </div>
     </template>
+
+    <Teleport to="body">
+      <div v-if="editModalOpen" class="modal-backdrop" @click.self="editModalOpen = false">
+        <form class="modal watch-modal watch-edit-modal" @submit.prevent="saveTitle">
+          <button class="modal-close" type="button" aria-label="Tutup" @click="editModalOpen = false"><X :size="18" /></button>
+          <p class="eyebrow">Edit tontonan</p><h2>Edit detail {{ title.mediaType === 'series' ? 'series' : 'film' }}</h2>
+          <label>Judul<input v-model.trim="editForm.title" maxlength="160" required /></label>
+          <label>Sinopsis<textarea v-model.trim="editForm.synopsis" maxlength="5000" rows="7" placeholder="Tambahkan sinopsis dalam bahasa yang kamu inginkan" /></label>
+          <p v-if="editError" class="form-error">{{ editError }}</p>
+          <button class="primary-button full-button" :disabled="saving"><Check :size="17" /> {{ saving ? 'Menyimpan...' : 'Simpan perubahan' }}</button>
+        </form>
+      </div>
+    </Teleport>
   </section>
 </template>

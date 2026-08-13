@@ -210,8 +210,8 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
 .top-avatar { display: none; }
 .menu-button, .mobile-close { display: none; }
 .menu-button.desktop-visible, .sidebar-toggle { display: grid; }
-.sidebar-toggle { width: 31px; height: 31px; place-items: center; flex: none; padding: 0; color: var(--muted); border: 0; border-radius: 8px; background: transparent; cursor: pointer; }
-.sidebar-toggle:hover { color: var(--ink); background: rgba(255,255,255,.65); }
+.sidebar-toggle { position: absolute; top: 47px; right: -17px; width: 34px; height: 40px; z-index: 2; place-items: center; padding: 0; color: var(--muted); border: 1px solid var(--line); border-radius: 11px; background: var(--surface); box-shadow: 0 5px 16px rgba(31,47,41,.1); cursor: pointer; }
+.sidebar-toggle:hover { color: var(--ink); border-color: #c8d2cc; background: white; box-shadow: 0 7px 20px rgba(31,47,41,.14); }
 .page-wrap { max-width: 1490px; margin: 0 auto; padding: 34px 36px 50px; animation: page-in .25s ease; }
 @keyframes page-in { from { opacity: 0; transform: translateY(4px); } }
 .page-heading { display: flex; justify-content: space-between; gap: 28px; align-items: flex-end; margin-bottom: 26px; }
