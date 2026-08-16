@@ -14,6 +14,7 @@ type dashboardSummary struct {
 	PreviousPeriodEnd   string          `json:"previousPeriodEnd"`
 	Income              int64           `json:"income"`
 	Expense             int64           `json:"expense"`
+	EmergencyExpense    int64           `json:"emergencyExpense"`
 	Savings             int64           `json:"savings"`
 	PreviousIncome      int64           `json:"previousIncome"`
 	PreviousExpense     int64           `json:"previousExpense"`
@@ -35,9 +36,10 @@ type dashboardSummary struct {
 }
 
 type cashflowPoint struct {
-	Month   string `json:"month"`
-	Income  int64  `json:"income"`
-	Expense int64  `json:"expense"`
+	Month            string `json:"month"`
+	Income           int64  `json:"income"`
+	Expense          int64  `json:"expense"`
+	EmergencyExpense int64  `json:"emergencyExpense"`
 }
 
 type categoryPoint struct {
@@ -79,11 +81,13 @@ func (api *API) dashboard(w http.ResponseWriter, r *http.Request) {
 	err = api.db.QueryRow(ctx, `
 		WITH monthly AS (
 			SELECT
-				COALESCE(SUM(amount) FILTER (WHERE type = 'income'), 0)::bigint AS income,
-				COALESCE(SUM(amount) FILTER (WHERE type = 'expense'), 0)::bigint AS expense,
-				COALESCE(SUM(amount) FILTER (WHERE type = 'expense' AND is_debt_payment), 0)::bigint AS debt
-			FROM transactions
-			WHERE occurred_at >= $1 AND occurred_at < $2 AND workspace_id = $3
+				COALESCE(SUM(t.amount) FILTER (WHERE t.type = 'income'), 0)::bigint AS income,
+				COALESCE(SUM(t.amount) FILTER (WHERE t.type = 'expense' AND NOT a.is_emergency_fund), 0)::bigint AS expense,
+				COALESCE(SUM(t.amount) FILTER (WHERE t.type = 'expense' AND a.is_emergency_fund), 0)::bigint AS emergency_expense,
+				COALESCE(SUM(t.amount) FILTER (WHERE t.type = 'expense' AND t.is_debt_payment AND NOT a.is_emergency_fund), 0)::bigint AS debt
+			FROM transactions t
+			JOIN accounts a ON a.id = t.account_id
+			WHERE t.occurred_at >= $1 AND t.occurred_at < $2 AND t.workspace_id = $3
 		), wealth AS (
 			SELECT
 				COALESCE(SUM(current_balance) FILTER (WHERE kind <> 'liability'), 0)::bigint AS assets,
@@ -98,14 +102,14 @@ func (api *API) dashboard(w http.ResponseWriter, r *http.Request) {
 			SELECT COALESCE(AVG(monthly_expense) * MAX(target_months), 0)::bigint AS target
 			FROM emergency_fund_settings WHERE workspace_id = $3
 		)
-		SELECT monthly.income, monthly.expense,
+		SELECT monthly.income, monthly.expense, monthly.emergency_expense,
 		       wealth.assets - wealth.liabilities, wealth.emergency,
 		       emergency.target, investments.value, investments.cost,
 		       CASE WHEN investments.cost > 0 THEN ((investments.value - investments.cost)::numeric / investments.cost * 100) ELSE 0 END,
 		       monthly.debt
 		FROM monthly, wealth, investments, emergency
 	`, period.Start, period.EndExclusive, workspaceID).Scan(
-		&result.Income, &result.Expense, &result.NetWorth, &result.EmergencyFund,
+		&result.Income, &result.Expense, &result.EmergencyExpense, &result.NetWorth, &result.EmergencyFund,
 		&result.EmergencyTarget, &result.InvestmentValue, &result.InvestmentCost, &result.InvestmentReturn,
 		new(int64),
 	)
@@ -126,10 +130,11 @@ func (api *API) dashboard(w http.ResponseWriter, r *http.Request) {
 		result.PreviousPeriodEnd = previousPeriod.EndInclusive.Format("2006-01-02")
 		previousErr := api.db.QueryRow(ctx, `
 			SELECT
-				COALESCE(SUM(amount) FILTER (WHERE type='income'),0)::bigint,
-				COALESCE(SUM(amount) FILTER (WHERE type='expense'),0)::bigint
-			FROM transactions
-			WHERE workspace_id=$1 AND occurred_at >= $2 AND occurred_at < $3
+				COALESCE(SUM(t.amount) FILTER (WHERE t.type='income'),0)::bigint,
+				COALESCE(SUM(t.amount) FILTER (WHERE t.type='expense' AND NOT a.is_emergency_fund),0)::bigint
+			FROM transactions t
+			JOIN accounts a ON a.id=t.account_id
+			WHERE t.workspace_id=$1 AND t.occurred_at >= $2 AND t.occurred_at < $3
 		`, workspaceID, previousPeriod.Start, previousPeriod.EndExclusive).Scan(&result.PreviousIncome, &result.PreviousExpense)
 		if previousErr == nil {
 			result.PreviousSavings = result.PreviousIncome - result.PreviousExpense
@@ -157,11 +162,13 @@ func (api *API) dashboard(w http.ResponseWriter, r *http.Request) {
 		point := cashflowPoint{Month: monthLabels[int(pointMonth.Month())-1]}
 		queryErr := api.db.QueryRow(ctx, `
 			SELECT
-				COALESCE(SUM(amount) FILTER (WHERE type='income'),0)::bigint,
-				COALESCE(SUM(amount) FILTER (WHERE type='expense'),0)::bigint
-			FROM transactions
-			WHERE workspace_id=$1 AND occurred_at >= $2 AND occurred_at < $3
-		`, workspaceID, pointPeriod.Start, pointPeriod.EndExclusive).Scan(&point.Income, &point.Expense)
+				COALESCE(SUM(t.amount) FILTER (WHERE t.type='income'),0)::bigint,
+				COALESCE(SUM(t.amount) FILTER (WHERE t.type='expense' AND NOT a.is_emergency_fund),0)::bigint,
+				COALESCE(SUM(t.amount) FILTER (WHERE t.type='expense' AND a.is_emergency_fund),0)::bigint
+			FROM transactions t
+			JOIN accounts a ON a.id=t.account_id
+			WHERE t.workspace_id=$1 AND t.occurred_at >= $2 AND t.occurred_at < $3
+		`, workspaceID, pointPeriod.Start, pointPeriod.EndExclusive).Scan(&point.Income, &point.Expense, &point.EmergencyExpense)
 		if queryErr == nil {
 			result.Cashflow = append(result.Cashflow, point)
 		}
@@ -170,9 +177,11 @@ func (api *API) dashboard(w http.ResponseWriter, r *http.Request) {
 	colors := []string{"#49685c", "#e8a65d", "#d77268", "#7894a0", "#9a8bb7", "#b4a464"}
 	rows, err := api.db.Query(ctx, `
 		SELECT c.name, SUM(t.amount)::bigint
-		FROM transactions t JOIN categories c ON c.id = t.category_id
+		FROM transactions t
+		JOIN categories c ON c.id = t.category_id
+		JOIN accounts a ON a.id = t.account_id
 		WHERE t.type = 'expense' AND t.occurred_at >= $1 AND t.occurred_at < $2
-			AND t.workspace_id = $3
+			AND t.workspace_id = $3 AND NOT a.is_emergency_fund
 		GROUP BY c.name ORDER BY SUM(t.amount) DESC LIMIT 6
 	`, period.Start, period.EndExclusive, workspaceID)
 	if err == nil {
@@ -191,7 +200,12 @@ func (api *API) dashboard(w http.ResponseWriter, r *http.Request) {
 	debtRatio := 0.0
 	if result.Income > 0 {
 		var debt int64
-		_ = api.db.QueryRow(ctx, `SELECT COALESCE(SUM(amount),0)::bigint FROM transactions WHERE type='expense' AND is_debt_payment AND occurred_at >= $1 AND occurred_at < $2 AND workspace_id=$3`, period.Start, period.EndExclusive, workspaceID).Scan(&debt)
+		_ = api.db.QueryRow(ctx, `
+			SELECT COALESCE(SUM(t.amount),0)::bigint
+			FROM transactions t JOIN accounts a ON a.id=t.account_id
+			WHERE t.type='expense' AND t.is_debt_payment AND NOT a.is_emergency_fund
+				AND t.occurred_at >= $1 AND t.occurred_at < $2 AND t.workspace_id=$3
+		`, period.Start, period.EndExclusive, workspaceID).Scan(&debt)
 		debtRatio = float64(debt) / float64(result.Income) * 100
 	}
 	result.FinancialCheckup = []checkupItem{

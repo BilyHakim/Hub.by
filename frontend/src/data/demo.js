@@ -6,6 +6,7 @@ export const demoDashboard = {
   previousPeriodEnd: '2026-06-30',
   income: 21_500_000,
   expense: 12_650_000,
+  emergencyExpense: 1_250_000,
   savings: 8_850_000,
   previousIncome: 17_500_000,
   previousExpense: 9_900_000,
@@ -22,12 +23,12 @@ export const demoDashboard = {
   investmentCost: 56_000_000,
   investmentReturn: 11.6,
   cashflow: [
-    { month: 'Feb', income: 16_300_000, expense: 9_180_000 },
-    { month: 'Mar', income: 16_600_000, expense: 9_360_000 },
-    { month: 'Apr', income: 16_900_000, expense: 9_540_000 },
-    { month: 'Mei', income: 17_200_000, expense: 9_720_000 },
-    { month: 'Jun', income: 17_500_000, expense: 9_900_000 },
-    { month: 'Jul', income: 21_500_000, expense: 12_650_000 },
+    { month: 'Feb', income: 16_300_000, expense: 9_180_000, emergencyExpense: 0 },
+    { month: 'Mar', income: 16_600_000, expense: 9_360_000, emergencyExpense: 0 },
+    { month: 'Apr', income: 16_900_000, expense: 9_540_000, emergencyExpense: 500_000 },
+    { month: 'Mei', income: 17_200_000, expense: 9_720_000, emergencyExpense: 0 },
+    { month: 'Jun', income: 17_500_000, expense: 9_900_000, emergencyExpense: 750_000 },
+    { month: 'Jul', income: 21_500_000, expense: 12_650_000, emergencyExpense: 1_250_000 },
   ],
   expenseBreakdown: [
     { name: 'Tempat tinggal', value: 4_000_000, color: '#d77268' },
@@ -45,7 +46,7 @@ export const demoDashboard = {
 }
 
 export const demoTransactions = [
-  { id: 1, type: 'income', amount: 18_000_000, description: 'Gaji bulanan', occurredAt: '2026-07-02', category: { id: 1, name: 'Gaji' }, account: { id: 1, name: 'BCA Utama' } },
+  { id: 1, type: 'income', amount: 18_000_000, description: 'Gaji bulanan', occurredAt: '2026-07-02', category: { id: 1, name: 'Gaji' }, account: { id: 1, name: 'BCA Utama', isEmergencyFund: false } },
   { id: 2, type: 'expense', amount: 4_000_000, description: 'Sewa tempat tinggal', occurredAt: '2026-07-02', category: { id: 5, name: 'Tempat Tinggal' }, account: { id: 1, name: 'BCA Utama' } },
   { id: 3, type: 'income', amount: 3_500_000, description: 'Proyek desain', occurredAt: '2026-07-07', category: { id: 2, name: 'Freelance' }, account: { id: 1, name: 'BCA Utama' } },
   { id: 4, type: 'expense', amount: 2_850_000, description: 'Makan & belanja dapur', occurredAt: '2026-07-04', category: { id: 3, name: 'Makanan' }, account: { id: 1, name: 'BCA Utama' } },

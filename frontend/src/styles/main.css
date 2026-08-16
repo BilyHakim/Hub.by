@@ -297,14 +297,17 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
 .line { fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
 .line-income { stroke: var(--sage); }
 .line-expense { stroke: var(--sand); stroke-dasharray: 5 5; }
+.line-emergency-expense { stroke: #d77268; stroke-dasharray: 2 5; }
 .point { stroke: white; stroke-width: 2; }
 .point-income { fill: var(--sage); }
 .point-expense { fill: var(--sand); }
+.point-emergency-expense { fill: #d77268; }
 .chart-legend { display: flex; justify-content: flex-end; gap: 14px; color: var(--muted); font-size: 10px; }
 .chart-legend span { display: flex; align-items: center; gap: 5px; }
 .legend-dot { width: 7px; height: 7px; border-radius: 50%; }
 .income-dot { background: var(--sage); }
 .expense-dot { background: var(--sand); }
+.emergency-expense-dot { background: #d77268; }
 .expense-content { display: flex; align-items: center; gap: 28px; min-height: 245px; padding: 15px 0 0; }
 .donut { width: 145px; height: 145px; display: grid; place-items: center; flex: none; border-radius: 50%; transform: rotate(-30deg); }
 .donut > div { width: 91px; height: 91px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 50%; background: var(--surface); transform: rotate(30deg); }
@@ -337,12 +340,13 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
 .text-link { margin-top: 14px; }
 .shimmer { opacity: .55; }
 
-.summary-strip { display: grid; grid-template-columns: repeat(3, 1fr); margin-bottom: 16px; border: 1px solid var(--line); border-radius: 15px; background: var(--surface); }
+.summary-strip { display: grid; grid-template-columns: repeat(4, 1fr); margin-bottom: 16px; border: 1px solid var(--line); border-radius: 15px; background: var(--surface); }
 .summary-strip > div { display: flex; align-items: center; gap: 12px; padding: 18px 20px; border-right: 1px solid var(--line); }
 .summary-strip > div:last-child { border-right: 0; }
 .summary-icon { width: 38px; height: 38px; display: grid; place-items: center; flex: none; border-radius: 10px; font-weight: 700; }
 .summary-icon.income { color: var(--sage); background: var(--sage-light); }
 .summary-icon.expense { color: #aa625a; background: var(--rose-light); }
+.summary-icon.emergency-expense { color: #a46729; background: var(--sand-light); }
 .summary-icon.balance { color: #766697; background: var(--lilac-light); }
 .summary-strip p { display: flex; flex-direction: column; gap: 3px; margin: 0; color: var(--muted); font-size: 10px; }
 .summary-strip strong { color: var(--ink); font-family: 'Manrope'; font-size: 16px; }

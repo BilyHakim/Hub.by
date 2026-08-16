@@ -45,11 +45,12 @@ func (api *API) listTransactions(w http.ResponseWriter, r *http.Request) {
 	}
 	rows, err := api.db.Query(r.Context(), `
 		SELECT id,kind,amount,description,occurred_at,is_debt_payment,
-		       category_id,category_name,account_id,account_name,
+		       category_id,category_name,account_id,account_name,account_is_emergency_fund,
 		       destination_account_id,destination_account_name
 		FROM (
 			SELECT t.id,t.type::text AS kind,t.amount,t.description,t.occurred_at,t.is_debt_payment,
 			       c.id AS category_id,c.name AS category_name,a.id AS account_id,a.name AS account_name,
+			       a.is_emergency_fund AS account_is_emergency_fund,
 			       0::bigint AS destination_account_id,''::text AS destination_account_name
 			FROM transactions t
 			JOIN categories c ON c.id=t.category_id
@@ -57,7 +58,7 @@ func (api *API) listTransactions(w http.ResponseWriter, r *http.Request) {
 			WHERE t.occurred_at >= $1 AND t.occurred_at < $2 AND t.workspace_id=$3
 			UNION ALL
 			SELECT tr.id,'transfer',tr.amount,tr.description,tr.occurred_at,false,
-			       0::bigint,'Transfer antar rekening',source.id,source.name,destination.id,destination.name
+			       0::bigint,'Transfer antar rekening',source.id,source.name,source.is_emergency_fund,destination.id,destination.name
 			FROM account_transfers tr
 			JOIN accounts source ON source.id=tr.source_account_id
 			JOIN accounts destination ON destination.id=tr.destination_account_id
@@ -75,15 +76,15 @@ func (api *API) listTransactions(w http.ResponseWriter, r *http.Request) {
 		var id, amount, categoryID, accountID, destinationAccountID int64
 		var kind, description, category, account, destinationAccount string
 		var occurred time.Time
-		var debt bool
-		if err := rows.Scan(&id, &kind, &amount, &description, &occurred, &debt, &categoryID, &category, &accountID, &account, &destinationAccountID, &destinationAccount); err != nil {
+		var debt, accountIsEmergencyFund bool
+		if err := rows.Scan(&id, &kind, &amount, &description, &occurred, &debt, &categoryID, &category, &accountID, &account, &accountIsEmergencyFund, &destinationAccountID, &destinationAccount); err != nil {
 			continue
 		}
 		item := envelope{
 			"id": id, "type": kind, "amount": amount, "description": description,
 			"occurredAt": occurred.Format("2006-01-02"), "isDebtPayment": debt,
 			"category": envelope{"id": categoryID, "name": category},
-			"account":  envelope{"id": accountID, "name": account},
+			"account":  envelope{"id": accountID, "name": account, "isEmergencyFund": accountIsEmergencyFund},
 		}
 		if kind == "transfer" {
 			item["destinationAccount"] = envelope{"id": destinationAccountID, "name": destinationAccount}
