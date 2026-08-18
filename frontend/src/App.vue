@@ -122,6 +122,10 @@ function hideSidebar() {
   closeMenus()
   sidebarHidden.value = true
 }
+function toggleSidebar() {
+  if (sidebarHidden.value) sidebarHidden.value = false
+  else hideSidebar()
+}
 function toggleWorkspaceMenu() {
   profileMenuOpen.value = false
   notificationMenuOpen.value = false
@@ -446,7 +450,6 @@ onBeforeUnmount(() => {
           <strong>hubby</strong>
           <small>{{ productName }}</small>
         </span>
-        <button class="sidebar-toggle" type="button" aria-label="Sembunyikan navigasi" title="Sembunyikan navigasi" @click="hideSidebar"><ChevronLeft :size="19" /></button>
         <button class="icon-button mobile-close" aria-label="Tutup menu" @click="sidebarOpen = false"><X :size="19" /></button>
       </div>
 
@@ -508,9 +511,20 @@ onBeforeUnmount(() => {
       </div>
     </aside>
 
+    <button
+      class="sidebar-edge-toggle"
+      type="button"
+      :aria-label="sidebarHidden ? 'Tampilkan navigasi' : 'Sembunyikan navigasi'"
+      :title="sidebarHidden ? 'Tampilkan navigasi' : 'Sembunyikan navigasi'"
+      :aria-expanded="!sidebarHidden"
+      @click="toggleSidebar"
+    >
+      <ChevronLeft :size="19" :class="{ rotated: sidebarHidden }" />
+    </button>
+
     <main class="main-content">
       <header class="topbar">
-        <button class="icon-button menu-button" :class="{ 'desktop-visible': sidebarHidden }" aria-label="Tampilkan navigasi" title="Tampilkan navigasi" @click="showSidebar"><Menu :size="21" /></button>
+        <button class="icon-button menu-button" aria-label="Tampilkan navigasi" title="Tampilkan navigasi" @click="showSidebar"><Menu :size="21" /></button>
         <div class="search-box">
           <Search :size="18" />
           <input aria-label="Cari" :placeholder="searchPlaceholder" />
