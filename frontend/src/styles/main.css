@@ -916,7 +916,7 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
 .calculator-form { display: grid; gap: 13px; margin-top: 18px; }
 .calculator-form > label, .compact-form-grid > label { display: flex; flex-direction: column; gap: 6px; color: #59645e; font-size: 10px; font-weight: 600; }
 .calculator-form input, .calculator-form select { width: 100%; height: 41px; padding: 0 10px; color: var(--ink); border: 1px solid var(--line); border-radius: 9px; outline: 0; background: white; }
-.calculator-form input:focus, .rebalance-row input:focus { border-color: var(--sage); box-shadow: 0 0 0 3px rgba(73,104,92,.09); }
+.calculator-form input:focus, .calculator-form select:focus, .rebalance-row input:focus { border-color: var(--sage); box-shadow: 0 0 0 3px rgba(73,104,92,.09); }
 .compact-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
 .mortgage-results { display: grid; gap: 13px; }
 .mortgage-health { margin: 0; }

@@ -10,6 +10,8 @@ import { api } from '../services/api'
 const loading = ref(true)
 const saving = ref(false)
 const items = ref([])
+const accounts = ref([])
+const paymentError = ref('')
 const filter = ref('debt')
 const showForm = ref(false)
 const paymentItem = ref(null)
@@ -17,7 +19,7 @@ const editingID = ref(null)
 const today = () => new Date().toISOString().slice(0, 10)
 const blank = () => ({ type: filter.value, name: '', platform: '', originalAmount: 0, installmentCount: 3, startDate: today(), notes: '' })
 const form = reactive(blank())
-const payment = reactive({ amount: 0, paidAt: today(), notes: '' })
+const payment = reactive({ amount: 0, paidAt: today(), notes: '', accountId: '' })
 const currency = (value = 0) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(value)
 const filtered = computed(() => items.value.filter((item) => item.type === filter.value))
 const debts = computed(() => items.value.filter((item) => item.type === 'debt'))
@@ -26,10 +28,15 @@ const total = (list, field) => list.reduce((sum, item) => sum + Number(item[fiel
 const totalDebt = computed(() => total(debts.value, 'remainingAmount'))
 const totalReceivable = computed(() => total(receivables.value, 'remainingAmount'))
 const completedCount = computed(() => items.value.filter((item) => item.remainingAmount === 0).length)
+const paymentAccounts = computed(() => accounts.value.filter((account) => ['cash', 'bank', 'ewallet'].includes(account.kind)))
 
 async function load() {
   loading.value = true
-  try { items.value = await api.obligations() || [] } finally { loading.value = false }
+  try {
+    const [obligations, paymentAccounts] = await Promise.all([api.obligations(), api.accounts()])
+    items.value = obligations || []
+    accounts.value = paymentAccounts || []
+  } finally { loading.value = false }
 }
 function openCreate() {
   editingID.value = null
@@ -60,13 +67,22 @@ function openPayment(item) {
   payment.amount = Math.min(item.expectedInstallment, item.remainingAmount)
   payment.paidAt = today()
   payment.notes = ''
+  payment.accountId = paymentAccounts.value[0]?.id || ''
+  paymentError.value = ''
 }
 async function savePayment() {
+  paymentError.value = ''
   saving.value = true
   try {
-    await api.createObligationPayment(paymentItem.value.id, { ...payment, amount: Number(payment.amount) })
+    await api.createObligationPayment(paymentItem.value.id, {
+      ...payment,
+      amount: Number(payment.amount),
+      accountId: Number(payment.accountId),
+    })
     paymentItem.value = null
     await load()
+  } catch (error) {
+    paymentError.value = error.message || 'Pembayaran gagal disimpan.'
   } finally { saving.value = false }
 }
 async function undoLast(item) {
@@ -180,8 +196,17 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
         <form class="calculator-form" @submit.prevent="savePayment">
           <label>Nominal<MoneyInput v-model="payment.amount" /></label>
           <label>Tanggal<input v-model="payment.paidAt" type="date" required></label>
+          <label>{{ paymentItem.type === 'debt' ? 'Metode pembayaran / rekening' : 'Rekening penerima' }}
+            <select v-model="payment.accountId" required>
+              <option disabled value="">Pilih rekening</option>
+              <option v-for="account in paymentAccounts" :key="account.id" :value="account.id">
+                {{ account.name }} · {{ currency(account.balance) }}
+              </option>
+            </select>
+          </label>
           <label>Catatan<input v-model.trim="payment.notes" placeholder="Contoh: Cicilan ke-2"></label>
-          <button class="primary-button full-button" :disabled="saving || payment.amount <= 0"><Save :size="16" />{{ saving ? 'Menyimpan...' : 'Simpan pembayaran' }}</button>
+          <p v-if="paymentError" class="form-error">{{ paymentError }}</p>
+          <button class="primary-button full-button" :disabled="saving || Number(payment.amount) <= 0 || !payment.accountId"><Save :size="16" />{{ saving ? 'Menyimpan...' : 'Simpan pembayaran' }}</button>
         </form>
       </div>
     </div>
