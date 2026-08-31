@@ -188,7 +188,9 @@ func currentFinancePeriodLabel(now time.Time, setting financePeriodSetting) stri
 	}
 	boundary := periodBoundary(time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local), setting)
 	if !now.Before(boundary) {
-		return now.AddDate(0, 1, 0).Format("2006-01")
+		// Advance from the first day of the month so dates such as August 31
+		// cannot overflow past September and produce an October label.
+		return time.Date(now.Year(), now.Month()+1, 1, 0, 0, 0, 0, time.Local).Format("2006-01")
 	}
 	return now.Format("2006-01")
 }

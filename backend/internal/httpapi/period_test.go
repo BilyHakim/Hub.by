@@ -46,6 +46,9 @@ func TestCurrentFinancePeriodLabel(t *testing.T) {
 		t.Fatalf("label = %s, want 2026-07", got)
 	}
 	endOfMonth := financePeriodSetting{Mode: periodModeEndOfMonth, StartDay: 31}
+	if got := currentFinancePeriodLabel(time.Date(2026, time.August, 31, 12, 0, 0, 0, time.Local), endOfMonth); got != "2026-09" {
+		t.Fatalf("label at August month end = %s, want 2026-09", got)
+	}
 	if got := currentFinancePeriodLabel(time.Date(2026, time.September, 29, 12, 0, 0, 0, time.Local), endOfMonth); got != "2026-09" {
 		t.Fatalf("label before month end = %s, want 2026-09", got)
 	}
