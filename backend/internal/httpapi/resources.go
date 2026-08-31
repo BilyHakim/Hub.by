@@ -244,7 +244,8 @@ func (api *API) updateTransaction(w http.ResponseWriter, r *http.Request) {
 	err = tx.QueryRow(r.Context(), `
 		SELECT EXISTS(
 			SELECT 1 FROM categories c CROSS JOIN accounts a
-			WHERE c.id=$1 AND a.id=$2 AND c.workspace_id=$3 AND a.workspace_id=$3 AND c.type=$4
+			WHERE c.id=$1 AND a.id=$2 AND c.workspace_id=$3 AND a.workspace_id=$3
+			  AND c.type=$4::transaction_type
 		)
 	`, input.CategoryID, input.AccountID, workspaceID, input.Type).Scan(&valid)
 	if err != nil {
@@ -258,12 +259,14 @@ func (api *API) updateTransaction(w http.ResponseWriter, r *http.Request) {
 
 	_, err = tx.Exec(r.Context(), `
 		UPDATE accounts
-		SET current_balance=current_balance-CASE WHEN $1='income' THEN $2 ELSE -$2 END,updated_at=now()
+		SET current_balance=current_balance-CASE
+			WHEN $1::text='income' THEN $2::bigint ELSE -$2::bigint
+		END,updated_at=now()
 		WHERE id=$3 AND workspace_id=$4
 	`, oldType, oldAmount, oldAccountID, workspaceID)
 	if err == nil {
 		_, err = tx.Exec(r.Context(), `
-			UPDATE transactions SET type=$1,category_id=$2,account_id=$3,amount=$4,
+			UPDATE transactions SET type=$1::transaction_type,category_id=$2,account_id=$3,amount=$4,
 				description=$5,occurred_at=$6,is_debt_payment=$7
 			WHERE id=$8 AND workspace_id=$9
 		`, input.Type, input.CategoryID, input.AccountID, input.Amount, input.Description, occurredAt, input.IsDebtPayment, id, workspaceID)
@@ -272,7 +275,9 @@ func (api *API) updateTransaction(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		err = tx.QueryRow(r.Context(), `
 			UPDATE accounts
-			SET current_balance=current_balance+CASE WHEN $1='income' THEN $2 ELSE -$2 END,updated_at=now()
+			SET current_balance=current_balance+CASE
+				WHEN $1::text='income' THEN $2::bigint ELSE -$2::bigint
+			END,updated_at=now()
 			WHERE id=$3 AND workspace_id=$4
 			RETURNING current_balance
 		`, input.Type, input.Amount, input.AccountID, workspaceID).Scan(&balance)
@@ -281,6 +286,7 @@ func (api *API) updateTransaction(w http.ResponseWriter, r *http.Request) {
 		err = tx.Commit(r.Context())
 	}
 	if err != nil {
+		api.logger.Error("update transaction", "transaction_id", id, "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to update transaction")
 		return
 	}
