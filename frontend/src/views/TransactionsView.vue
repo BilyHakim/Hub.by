@@ -20,11 +20,14 @@ import MoneyInput from "../components/MoneyInput.vue";
 const transactions = ref([]);
 const loading = ref(true);
 const modalOpen = ref(false);
+const balanceModalOpen = ref(false);
 const transferModalOpen = ref(false);
 const query = ref("");
 const month = ref(new Date().toISOString().slice(0, 7));
 const saving = ref(false);
+const savingBalance = ref(false);
 const savingTransfer = ref(false);
+const balanceError = ref("");
 const transferError = ref("");
 const managerType = ref(null);
 const form = ref({
@@ -42,6 +45,10 @@ const transferForm = ref({
   amount: "",
   description: "",
   occurredAt: new Date().toISOString().slice(0, 10),
+});
+const balanceForm = ref({
+  accountId: null,
+  amount: "",
 });
 const categories = reactive({
   expense: [
@@ -182,6 +189,14 @@ function openTransferModal() {
   };
   transferModalOpen.value = true;
 }
+function openBalanceModal(accountId = null) {
+  balanceError.value = "";
+  balanceForm.value = {
+    accountId: accountId || accounts.value[0]?.id || null,
+    amount: "",
+  };
+  balanceModalOpen.value = true;
+}
 function swapTransferAccounts() {
   const source = transferForm.value.sourceAccountId;
   transferForm.value.sourceAccountId = transferForm.value.destinationAccountId;
@@ -235,6 +250,39 @@ async function saveTransfer() {
     transferError.value = error.message;
   } finally {
     savingTransfer.value = false;
+  }
+}
+async function saveBalance() {
+  const amount = Number(balanceForm.value.amount);
+  if (!balanceForm.value.accountId || amount <= 0) return;
+
+  savingBalance.value = true;
+  balanceError.value = "";
+  try {
+    let balanceCategory = categories.income.find(
+      (item) => item.name.toLowerCase() === "tambah saldo",
+    );
+    if (!balanceCategory) {
+      balanceCategory = await api.createCategory({
+        name: "Tambah saldo",
+        type: "income",
+      });
+    }
+    await api.createTransaction({
+      type: "income",
+      categoryId: balanceCategory.id,
+      accountId: Number(balanceForm.value.accountId),
+      amount,
+      description: "Tambah saldo tabungan",
+      occurredAt: new Date().toISOString().slice(0, 10),
+      isDebtPayment: false,
+    });
+    balanceModalOpen.value = false;
+    await Promise.all([load(), loadMetadata()]);
+  } catch (error) {
+    balanceError.value = error.message;
+  } finally {
+    savingBalance.value = false;
   }
 }
 async function remove(id) {
@@ -344,13 +392,23 @@ async function handleWorkspaceChange() {
           <p class="eyebrow">Posisi dana</p>
           <h2>Saldo rekening</h2>
         </div>
-        <button
-          type="button"
-          class="text-link account-manage-button"
-          @click="managerType = 'account'"
-        >
-          Kelola rekening
-        </button>
+        <div class="account-balance-actions">
+          <button
+            type="button"
+            class="text-link account-manage-button"
+            @click="managerType = 'account'"
+          >
+            Kelola rekening
+          </button>
+          <button
+            type="button"
+            class="secondary-button"
+            :disabled="!accounts.length"
+            @click="openBalanceModal()"
+          >
+            <Plus :size="16" /> Tambah saldo
+          </button>
+        </div>
       </div>
       <div class="account-balance-grid">
         <div
@@ -519,6 +577,53 @@ async function handleWorkspaceChange() {
           >
           <button class="primary-button full-button" :disabled="saving">
             {{ saving ? "Menyimpan..." : "Simpan transaksi" }}
+          </button>
+        </form>
+      </div>
+      <div
+        v-if="balanceModalOpen"
+        class="modal-backdrop"
+        @click.self="balanceModalOpen = false"
+      >
+        <form class="modal" @submit.prevent="saveBalance">
+          <div class="modal-heading">
+            <div>
+              <p class="eyebrow">Setoran tabungan</p>
+              <h2>Tambah saldo</h2>
+            </div>
+            <button
+              type="button"
+              class="icon-button"
+              @click="balanceModalOpen = false"
+            >
+              <X :size="20" />
+            </button>
+          </div>
+          <p class="modal-description">
+            Nominal akan tercatat sebagai pemasukan di rekening tujuan.
+          </p>
+          <label>
+            Nominal
+            <MoneyInput v-model="balanceForm.amount" required />
+          </label>
+          <label>
+            Rekening tujuan
+            <select v-model="balanceForm.accountId" required>
+              <option
+                v-for="account in accounts"
+                :key="account.id"
+                :value="account.id"
+              >
+                {{ account.name }} · {{ currency(account.balance) }}
+              </option>
+            </select>
+          </label>
+          <p v-if="balanceError" class="form-error">{{ balanceError }}</p>
+          <button
+            class="primary-button full-button"
+            :disabled="savingBalance || !balanceForm.accountId || Number(balanceForm.amount) <= 0"
+          >
+            {{ savingBalance ? "Menambahkan..." : "Tambah saldo" }}
           </button>
         </form>
       </div>
