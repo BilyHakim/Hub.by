@@ -31,6 +31,7 @@ func NewRouter(db *pgxpool.Pool, logger *slog.Logger, frontendOrigin, tmdbAPITok
 	protected.HandleFunc("GET /api/v1/transactions", api.listTransactions)
 	protected.HandleFunc("GET /api/v1/transactions/recent", api.listRecentTransactions)
 	protected.HandleFunc("POST /api/v1/transactions", api.createTransaction)
+	protected.HandleFunc("PATCH /api/v1/transactions/{id}", api.updateTransaction)
 	protected.HandleFunc("DELETE /api/v1/transactions/{id}", api.deleteTransaction)
 	protected.HandleFunc("POST /api/v1/transfers", api.createTransfer)
 	protected.HandleFunc("DELETE /api/v1/transfers/{id}", api.deleteTransfer)

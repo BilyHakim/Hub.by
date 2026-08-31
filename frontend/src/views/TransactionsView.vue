@@ -7,6 +7,7 @@ import {
   ArrowUpRight,
   ArrowLeftRight,
   WalletCards,
+  Pencil,
   Trash2,
   X,
 } from "@lucide/vue";
@@ -20,6 +21,7 @@ import MoneyInput from "../components/MoneyInput.vue";
 const transactions = ref([]);
 const loading = ref(true);
 const modalOpen = ref(false);
+const editingID = ref(null);
 const balanceModalOpen = ref(false);
 const transferModalOpen = ref(false);
 const query = ref("");
@@ -27,6 +29,7 @@ const month = ref(new Date().toISOString().slice(0, 7));
 const saving = ref(false);
 const savingBalance = ref(false);
 const savingTransfer = ref(false);
+const transactionError = ref("");
 const balanceError = ref("");
 const transferError = ref("");
 const managerType = ref(null);
@@ -172,8 +175,32 @@ async function initializePeriod() {
   await load();
 }
 function openModal() {
-  form.value.categoryId = categories[form.value.type][0]?.id || null;
-  form.value.accountId = accounts.value[0]?.id || null;
+  editingID.value = null;
+  transactionError.value = "";
+  form.value = {
+    type: "expense",
+    categoryId: categories.expense[0]?.id || null,
+    accountId: accounts.value[0]?.id || null,
+    amount: "",
+    description: "",
+    occurredAt: new Date().toISOString().slice(0, 10),
+    isDebtPayment: false,
+  };
+  modalOpen.value = true;
+}
+function openEditModal(item) {
+  if (item.type === "transfer") return;
+  editingID.value = item.id;
+  transactionError.value = "";
+  form.value = {
+    type: item.type,
+    categoryId: item.category.id,
+    accountId: item.account.id,
+    amount: item.amount,
+    description: item.description,
+    occurredAt: item.occurredAt,
+    isDebtPayment: Boolean(item.isDebtPayment),
+  };
   modalOpen.value = true;
 }
 function openTransferModal() {
@@ -206,17 +233,28 @@ function swapTransferAccounts() {
 function setType(type) {
   form.value.type = type;
   form.value.categoryId = categories[type][0]?.id || null;
+  if (type === "income") form.value.isDebtPayment = false;
 }
 async function save() {
   saving.value = true;
+  transactionError.value = "";
   try {
-    await api.createTransaction({
+    const payload = {
       ...form.value,
       amount: Number(form.value.amount),
-    });
+    };
+    if (editingID.value) {
+      await api.updateTransaction(editingID.value, payload);
+    } else {
+      await api.createTransaction(payload);
+    }
     modalOpen.value = false;
     await Promise.all([load(), loadMetadata()]);
-  } catch {
+  } catch (error) {
+    if (editingID.value) {
+      transactionError.value = error.message;
+      return;
+    }
     const category = categories[form.value.type].find(
       (x) => x.id === Number(form.value.categoryId),
     );
@@ -471,15 +509,25 @@ async function handleWorkspaceChange() {
             }}
             {{ currency(item.amount) }}</strong
           >
-          <button
-            class="icon-button delete-button"
-            :aria-label="
-              item.type === 'transfer' ? 'Hapus transfer' : 'Hapus transaksi'
-            "
-            @click="removeItem(item)"
-          >
-            <Trash2 :size="17" />
-          </button>
+          <div class="transaction-actions">
+            <button
+              v-if="item.type !== 'transfer'"
+              class="icon-button edit-button"
+              aria-label="Edit transaksi"
+              @click="openEditModal(item)"
+            >
+              <Pencil :size="16" />
+            </button>
+            <button
+              class="icon-button delete-button"
+              :aria-label="
+                item.type === 'transfer' ? 'Hapus transfer' : 'Hapus transaksi'
+              "
+              @click="removeItem(item)"
+            >
+              <Trash2 :size="17" />
+            </button>
+          </div>
         </div>
       </div>
       <EmptyState
@@ -498,8 +546,8 @@ async function handleWorkspaceChange() {
         <form class="modal" @submit.prevent="save">
           <div class="modal-heading">
             <div>
-              <p class="eyebrow">Catatan baru</p>
-              <h2>Tambah transaksi</h2>
+              <p class="eyebrow">{{ editingID ? "Perbaiki catatan" : "Catatan baru" }}</p>
+              <h2>{{ editingID ? "Edit transaksi" : "Tambah transaksi" }}</h2>
             </div>
             <button
               type="button"
@@ -575,8 +623,9 @@ async function handleWorkspaceChange() {
             ><input v-model="form.isDebtPayment" type="checkbox" /> Ini
             pembayaran cicilan/kewajiban</label
           >
+          <p v-if="transactionError" class="form-error">{{ transactionError }}</p>
           <button class="primary-button full-button" :disabled="saving">
-            {{ saving ? "Menyimpan..." : "Simpan transaksi" }}
+            {{ saving ? "Menyimpan..." : editingID ? "Simpan perubahan" : "Simpan transaksi" }}
           </button>
         </form>
       </div>

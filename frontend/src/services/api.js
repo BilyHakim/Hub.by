@@ -32,6 +32,7 @@ export const api = {
   transactions: (month) => request(`/transactions?month=${month}`),
   recentTransactions: (afterId = 0) => request(`/transactions/recent?afterId=${afterId}`),
   createTransaction: (payload) => request('/transactions', { method: 'POST', body: JSON.stringify(payload) }),
+  updateTransaction: (id, payload) => request(`/transactions/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
   deleteTransaction: (id) => request(`/transactions/${id}`, { method: 'DELETE' }),
   createTransfer: (payload) => request('/transfers', { method: 'POST', body: JSON.stringify(payload) }),
   deleteTransfer: (id) => request(`/transfers/${id}`, { method: 'DELETE' }),
