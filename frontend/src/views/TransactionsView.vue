@@ -9,10 +9,13 @@ import {
   WalletCards,
   Pencil,
   Trash2,
+  FileSpreadsheet,
+  FileText,
   X,
 } from "@lucide/vue";
 import { api } from "../services/api";
 import { demoTransactions } from "../data/demo";
+import { exportExcel, exportPdf, rupiah } from "../utils/exportReport";
 import EmptyState from "../components/EmptyState.vue";
 import MonthPicker from "../components/MonthPicker.vue";
 import ResourceManagerModal from "../components/ResourceManagerModal.vue";
@@ -32,6 +35,8 @@ const savingTransfer = ref(false);
 const transactionError = ref("");
 const balanceError = ref("");
 const transferError = ref("");
+const exportError = ref("");
+const exporting = ref("");
 const managerType = ref(null);
 const form = ref({
   type: "expense",
@@ -348,6 +353,82 @@ async function removeItem(item) {
 async function handleTransactionsUpdated() {
   await Promise.all([load(), loadMetadata()]);
 }
+
+const transactionTypeLabel = (type) => ({
+  income: "Pemasukan",
+  expense: "Pengeluaran",
+  transfer: "Transfer",
+})[type] || type;
+
+function signedAmount(item) {
+  if (item.type === "expense") return -Number(item.amount || 0);
+  if (item.type === "income") return Number(item.amount || 0);
+  return Number(item.amount || 0);
+}
+
+async function exportTransactions(format) {
+  if (!filtered.value.length) return;
+  exporting.value = format;
+  exportError.value = "";
+  const rows = filtered.value.map((item) => ({
+    date: dateLabel(item.occurredAt),
+    type: transactionTypeLabel(item.type),
+    description: item.description || "-",
+    category: item.type === "transfer" ? "-" : item.category?.name || "-",
+    account: item.account?.name || "-",
+    destination: item.destinationAccount?.name || "-",
+    amount: signedAmount(item),
+  }));
+  const columns = [
+    { key: "date", label: "Tanggal", width: 16 },
+    { key: "type", label: "Jenis", width: 14 },
+    { key: "description", label: "Keterangan", width: 30 },
+    { key: "category", label: "Kategori", width: 18 },
+    { key: "account", label: "Rekening", width: 20 },
+    { key: "destination", label: "Rekening tujuan", width: 20 },
+    { key: "amount", label: "Nominal", width: 18, currency: true },
+  ];
+  const exportedIncome = filtered.value
+    .filter((item) => item.type === "income")
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const exportedExpense = filtered.value
+    .filter((item) => item.type === "expense")
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const summary = [
+    `${rows.length} transaksi`,
+    `Pemasukan ${rupiah(exportedIncome)}`,
+    `Pengeluaran ${rupiah(exportedExpense)}`,
+  ];
+
+  try {
+    if (format === "pdf") {
+      await exportPdf({
+        fileName: `catatan-transaksi-${month.value}`,
+        title: "Catatan Transaksi",
+        subtitle: `Periode ${month.value}`,
+        columns: columns.map((column) => column.label),
+        rows: rows.map((row) => columns.map((column) =>
+          column.currency ? rupiah(row[column.key]) : row[column.key],
+        )),
+        summary,
+      });
+    } else {
+      await exportExcel({
+        fileName: `catatan-transaksi-${month.value}`,
+        sheetName: `Periode ${month.value}`,
+        title: "Catatan Transaksi",
+        columns,
+        rows,
+        summary,
+      });
+    }
+  } catch {
+    exportError.value = "File export belum dapat dibuat. Silakan coba lagi.";
+  } finally {
+    exporting.value = "";
+  }
+}
+
 onMounted(() => {
   window.addEventListener("hubby:workspace-changed", handleWorkspaceChange);
   window.addEventListener(
@@ -380,6 +461,23 @@ async function handleWorkspaceChange() {
         <p>Catat setiap rupiah agar keputusan terasa lebih ringan.</p>
       </div>
       <div class="heading-actions">
+        <div class="export-actions" aria-label="Pilihan export transaksi">
+          <span>Export</span>
+          <button
+            type="button"
+            :disabled="loading || !filtered.length || !!exporting"
+            @click="exportTransactions('pdf')"
+          >
+            <FileText :size="16" /> {{ exporting === "pdf" ? "Membuat..." : "PDF" }}
+          </button>
+          <button
+            type="button"
+            :disabled="loading || !filtered.length || !!exporting"
+            @click="exportTransactions('excel')"
+          >
+            <FileSpreadsheet :size="16" /> {{ exporting === "excel" ? "Membuat..." : "Excel" }}
+          </button>
+        </div>
         <button
           class="secondary-button"
           :disabled="accounts.length < 2"
@@ -392,6 +490,8 @@ async function handleWorkspaceChange() {
         </button>
       </div>
     </div>
+
+    <p v-if="exportError" class="form-error export-error">{{ exportError }}</p>
 
     <div class="summary-strip">
       <div>

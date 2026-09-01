@@ -10,8 +10,11 @@
   },
   "dependencies": {
     "@lucide/vue": "^1.27.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "vue": "^3.5.18",
-    "vue-router": "^4.5.1"
+    "vue-router": "^4.5.1",
+    "write-excel-file": "^4.1.1"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.1",

@@ -1,12 +1,13 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import {
-  ArrowLeft, BadgeCheck, CalendarDays, CircleAlert, Equal, Eye, ReceiptText, Save,
+  ArrowLeft, BadgeCheck, CalendarDays, CircleAlert, Equal, Eye, FileSpreadsheet, FileText, ReceiptText, Save,
   Sparkles, Target, TrendingDown, WalletCards, X,
 } from '@lucide/vue'
 import MonthPicker from '../components/MonthPicker.vue'
 import MoneyInput from '../components/MoneyInput.vue'
 import { api } from '../services/api'
+import { exportExcel, exportPdf, rupiah } from '../utils/exportReport'
 
 const month = ref(new Date().toISOString().slice(0, 7))
 const loadedMonth = ref(month.value)
@@ -15,6 +16,8 @@ const saving = ref(false)
 const dirty = ref(false)
 const error = ref('')
 const saved = ref(false)
+const exportError = ref('')
+const exporting = ref('')
 const transactions = ref([])
 const selectedCategoryId = ref(null)
 const transactionError = ref('')
@@ -130,6 +133,62 @@ async function save() {
     saving.value = false
   }
 }
+async function exportBudget(format) {
+  if (!data.value.items.length) return
+  exporting.value = format
+  exportError.value = ''
+  const rows = data.value.items.map((item) => {
+    const planned = Number(plans.value[item.categoryId] || 0)
+    const actual = Number(item.actual || 0)
+    return {
+      category: item.categoryName,
+      planned,
+      actual,
+      remaining: planned - actual,
+      usage: planned > 0 ? `${(actual / planned * 100).toFixed(1)}%` : actual > 0 ? 'Tidak direncanakan' : '0.0%',
+    }
+  })
+  const columns = [
+    { key: 'category', label: 'Kategori', width: 26 },
+    { key: 'planned', label: 'Rencana', width: 20, currency: true },
+    { key: 'actual', label: 'Sebenarnya', width: 20, currency: true },
+    { key: 'remaining', label: 'Sisa / kekurangan', width: 22, currency: true },
+    { key: 'usage', label: 'Terpakai', width: 14 },
+  ]
+  const summary = [
+    `Total rencana ${rupiah(totalPlanned.value)}`,
+    `Realisasi ${rupiah(totalActual.value)}`,
+    `Sisa ${rupiah(totalRemaining.value)}`,
+  ]
+
+  try {
+    if (format === 'pdf') {
+      await exportPdf({
+        fileName: `rencana-keuangan-${month.value}`,
+        title: 'Rencana Keuangan',
+        subtitle: `Periode ${data.value.periodStart} - ${data.value.periodEnd}`,
+        columns: columns.map((column) => column.label),
+        rows: rows.map((row) => columns.map((column) =>
+          column.currency ? rupiah(row[column.key]) : row[column.key],
+        )),
+        summary,
+      })
+    } else {
+      await exportExcel({
+        fileName: `rencana-keuangan-${month.value}`,
+        sheetName: `Periode ${data.value.periodStart} - ${data.value.periodEnd}`,
+        title: 'Rencana Keuangan',
+        columns,
+        rows,
+        summary,
+      })
+    }
+  } catch {
+    exportError.value = 'File export belum dapat dibuat. Silakan coba lagi.'
+  } finally {
+    exporting.value = ''
+  }
+}
 function handleWorkspaceChange() { initializePeriod() }
 function handleTransactionsUpdated() {
   if (!dirty.value) load(month.value)
@@ -162,13 +221,25 @@ onBeforeUnmount(() => {
         <h1>Rencana vs pengeluaran sebenarnya</h1>
         <p>Isi hanya kolom rencana. Realisasi dihitung otomatis dari transaksi pada kategori dan periode yang sama.</p>
       </div>
-      <div class="period-picker-group">
-        <MonthPicker v-model="month" @change="changeMonth" />
-        <small v-if="data.periodStart">{{ data.periodStart }} — {{ data.periodEnd }}</small>
+      <div class="budget-heading-tools">
+        <div class="period-picker-group">
+          <MonthPicker v-model="month" @change="changeMonth" />
+          <small v-if="data.periodStart">{{ data.periodStart }} — {{ data.periodEnd }}</small>
+        </div>
+        <div class="export-actions" aria-label="Pilihan export rencana keuangan">
+          <span>Export</span>
+          <button type="button" :disabled="loading || !data.items.length || !!exporting" @click="exportBudget('pdf')">
+            <FileText :size="16" />{{ exporting === 'pdf' ? 'Membuat...' : 'PDF' }}
+          </button>
+          <button type="button" :disabled="loading || !data.items.length || !!exporting" @click="exportBudget('excel')">
+            <FileSpreadsheet :size="16" />{{ exporting === 'excel' ? 'Membuat...' : 'Excel' }}
+          </button>
+        </div>
       </div>
     </div>
 
     <div v-if="error" class="inline-alert error budget-alert"><CircleAlert :size="17" />{{ error }}</div>
+    <div v-if="exportError" class="inline-alert error budget-alert"><CircleAlert :size="17" />{{ exportError }}</div>
     <div v-if="saved" class="inline-alert success budget-alert"><BadgeCheck :size="17" />Rencana pengeluaran berhasil disimpan.</div>
 
     <div class="budget-summary-grid" :class="{ shimmer: loading }">

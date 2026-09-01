@@ -223,6 +223,13 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
 .page-heading.compact { align-items: center; }
 .eyebrow { margin-bottom: 7px !important; color: var(--sage) !important; font-size: 10px !important; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
 .heading-actions { display: flex; gap: 10px; flex: none; }
+.export-actions { min-height: 41px; display: inline-flex; align-items: center; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.export-actions > span { padding: 0 10px; color: var(--muted); font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.export-actions button { align-self: stretch; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 10px; color: var(--sage); border: 0; border-left: 1px solid var(--line); background: transparent; font-size: 10px; font-weight: 700; cursor: pointer; }
+.export-actions button:hover { background: var(--sage-light); }
+.export-actions button:disabled { opacity: .5; cursor: wait; }
+.budget-heading-tools { display: flex; align-items: center; gap: 12px; }
+.export-error { margin: -12px 0 16px; }
 .period-picker-group { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .period-picker-group > small { color: var(--muted); font-size: 8px; }
 .month-select { position: relative; flex: none; }
@@ -1124,6 +1131,9 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
   .page-heading { align-items: flex-start; flex-direction: column; gap: 18px; }
   .page-heading .primary-button { width: 100%; }
   .heading-actions { width: 100%; display: grid; grid-template-columns: 1fr; }
+  .export-actions { width: 100%; }
+  .export-actions button { flex: 1; }
+  .budget-heading-tools { width: 100%; align-items: stretch; flex-direction: column; }
   .month-select { width: 100%; }
   .period-picker-group { width: 100%; align-items: stretch; }
   .month-picker { width: 100%; justify-content: space-between; }
