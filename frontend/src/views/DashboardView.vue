@@ -359,8 +359,8 @@ onBeforeUnmount(() =>
             <strong class="check-value">{{ item.value.toFixed(1) }}%</strong>
           </div>
         </div>
-        <RouterLink class="text-link" to="/finance/modules"
-          >Lihat pemeriksaan lengkap <ArrowRight :size="16"
+        <RouterLink class="text-link" to="/finance/health"
+          >Lihat kesehatan lengkap <ArrowRight :size="16"
         /></RouterLink>
       </article>
     </div>

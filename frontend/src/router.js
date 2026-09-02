@@ -19,12 +19,14 @@ import HubView from './views/HubView.vue'
 import WatchDetailView from './views/WatchDetailView.vue'
 import BooksView from './views/BooksView.vue'
 import BookDetailView from './views/BookDetailView.vue'
+import FinancialHealthView from './views/FinancialHealthView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/', name: 'hub', component: HubView, meta: { title: 'Pilih modul', product: 'Hubby', layout: 'portal' } },
     { path: '/finance', name: 'dashboard', component: DashboardView, meta: { title: 'Ringkasan', product: 'Finance' } },
+    { path: '/finance/health', name: 'financial-health', component: FinancialHealthView, meta: { title: 'Kesehatan keuangan', product: 'Finance' } },
     { path: '/finance/transactions', name: 'transactions', component: TransactionsView, meta: { title: 'Arus kas', product: 'Finance' } },
     { path: '/finance/goals', name: 'goals', component: GoalsView, meta: { title: 'Tujuan keuangan', product: 'Finance' } },
     { path: '/finance/modules', name: 'modules', component: ModulesView, meta: { title: 'Perencanaan', product: 'Finance' } },

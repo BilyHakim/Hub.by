@@ -28,6 +28,7 @@ func NewRouter(db *pgxpool.Pool, logger *slog.Logger, frontendOrigin, tmdbAPITok
 	}
 	protected := http.NewServeMux()
 	protected.HandleFunc("GET /api/v1/dashboard", api.dashboard)
+	protected.HandleFunc("GET /api/v1/financial-health", api.financialHealth)
 	protected.HandleFunc("GET /api/v1/transactions", api.listTransactions)
 	protected.HandleFunc("GET /api/v1/transactions/recent", api.listRecentTransactions)
 	protected.HandleFunc("POST /api/v1/transactions", api.createTransaction)

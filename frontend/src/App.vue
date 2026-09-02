@@ -7,6 +7,7 @@ import {
   Check, Ellipsis, UserRound, SlidersHorizontal, Users, WalletCards,
   ArrowDownLeft, ArrowUpRight, LogOut, Clapperboard, LayoutGrid, Trash2,
   ChevronLeft, BookOpen,
+  Activity,
 } from '@lucide/vue'
 import { api } from './services/api'
 import LoginView from './components/LoginView.vue'
@@ -91,6 +92,7 @@ const unreadNotificationCount = computed(() =>
 )
 const financeNav = [
   { to: '/finance', label: 'Ringkasan', icon: LayoutDashboard },
+  { to: '/finance/health', label: 'Kesehatan', icon: Activity },
   { to: '/finance/transactions', label: 'Arus kas', icon: ArrowLeftRight },
   { to: '/finance/goals', label: 'Tujuan keuangan', icon: Target },
   { to: '/finance/modules', label: 'Perencanaan', icon: Blocks },
@@ -108,6 +110,11 @@ const nav = computed(() => isFinance.value ? financeNav : isBooks.value ? booksN
 const productName = computed(() => isFinance.value ? 'finance' : isBooks.value ? 'books' : 'watch')
 const navLabel = computed(() => isFinance.value ? 'Keuangan' : isBooks.value ? 'Bacaan' : 'Tontonan')
 const searchPlaceholder = computed(() => route.meta.product === 'Watch' ? 'Cari film atau series...' : route.meta.product === 'Books' ? 'Cari buku atau penulis...' : 'Cari transaksi, tujuan...')
+
+function isNavCurrent(item) {
+  if (item.to === '/finance') return route.path === item.to
+  return route.path === item.to || route.path.startsWith(`${item.to}/`)
+}
 
 function closeMenus() {
   workspaceMenuOpen.value = false
@@ -479,7 +486,7 @@ onBeforeUnmount(() => {
 
       <nav class="main-nav" aria-label="Navigasi utama">
         <p class="nav-label">{{ navLabel }}</p>
-        <RouterLink v-for="item in nav" :key="item.to" :to="item.to" @click="sidebarOpen = false">
+        <RouterLink v-for="item in nav" :key="item.to" :to="item.to" :class="{ 'nav-current': isNavCurrent(item) }" @click="sidebarOpen = false">
           <component :is="item.icon" :size="19" stroke-width="1.8" />
           {{ item.label }}
         </RouterLink>

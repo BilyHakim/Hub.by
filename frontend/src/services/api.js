@@ -29,6 +29,7 @@ export const api = {
   login: (payload) => request('/auth/login', { method: 'POST', body: JSON.stringify(payload) }),
   logout: () => request('/auth/logout', { method: 'POST' }),
   dashboard: (month) => request(`/dashboard?month=${month}`),
+  financialHealth: () => request('/financial-health'),
   transactions: (month) => request(`/transactions?month=${month}`),
   recentTransactions: (afterId = 0) => request(`/transactions/recent?afterId=${afterId}`),
   createTransaction: (payload) => request('/transactions', { method: 'POST', body: JSON.stringify(payload) }),

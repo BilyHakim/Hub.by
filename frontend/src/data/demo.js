@@ -45,6 +45,29 @@ export const demoDashboard = {
   ],
 }
 
+export const demoFinancialHealth = {
+  firstTransaction: '2026-02-02', lastTransaction: '2026-07-13', transactionCount: 22,
+  totalBalance: 50_700_000, totalAssets: 113_200_000, totalLiabilities: 180_000_000,
+  netWorth: -66_800_000, lifetimeIncome: 104_500_000, lifetimeExpense: 61_300_000,
+  lifetimeSavings: 43_200_000, savingsRate: 41.3, averageMonthlyExpense: 10_216_667,
+  activeMonths: 6, emergencyFund: 21_000_000, emergencyTarget: 42_000_000, emergencyProgress: 50,
+  accounts: [
+    { id: 4, name: 'Portofolio Investasi', kind: 'investment', balance: 62_500_000, share: 55.2, isEmergencyFund: false },
+    { id: 1, name: 'BCA Utama', kind: 'bank', balance: 28_500_000, share: 25.2, isEmergencyFund: false },
+    { id: 2, name: 'Dana Darurat', kind: 'bank', balance: 21_000_000, share: 18.6, isEmergencyFund: true },
+    { id: 3, name: 'Dompet', kind: 'cash', balance: 1_200_000, share: 1.1, isEmergencyFund: false },
+    { id: 5, name: 'KPR', kind: 'liability', balance: -180_000_000, share: 0, isEmergencyFund: false },
+  ],
+  expenseCategories: [
+    { id: 3, name: 'Makanan', color: '#e8a65d', value: 25_750_000, share: 42.0, transactionCount: 7, averageTransaction: 3_678_571, largestAmount: 4_080_000, largestDescription: 'Makan & belanja dapur', lastSpentAt: '2026-07-04' },
+    { id: 5, name: 'Tempat Tinggal', color: '#d77268', value: 14_000_000, share: 22.8, transactionCount: 4, averageTransaction: 3_500_000, largestAmount: 4_000_000, largestDescription: 'Sewa tempat tinggal', lastSpentAt: '2026-07-02' },
+    { id: 9, name: 'Cicilan', color: '#af685f', value: 9_500_000, share: 15.5, transactionCount: 4, averageTransaction: 2_375_000, largestAmount: 2_500_000, largestDescription: 'Cicilan kendaraan', lastSpentAt: '2026-07-11' },
+    { id: 6, name: 'Tagihan', color: '#9a8bb7', value: 5_450_000, share: 8.9, transactionCount: 3, averageTransaction: 1_816_667, largestAmount: 2_100_000, largestDescription: 'Listrik dan internet', lastSpentAt: '2026-07-09' },
+    { id: 4, name: 'Transportasi', color: '#7894a0', value: 4_800_000, share: 7.8, transactionCount: 3, averageTransaction: 1_600_000, largestAmount: 1_900_000, largestDescription: 'Bensin dan tol', lastSpentAt: '2026-07-06' },
+    { id: 8, name: 'Hiburan', color: '#638475', value: 1_800_000, share: 2.9, transactionCount: 1, averageTransaction: 1_800_000, largestAmount: 1_800_000, largestDescription: 'Nonton dan kopi', lastSpentAt: '2026-07-13' },
+  ],
+}
+
 export const demoTransactions = [
   { id: 1, type: 'income', amount: 18_000_000, description: 'Gaji bulanan', occurredAt: '2026-07-02', category: { id: 1, name: 'Gaji' }, account: { id: 1, name: 'BCA Utama', isEmergencyFund: false } },
   { id: 2, type: 'expense', amount: 4_000_000, description: 'Sewa tempat tinggal', occurredAt: '2026-07-02', category: { id: 5, name: 'Tempat Tinggal' }, account: { id: 1, name: 'BCA Utama' } },
