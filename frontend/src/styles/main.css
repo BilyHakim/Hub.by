@@ -372,7 +372,7 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
 .account-balance-card strong { overflow: hidden; margin-top: 2px; font-size: 11px; white-space: nowrap; text-overflow: ellipsis; }
 .account-balance-card b { margin-left: 8px; font-family: 'Manrope'; font-size: 11px; white-space: nowrap; }
 .account-balance-card b.negative { color: var(--rose); }
-.table-panel { overflow: hidden; }
+.table-panel { overflow: visible; }
 .table-toolbar { display: flex; justify-content: space-between; gap: 12px; padding: 15px; border-bottom: 1px solid var(--line); }
 .table-search { width: 280px; height: 37px; }
 .date-filter { height: 37px; color: var(--muted); }
