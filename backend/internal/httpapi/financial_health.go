@@ -10,6 +10,7 @@ type financialHealthSummary struct {
 	LastTransaction       string                    `json:"lastTransaction"`
 	TransactionCount      int64                     `json:"transactionCount"`
 	TotalBalance          int64                     `json:"totalBalance"`
+	WalletCount           int64                     `json:"walletCount"`
 	TotalAssets           int64                     `json:"totalAssets"`
 	TotalLiabilities      int64                     `json:"totalLiabilities"`
 	NetWorth              int64                     `json:"netWorth"`
@@ -73,6 +74,7 @@ func (api *API) financialHealth(w http.ResponseWriter, r *http.Request) {
 		), account_summary AS (
 			SELECT
 				COALESCE(SUM(current_balance) FILTER (WHERE kind IN ('cash','bank','ewallet')), 0)::bigint AS balance,
+				COUNT(*) FILTER (WHERE kind IN ('cash','bank','ewallet'))::bigint AS wallet_count,
 				COALESCE(SUM(current_balance) FILTER (WHERE kind <> 'liability'), 0)::bigint AS assets,
 				ABS(COALESCE(SUM(current_balance) FILTER (WHERE kind='liability'), 0))::bigint AS liabilities,
 				COALESCE(SUM(current_balance) FILTER (WHERE is_emergency_fund), 0)::bigint AS emergency
@@ -82,11 +84,11 @@ func (api *API) financialHealth(w http.ResponseWriter, r *http.Request) {
 			FROM emergency_fund_settings WHERE workspace_id=$1
 		)
 		SELECT t.first_date, t.last_date, t.transaction_count, t.income, t.expense,
-			a.balance, a.assets, a.liabilities, a.emergency, e.target
+			a.balance, a.wallet_count, a.assets, a.liabilities, a.emergency, e.target
 		FROM transaction_summary t, account_summary a, emergency e
 	`, workspaceID).Scan(
 		&firstDate, &lastDate, &result.TransactionCount, &result.LifetimeIncome,
-		&result.LifetimeExpense, &result.TotalBalance, &result.TotalAssets,
+		&result.LifetimeExpense, &result.TotalBalance, &result.WalletCount, &result.TotalAssets,
 		&result.TotalLiabilities, &result.EmergencyFund, &result.EmergencyTarget,
 	)
 	if err != nil {

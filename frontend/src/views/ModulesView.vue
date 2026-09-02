@@ -3,10 +3,12 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import {
   Pyramid, HeartPulse, ShieldCheck, House, ChartNoAxesCombined,
   Scale, Umbrella, BookOpenText, ArrowUpRight, BadgeCheck, ReceiptText, HandCoins,
+  Activity,
 } from '@lucide/vue'
 import { api } from '../services/api'
 
 const modules = [
+  { title: 'Kesehatan keuangan', text: 'Lihat saldo, kekayaan bersih, dan insight pengeluaran sejak awal pencatatan.', icon: Activity, state: 'Tersedia', tone: 'sage', route: '/finance/health' },
   { title: 'Rencana pengeluaran', text: 'Susun anggaran bulanan dan bandingkan otomatis dengan transaksi sebenarnya.', icon: ReceiptText, state: 'Tersedia', tone: 'sand', route: '/finance/modules/budget' },
   { title: 'Utang & piutang', text: 'Pantau cicilan lintas platform, tenor, pembayaran, dan sisa tagihan.', icon: HandCoins, state: 'Tersedia', tone: 'rose', route: '/finance/modules/obligations' },
   { title: 'Piramida keuangan', text: 'Lihat urutan prioritas dan progres fondasi keuanganmu.', icon: Pyramid, state: 'Tersedia', tone: 'sage', route: '/finance/modules/pyramid' },

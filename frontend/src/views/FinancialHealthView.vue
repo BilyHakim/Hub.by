@@ -67,7 +67,7 @@ onBeforeUnmount(() => {
       <div>
         <p class="eyebrow">Gambaran sepanjang masa</p>
         <h1>Kesehatan keuangan</h1>
-        <p>Seluruh angka dihitung sejak transaksi pertama, tanpa batasan periode.</p>
+        <p>Pemasukan dan pengeluaran dihitung sejak awal; saldo mengikuti kondisi wallet saat ini.</p>
       </div>
       <div class="lifetime-range"><CalendarDays :size="17" /><span><small>Rentang data</small><strong>{{ date(data.firstTransaction) }} — {{ date(data.lastTransaction) }}</strong></span></div>
     </div>
@@ -75,7 +75,7 @@ onBeforeUnmount(() => {
     <div v-if="usingDemo" class="demo-notice"><Sparkles :size="17" /><span>Mode pratinjau aktif. Jalankan backend untuk memakai data PostgreSQL.</span></div>
 
     <div class="health-metrics">
-      <article class="health-metric balance"><span><WalletCards :size="20" /></span><div><small>Total saldo saat ini</small><strong>{{ compactCurrency(data.totalBalance) }}</strong><p>Kas, bank, dan e-wallet</p></div></article>
+      <article class="health-metric balance"><span><WalletCards :size="20" /></span><div><small>Total saldo wallet saat ini</small><strong>{{ compactCurrency(data.totalBalance) }}</strong><p>{{ data.walletCount || 0 }} wallet aktif · kas, bank, dan e-wallet</p></div></article>
       <article class="health-metric"><span><ArrowDownRight :size="20" /></span><div><small>Total pemasukan</small><strong>{{ compactCurrency(data.lifetimeIncome) }}</strong><p>{{ data.transactionCount }} transaksi tercatat</p></div></article>
       <article class="health-metric expense"><span><ArrowUpRight :size="20" /></span><div><small>Total pengeluaran</small><strong>{{ compactCurrency(data.lifetimeExpense) }}</strong><p>Rata-rata {{ compactCurrency(data.averageMonthlyExpense) }}/bulan</p></div></article>
       <article class="health-metric"><span><PiggyBank :size="20" /></span><div><small>Uang tersisa</small><strong>{{ compactCurrency(data.lifetimeSavings) }}</strong><p>Rasio simpan {{ data.savingsRate.toFixed(1) }}%</p></div></article>

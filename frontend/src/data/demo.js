@@ -47,7 +47,7 @@ export const demoDashboard = {
 
 export const demoFinancialHealth = {
   firstTransaction: '2026-02-02', lastTransaction: '2026-07-13', transactionCount: 22,
-  totalBalance: 50_700_000, totalAssets: 113_200_000, totalLiabilities: 180_000_000,
+  totalBalance: 50_700_000, walletCount: 3, totalAssets: 113_200_000, totalLiabilities: 180_000_000,
   netWorth: -66_800_000, lifetimeIncome: 104_500_000, lifetimeExpense: 61_300_000,
   lifetimeSavings: 43_200_000, savingsRate: 41.3, averageMonthlyExpense: 10_216_667,
   activeMonths: 6, emergencyFund: 21_000_000, emergencyTarget: 42_000_000, emergencyProgress: 50,
