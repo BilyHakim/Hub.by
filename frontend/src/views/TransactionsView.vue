@@ -643,7 +643,7 @@ async function handleWorkspaceChange() {
         class="modal-backdrop"
         @click.self="modalOpen = false"
       >
-        <form class="modal" @submit.prevent="save">
+        <form class="modal transaction-form-modal" @submit.prevent="save">
           <div class="modal-heading">
             <div>
               <p class="eyebrow">{{ editingID ? "Perbaiki catatan" : "Catatan baru" }}</p>
@@ -673,7 +673,7 @@ async function handleWorkspaceChange() {
               Pemasukan
             </button>
           </div>
-          <label>Nominal <MoneyInput v-model="form.amount" required /></label>
+          <div class="transaction-amount-field"><span>Nominal</span><MoneyInput v-model="form.amount" aria-label="Nominal" calculator required /></div>
           <div class="form-grid">
             <div class="form-field">
               <div class="field-label-row">
