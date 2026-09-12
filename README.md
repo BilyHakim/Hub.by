@@ -178,3 +178,13 @@ Frontend:
 cd frontend
 npm run build
 ```
+
+Desktop (menggunakan frontend, Go API, dan schema PostgreSQL yang sama):
+
+```powershell
+cd desktop
+npm install
+npm run dev
+```
+
+Panduan build desktop tersedia di [`desktop/README.md`](desktop/README.md).
