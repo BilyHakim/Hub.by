@@ -1,3 +1,5 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 use tauri::{webview::WebviewWindowBuilder, WebviewUrl};
 
 const DESKTOP_PORT: u16 = 1420;

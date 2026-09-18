@@ -10,10 +10,15 @@ Di VPS, buat konfigurasi lokal yang tidak masuk Git:
 
 ```bash
 cd /opt/hubby
-cp .env.production.example .env.production
+if [ ! -f .env.production ]; then
+  cp .env.production.example .env.production
+fi
 chmod 600 .env.production
 nano .env.production
 ```
+
+Jangan menyalin template di atas `.env.production` yang sudah ada. File produksi dapat berisi
+credential aktif dan harus dipertahankan saat deploy berikutnya.
 
 Nilai produksi utama:
 
