@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -11,6 +12,8 @@ type Config struct {
 	Port                string
 	DatabaseURL         string
 	FrontendOrigin      string
+	CORSAllowedOrigins  []string
+	TrustProxy          bool
 	AuthEmail           string
 	AuthInitialPassword string
 	TMDBAPIToken        string
@@ -29,6 +32,8 @@ func Load() Config {
 		Port:                valueOrDefault("APP_PORT", "8080"),
 		DatabaseURL:         valueOrDefault("DATABASE_URL", "postgres://hubby:hubby@localhost:5432/hubby?sslmode=disable"),
 		FrontendOrigin:      valueOrDefault("FRONTEND_ORIGIN", "http://localhost:5173"),
+		CORSAllowedOrigins:  splitOrigins(os.Getenv("CORS_ALLOWED_ORIGINS")),
+		TrustProxy:          boolOrDefault("TRUST_PROXY", false),
 		AuthEmail:           valueOrDefault("AUTH_EMAIL", "bily@hubby.local"),
 		AuthInitialPassword: os.Getenv("AUTH_INITIAL_PASSWORD"),
 		TMDBAPIToken:        os.Getenv("TMDB_API_TOKEN"),
@@ -37,6 +42,16 @@ func Load() Config {
 		TelegramLocalUserID: int64OrDefault("TELEGRAM_LOCAL_USER_ID", 1),
 		TelegramTimezone:    valueOrDefault("TELEGRAM_TIMEZONE", "Asia/Jakarta"),
 	}
+}
+
+func splitOrigins(value string) []string {
+	var origins []string
+	for _, origin := range strings.Split(value, ",") {
+		if origin = strings.TrimSpace(origin); origin != "" {
+			origins = append(origins, origin)
+		}
+	}
+	return origins
 }
 
 func valueOrDefault(key, fallback string) string {
@@ -49,6 +64,14 @@ func valueOrDefault(key, fallback string) string {
 func int64OrDefault(key string, fallback int64) int64 {
 	value, err := strconv.ParseInt(os.Getenv(key), 10, 64)
 	if err != nil || value <= 0 {
+		return fallback
+	}
+	return value
+}
+
+func boolOrDefault(key string, fallback bool) bool {
+	value, err := strconv.ParseBool(os.Getenv(key))
+	if err != nil {
 		return fallback
 	}
 	return value

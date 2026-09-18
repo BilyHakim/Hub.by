@@ -6,6 +6,7 @@ async function request(path, options = {}) {
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
+      'X-Hubby-Client': '1',
       ...options.headers,
     },
   })

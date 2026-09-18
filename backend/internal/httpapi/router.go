@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"log/slog"
+	"mime"
 	"net/http"
 	"strings"
 	"sync"
@@ -10,19 +11,25 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+const (
+	clientVerificationHeader = "X-Hubby-Client"
+	maxRequestBodyBytes      = 1 << 20
+)
+
 type API struct {
 	db            *pgxpool.Pool
 	logger        *slog.Logger
 	secureCookies bool
+	trustProxy    bool
 	loginMu       sync.Mutex
 	loginAttempts map[string]loginAttempt
 	tmdbAPIToken  string
 	httpClient    *http.Client
 }
 
-func NewRouter(db *pgxpool.Pool, logger *slog.Logger, frontendOrigin, tmdbAPIToken string) http.Handler {
+func NewRouter(db *pgxpool.Pool, logger *slog.Logger, frontendOrigin, tmdbAPIToken string, trustProxy bool, additionalOrigins ...string) http.Handler {
 	api := &API{
-		db: db, logger: logger, secureCookies: strings.HasPrefix(frontendOrigin, "https://"),
+		db: db, logger: logger, secureCookies: strings.HasPrefix(frontendOrigin, "https://"), trustProxy: trustProxy,
 		loginAttempts: make(map[string]loginAttempt), tmdbAPIToken: strings.TrimSpace(tmdbAPIToken),
 		httpClient: &http.Client{Timeout: 8 * time.Second},
 	}
@@ -109,7 +116,7 @@ func NewRouter(db *pgxpool.Pool, logger *slog.Logger, frontendOrigin, tmdbAPITok
 	mux.HandleFunc("POST /api/v1/auth/login", api.login)
 	mux.Handle("/api/v1/", api.requireAuth(protected))
 
-	return recoverMiddleware(logger, loggingMiddleware(logger, corsMiddleware(frontendOrigin, mux)))
+	return recoverMiddleware(logger, loggingMiddleware(logger, corsMiddleware(frontendOrigin, additionalOrigins, mux)))
 }
 
 func (api *API) health(w http.ResponseWriter, r *http.Request) {
@@ -121,22 +128,71 @@ func (api *API) health(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, envelope{"status": "ok", "service": "hubby-finance-api"})
 }
 
-func corsMiddleware(origin string, next http.Handler) http.Handler {
+func corsMiddleware(origin string, additionalOrigins []string, next http.Handler) http.Handler {
+	allowedOrigins := make(map[string]struct{}, len(additionalOrigins)+1)
+	if origin != "" {
+		allowedOrigins[origin] = struct{}{}
+	}
+	for _, allowedOrigin := range additionalOrigins {
+		if allowedOrigin = strings.TrimSpace(allowedOrigin); allowedOrigin != "" {
+			allowedOrigins[allowedOrigin] = struct{}{}
+		}
+	}
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestOrigin := r.Header.Get("Origin")
-		if requestOrigin == origin || (strings.HasPrefix(origin, "http://localhost") && strings.HasPrefix(requestOrigin, "http://localhost")) {
+		_, explicitlyAllowed := allowedOrigins[requestOrigin]
+		if requestOrigin != "" {
+			w.Header().Add("Vary", "Origin")
+		}
+		if explicitlyAllowed {
 			w.Header().Set("Access-Control-Allow-Origin", requestOrigin)
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
-			w.Header().Set("Vary", "Origin")
 		}
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, "+clientVerificationHeader)
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+
+		if requestOrigin != "" && !explicitlyAllowed && (r.Method == http.MethodOptions || isUnsafeMethod(r.Method)) {
+			writeError(w, http.StatusForbidden, "origin is not allowed")
+			return
+		}
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
+		if isUnsafeMethod(r.Method) {
+			if r.Header.Get(clientVerificationHeader) != "1" {
+				writeError(w, http.StatusForbidden, "missing client verification header")
+				return
+			}
+			if methodRequiresJSON(r.Method) && !hasJSONContentType(r) {
+				writeError(w, http.StatusUnsupportedMediaType, "Content-Type must be application/json")
+				return
+			}
+		}
+		if r.Body != nil {
+			r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
+		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func isUnsafeMethod(method string) bool {
+	switch method {
+	case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
+		return true
+	default:
+		return false
+	}
+}
+
+func methodRequiresJSON(method string) bool {
+	return method == http.MethodPost || method == http.MethodPut || method == http.MethodPatch
+}
+
+func hasJSONContentType(r *http.Request) bool {
+	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	return err == nil && mediaType == "application/json"
 }
 
 func loggingMiddleware(logger *slog.Logger, next http.Handler) http.Handler {

@@ -1,0 +1,71 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-hubby}
+      POSTGRES_USER: ${POSTGRES_USER:-hubby}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+    volumes:
+      - hubby_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - internal
+
+  migrate:
+    build:
+      context: ./backend
+    entrypoint: ["/hubby-migrate"]
+    command: ["up"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    environment:
+      APP_PORT: 8080
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:?FRONTEND_ORIGIN must be set}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
+      TRUST_PROXY: ${TRUST_PROXY:-false}
+      AUTH_EMAIL: ${AUTH_EMAIL:?AUTH_EMAIL must be set}
+      AUTH_INITIAL_PASSWORD: ${AUTH_INITIAL_PASSWORD:-}
+      TMDB_API_TOKEN: ${TMDB_API_TOKEN:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_PAIRING_CODE: ${TELEGRAM_PAIRING_CODE:-}
+      TELEGRAM_LOCAL_USER_ID: ${TELEGRAM_LOCAL_USER_ID:-1}
+      TELEGRAM_TIMEZONE: ${TELEGRAM_TIMEZONE:-Asia/Jakarta}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+
+  frontend:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-8080}:80"
+    depends_on:
+      - backend
+    networks:
+      - internal
+
+volumes:
+  hubby_postgres:
+
+networks:
+  internal:
+    driver: bridge

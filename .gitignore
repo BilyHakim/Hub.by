@@ -1,5 +1,43 @@
+# Environment files and local credentials
 .env
+.env.*
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.*.example
+!frontend/.env.desktop
 *.local
+
+# Private keys and credential bundles
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+*.keystore
+id_rsa
+id_ed25519
+credentials.json
+*credentials*.json
+*service-account*.json
+secrets.*
+*.kubeconfig
+.npmrc
+.pypirc
+.netrc
+**/.secrets/
+**/secrets/
+
+# Infrastructure state can contain credentials
+*.tfstate
+*.tfstate.*
+
+# Database backups
+*.dump
+*.backup
+*.sql.gz
+backups/
+
 backend/bin/
 frontend/node_modules/
 frontend/dist/

@@ -64,6 +64,18 @@ cd desktop
 npm run build
 ```
 
-Build production memakai `frontend/.env.desktop`, sehingga UI terhubung langsung ke
-`http://localhost:8080/api/v1`. Backend dan PostgreSQL tetap perlu dijalankan secara terpisah.
+Build production memakai `frontend/.env.desktop`. Untuk memakai API VPS, isi `VITE_API_URL`
+dengan URL HTTPS API, misalnya `https://api.example.com/api/v1`, sebelum menjalankan build.
+Backend dan PostgreSQL tetap berjalan di server; installer desktop hanya menyertakan UI.
+
+Origin desktop production adalah `http://localhost:1420`. Pada konfigurasi backend VPS,
+`FRONTEND_ORIGIN` tetap menunjuk ke origin website HTTPS, lalu tambahkan origin desktop ke
+`CORS_ALLOWED_ORIGINS`, misalnya `http://localhost:1420`. Backend mengizinkan cookie lintas situs
+dengan atribut `SameSite=None; Secure` ketika `FRONTEND_ORIGIN` memakai HTTPS. Deploy ulang backend
+setelah mengubah konfigurasi atau kode.
+
+Jika backend hanya dapat dicapai melalui reverse proxy tepercaya, set `TRUST_PROXY=true` dan
+pastikan proxy menimpa `X-Real-IP` serta `X-Forwarded-For` dengan alamat klien. Biarkan nilainya
+`false` jika port backend dapat diakses langsung.
+
 Installer atau executable hasil build tersedia di `src-tauri/target/release/bundle`.

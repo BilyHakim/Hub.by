@@ -59,7 +59,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
-		Handler:           httpapi.NewRouter(pool, logger, cfg.FrontendOrigin, cfg.TMDBAPIToken),
+		Handler:           httpapi.NewRouter(pool, logger, cfg.FrontendOrigin, cfg.TMDBAPIToken, cfg.TrustProxy, cfg.CORSAllowedOrigins...),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      15 * time.Second,

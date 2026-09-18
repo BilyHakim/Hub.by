@@ -64,7 +64,7 @@ func BootstrapAuth(ctx context.Context, db *pgxpool.Pool, email, initialPassword
 }
 
 func (api *API) login(w http.ResponseWriter, r *http.Request) {
-	ip := clientIP(r)
+	ip := api.clientIP(r)
 	if !api.allowLoginAttempt(ip) {
 		writeError(w, http.StatusTooManyRequests, "terlalu banyak percobaan masuk; coba lagi dalam 15 menit")
 		return
@@ -113,7 +113,7 @@ func (api *API) logout(w http.ResponseWriter, r *http.Request) {
 	}
 	http.SetCookie(w, &http.Cookie{
 		Name: sessionCookieName, Value: "", Path: "/", MaxAge: -1, Expires: time.Unix(0, 0),
-		HttpOnly: true, Secure: api.secureCookies, SameSite: http.SameSiteLaxMode,
+		HttpOnly: true, Secure: api.secureCookies, SameSite: api.sessionCookieSameSite(),
 	})
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -132,7 +132,7 @@ func (api *API) requireAuth(next http.Handler) http.Handler {
 		if err != nil {
 			http.SetCookie(w, &http.Cookie{
 				Name: sessionCookieName, Value: "", Path: "/", MaxAge: -1, Expires: time.Unix(0, 0),
-				HttpOnly: true, Secure: api.secureCookies, SameSite: http.SameSiteLaxMode,
+				HttpOnly: true, Secure: api.secureCookies, SameSite: api.sessionCookieSameSite(),
 			})
 			writeError(w, http.StatusUnauthorized, "session expired")
 			return
@@ -156,13 +156,27 @@ func (api *API) setSessionCookie(w http.ResponseWriter, token string, expiresAt 
 	http.SetCookie(w, &http.Cookie{
 		Name: sessionCookieName, Value: token, Path: "/", Expires: expiresAt,
 		MaxAge: int(sessionDuration.Seconds()), HttpOnly: true, Secure: api.secureCookies,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: api.sessionCookieSameSite(),
 	})
 }
 
-func clientIP(r *http.Request) string {
-	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-		return strings.TrimSpace(strings.Split(forwarded, ",")[0])
+func (api *API) sessionCookieSameSite() http.SameSite {
+	if api.secureCookies {
+		return http.SameSiteNoneMode
+	}
+	return http.SameSiteLaxMode
+}
+
+func (api *API) clientIP(r *http.Request) string {
+	if api.trustProxy {
+		if realIP := net.ParseIP(strings.TrimSpace(r.Header.Get("X-Real-IP"))); realIP != nil {
+			return realIP.String()
+		}
+		if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
+			if forwardedIP := net.ParseIP(strings.TrimSpace(strings.Split(forwarded, ",")[0])); forwardedIP != nil {
+				return forwardedIP.String()
+			}
+		}
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err == nil {
