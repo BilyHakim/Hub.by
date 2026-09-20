@@ -1220,6 +1220,40 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
 .health-metric small { color: var(--muted); font-size: 9px; }
 .health-metric strong { overflow: hidden; margin: 5px 0 3px; font-family: 'Manrope'; font-size: clamp(17px,2vw,22px); white-space: nowrap; text-overflow: ellipsis; }
 .health-metric p { margin: 0; color: var(--muted); font-size: 8px; }
+.monthly-report-card { margin-bottom: 14px; padding: 21px; }
+.monthly-report-heading { align-items: flex-end; }
+.monthly-report-heading .eyebrow { margin-bottom: 5px !important; }
+.year-select { display: grid; gap: 5px; flex: none; color: var(--muted); font-size: 8px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.year-select select { min-width: 112px; height: 38px; padding: 0 30px 0 11px; color: var(--ink); border: 1px solid var(--line); border-radius: 9px; outline: 0; background: var(--surface); font: 700 11px 'Manrope'; cursor: pointer; }
+.year-select select:focus { border-color: #aebfb5; box-shadow: 0 0 0 3px rgba(73,104,92,.09); }
+.monthly-report-summary { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); margin: 18px 0 14px; overflow: hidden; border: 1px solid var(--line); border-radius: 11px; background: var(--surface-2); }
+.monthly-report-summary > div { min-width: 0; display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-right: 1px solid var(--line); }
+.monthly-report-summary > div:last-child { border-right: 0; }
+.monthly-report-summary small { color: var(--muted); font-size: 8px; }
+.monthly-report-summary strong { overflow: hidden; font-family: 'Manrope'; font-size: 13px; white-space: nowrap; text-overflow: ellipsis; }
+.monthly-report-summary .negative strong { color: #a34f48; }
+.monthly-report-table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 11px; }
+.monthly-report-table { width: 100%; min-width: 870px; border-collapse: collapse; font-size: 9px; font-variant-numeric: tabular-nums; }
+.monthly-report-table th, .monthly-report-table td { padding: 10px 12px; border-bottom: 1px solid #ebe9e3; text-align: right; white-space: nowrap; }
+.monthly-report-table thead th { color: white; border-right: 1px solid rgba(255,255,255,.16); background: var(--sage); font-family: 'Manrope'; font-size: 9px; line-height: 1.35; }
+.monthly-report-table thead th:first-child { width: 18%; text-align: left; }
+.monthly-report-table thead th:last-child { border-right: 0; }
+.monthly-report-table thead span { opacity: .75; font-size: 8px; font-weight: 500; }
+.monthly-report-table tbody th, .monthly-report-table tfoot th { text-align: left; }
+.monthly-report-table tbody th { display: flex; flex-direction: column; gap: 2px; }
+.monthly-report-table tbody th span { color: var(--ink); font-size: 10px; }
+.monthly-report-table tbody th small, .monthly-report-table tfoot th small { color: var(--muted); font-size: 7px; font-weight: 500; }
+.monthly-report-table tbody tr:nth-child(even) { background: #faf9f5; }
+.monthly-report-table tbody tr:hover { background: #f2f6f3; }
+.monthly-report-table tbody tr.empty { color: #afb5b1; }
+.monthly-report-table tbody tr.empty th span { color: #7d8781; }
+.cashflow-balance { color: var(--sage); }
+.cashflow-balance.negative, .savings-rate.negative { color: #b14e47; }
+.savings-rate { display: inline-flex; justify-content: center; min-width: 47px; padding: 4px 7px; color: var(--sage); border-radius: 99px; background: var(--sage-light); font-weight: 700; }
+.savings-rate.negative { background: var(--rose-light); }
+.monthly-report-table tfoot th, .monthly-report-table tfoot td { border-bottom: 0; background: #eef3f0; font-weight: 700; }
+.monthly-report-table tfoot th { display: flex; flex-direction: column; gap: 2px; font-family: 'Manrope'; }
+.monthly-report-note { margin: 10px 0 0; color: var(--muted); font-size: 8px; line-height: 1.5; }
 .health-overview-grid { display: grid; grid-template-columns: 1.1fr .9fr; gap: 14px; margin-bottom: 14px; }
 .health-score-card, .wealth-card, .category-explorer, .category-insight { padding: 21px; }
 .health-score-pill, .top-category-badge { padding: 5px 9px; color: var(--sage); border-radius: 99px; background: var(--sage-light); font-size: 8px; font-weight: 700; }
@@ -1299,6 +1333,12 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
 @media (max-width: 700px) {
   .health-heading { align-items: flex-start; }
   .lifetime-range { width: 100%; }
+  .monthly-report-heading { align-items: flex-start; }
+  .year-select { width: 100%; }
+  .year-select select { width: 100%; }
+  .monthly-report-summary { grid-template-columns: 1fr; }
+  .monthly-report-summary > div { border-right: 0; border-bottom: 1px solid var(--line); }
+  .monthly-report-summary > div:last-child { border-bottom: 0; }
   .lifetime-donut-layout { grid-template-columns: 1fr; }
   .interactive-donut { width: min(230px,75vw); }
   .lifetime-donut-legend { width: 100%; max-height: none; }

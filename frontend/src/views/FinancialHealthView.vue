@@ -12,6 +12,13 @@ const loading = ref(true)
 const usingDemo = ref(false)
 const data = ref(demoFinancialHealth)
 const selectedCategoryId = ref(null)
+const selectedYear = ref(new Date().getFullYear())
+const yearInitialized = ref(false)
+
+const monthNames = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+]
 
 const currency = (value) => new Intl.NumberFormat('id-ID', {
   style: 'currency', currency: 'IDR', maximumFractionDigits: 0,
@@ -35,6 +42,35 @@ const healthChecks = computed(() => [
 ])
 const healthyCount = computed(() => healthChecks.value.filter((item) => item.ok).length)
 const healthScore = computed(() => Math.round(healthyCount.value / healthChecks.value.length * 100))
+const availableYears = computed(() => [...new Set([
+  new Date().getFullYear(),
+  ...(data.value.monthlyReports || []).map((item) => Number(item.month.slice(0, 4))),
+])].sort((a, b) => b - a))
+const monthlyRows = computed(() => {
+  const reports = new Map((data.value.monthlyReports || []).map((item) => [item.month, item]))
+  return monthNames.map((name, index) => {
+    const month = `${selectedYear.value}-${String(index + 1).padStart(2, '0')}`
+    const report = reports.get(month)
+    return report ? { ...report, name, hasData: true } : {
+      month, name, plannedExpense: 0, income: 0, expense: 0,
+      balance: 0, savingsRate: 0, transactionCount: 0, hasData: false,
+    }
+  })
+})
+const yearTotals = computed(() => monthlyRows.value.reduce((total, item) => {
+  if (!item.hasData) return total
+  total.plannedExpense += Number(item.plannedExpense || 0)
+  total.income += Number(item.income || 0)
+  total.expense += Number(item.expense || 0)
+  total.balance += Number(item.balance || 0)
+  total.transactionCount += Number(item.transactionCount || 0)
+  return total
+}, { plannedExpense: 0, income: 0, expense: 0, balance: 0, transactionCount: 0 }))
+const yearSavingsRate = computed(() => yearTotals.value.income > 0
+  ? yearTotals.value.balance / yearTotals.value.income * 100
+  : 0)
+
+const reportCurrency = (value, hasData = true) => hasData ? currency(value) : '—'
 
 async function load() {
   loading.value = true
@@ -46,10 +82,18 @@ async function load() {
     usingDemo.value = true
   } finally {
     selectedCategoryId.value = data.value.expenseCategories[0]?.id ?? null
+    const latestReport = data.value.monthlyReports?.at(-1)
+    if (!yearInitialized.value && latestReport) {
+      selectedYear.value = Number(latestReport.month.slice(0, 4))
+      yearInitialized.value = true
+    }
     loading.value = false
   }
 }
-function handleWorkspaceChange() { load() }
+function handleWorkspaceChange() {
+  yearInitialized.value = false
+  load()
+}
 onMounted(() => {
   load()
   window.addEventListener('hubby:workspace-changed', handleWorkspaceChange)
@@ -80,6 +124,64 @@ onBeforeUnmount(() => {
       <article class="health-metric expense"><span><ArrowUpRight :size="20" /></span><div><small>Total pengeluaran</small><strong>{{ compactCurrency(data.lifetimeExpense) }}</strong><p>Rata-rata {{ compactCurrency(data.averageMonthlyExpense) }}/bulan</p></div></article>
       <article class="health-metric"><span><PiggyBank :size="20" /></span><div><small>Uang tersisa</small><strong>{{ compactCurrency(data.lifetimeSavings) }}</strong><p>Rasio simpan {{ data.savingsRate.toFixed(1) }}%</p></div></article>
     </div>
+
+    <article class="panel monthly-report-card">
+      <div class="panel-heading monthly-report-heading">
+        <div>
+          <p class="eyebrow">Laporan per bulan</p>
+          <h2>Ringkasan arus kas {{ selectedYear }}</h2>
+          <p>Bandingkan rencana pengeluaran dengan pemasukan, pengeluaran, dan sisa uang sebenarnya.</p>
+        </div>
+        <label class="year-select">
+          <span>Tahun laporan</span>
+          <select v-model.number="selectedYear" aria-label="Pilih tahun laporan arus kas">
+            <option v-for="year in availableYears" :key="year" :value="year">{{ year }}</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="monthly-report-summary">
+        <div><small>Pemasukan setahun</small><strong>{{ currency(yearTotals.income) }}</strong></div>
+        <div><small>Pengeluaran setahun</small><strong>{{ currency(yearTotals.expense) }}</strong></div>
+        <div :class="{ negative: yearTotals.balance < 0 }"><small>Sisa / kekurangan</small><strong>{{ currency(yearTotals.balance) }}</strong></div>
+      </div>
+
+      <div class="monthly-report-table-wrap">
+        <table class="monthly-report-table">
+          <thead>
+            <tr>
+              <th>Bulan</th>
+              <th>Pengeluaran<br><span>(Rencana)</span></th>
+              <th>Pemasukan<br><span>(Sebenarnya)</span></th>
+              <th>Pengeluaran<br><span>(Sebenarnya)</span></th>
+              <th>Sisa / Kekurangan<br><span>(Sebenarnya)</span></th>
+              <th>Rasio simpan</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in monthlyRows" :key="row.month" :class="{ empty: !row.hasData }">
+              <th scope="row"><span>{{ row.name }}</span><small v-if="row.hasData">{{ row.transactionCount }} transaksi</small></th>
+              <td>{{ reportCurrency(row.plannedExpense, row.hasData) }}</td>
+              <td>{{ reportCurrency(row.income, row.hasData) }}</td>
+              <td>{{ reportCurrency(row.expense, row.hasData) }}</td>
+              <td><strong v-if="row.hasData" class="cashflow-balance" :class="{ negative: row.balance < 0 }">{{ currency(row.balance) }}</strong><span v-else>—</span></td>
+              <td><span v-if="row.hasData && row.income > 0" class="savings-rate" :class="{ negative: row.savingsRate < 0 }">{{ row.savingsRate.toFixed(1) }}%</span><span v-else>—</span></td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <th>Total {{ selectedYear }}<small>{{ yearTotals.transactionCount }} transaksi</small></th>
+              <td>{{ currency(yearTotals.plannedExpense) }}</td>
+              <td>{{ currency(yearTotals.income) }}</td>
+              <td>{{ currency(yearTotals.expense) }}</td>
+              <td><strong class="cashflow-balance" :class="{ negative: yearTotals.balance < 0 }">{{ currency(yearTotals.balance) }}</strong></td>
+              <td><span class="savings-rate" :class="{ negative: yearSavingsRate < 0 }">{{ yearTotals.income > 0 ? `${yearSavingsRate.toFixed(1)}%` : '—' }}</span></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <p class="monthly-report-note">Rencana berasal dari modul Rencana Pengeluaran. Bulan tanpa transaksi atau anggaran tetap ditampilkan agar laporan tahunan mudah dipindai.</p>
+    </article>
 
     <div class="health-overview-grid">
       <article class="panel health-score-card">

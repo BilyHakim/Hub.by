@@ -66,6 +66,14 @@ export const demoFinancialHealth = {
     { id: 4, name: 'Transportasi', color: '#7894a0', value: 4_800_000, share: 7.8, transactionCount: 3, averageTransaction: 1_600_000, largestAmount: 1_900_000, largestDescription: 'Bensin dan tol', lastSpentAt: '2026-07-06' },
     { id: 8, name: 'Hiburan', color: '#638475', value: 1_800_000, share: 2.9, transactionCount: 1, averageTransaction: 1_800_000, largestAmount: 1_800_000, largestDescription: 'Nonton dan kopi', lastSpentAt: '2026-07-13' },
   ],
+  monthlyReports: [
+    { month: '2026-02', plannedExpense: 9_000_000, income: 17_000_000, expense: 8_750_000, balance: 8_250_000, savingsRate: 48.5, transactionCount: 4 },
+    { month: '2026-03', plannedExpense: 9_500_000, income: 16_500_000, expense: 9_200_000, balance: 7_300_000, savingsRate: 44.2, transactionCount: 3 },
+    { month: '2026-04', plannedExpense: 10_000_000, income: 18_000_000, expense: 10_350_000, balance: 7_650_000, savingsRate: 42.5, transactionCount: 4 },
+    { month: '2026-05', plannedExpense: 10_000_000, income: 16_500_000, expense: 9_800_000, balance: 6_700_000, savingsRate: 40.6, transactionCount: 3 },
+    { month: '2026-06', plannedExpense: 10_500_000, income: 15_000_000, expense: 10_000_000, balance: 5_000_000, savingsRate: 33.3, transactionCount: 4 },
+    { month: '2026-07', plannedExpense: 12_000_000, income: 21_500_000, expense: 13_200_000, balance: 8_300_000, savingsRate: 38.6, transactionCount: 4 },
+  ],
 }
 
 export const demoTransactions = [

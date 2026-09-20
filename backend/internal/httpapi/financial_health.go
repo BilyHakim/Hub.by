@@ -25,6 +25,7 @@ type financialHealthSummary struct {
 	EmergencyProgress     float64                   `json:"emergencyProgress"`
 	Accounts              []financialHealthAccount  `json:"accounts"`
 	ExpenseCategories     []financialHealthCategory `json:"expenseCategories"`
+	MonthlyReports        []financialHealthMonth    `json:"monthlyReports"`
 }
 
 type financialHealthAccount struct {
@@ -49,6 +50,16 @@ type financialHealthCategory struct {
 	LastSpentAt        string  `json:"lastSpentAt"`
 }
 
+type financialHealthMonth struct {
+	Month            string  `json:"month"`
+	PlannedExpense   int64   `json:"plannedExpense"`
+	Income           int64   `json:"income"`
+	Expense          int64   `json:"expense"`
+	Balance          int64   `json:"balance"`
+	SavingsRate      float64 `json:"savingsRate"`
+	TransactionCount int64   `json:"transactionCount"`
+}
+
 // financialHealth returns a period-free view over every transaction in the
 // active workspace. Account balances remain point-in-time values by design.
 func (api *API) financialHealth(w http.ResponseWriter, r *http.Request) {
@@ -62,6 +73,7 @@ func (api *API) financialHealth(w http.ResponseWriter, r *http.Request) {
 	result := financialHealthSummary{
 		Accounts:          make([]financialHealthAccount, 0),
 		ExpenseCategories: make([]financialHealthCategory, 0),
+		MonthlyReports:    make([]financialHealthMonth, 0),
 	}
 	var firstDate, lastDate *time.Time
 	err = api.db.QueryRow(ctx, `
@@ -158,6 +170,58 @@ func (api *API) financialHealth(w http.ResponseWriter, r *http.Request) {
 				result.ExpenseCategories = append(result.ExpenseCategories, item)
 			}
 		}
+	}
+
+	monthlyRows, err := api.db.Query(ctx, `
+		WITH transaction_months AS (
+			SELECT date_trunc('month', occurred_at)::date AS month,
+				COALESCE(SUM(amount) FILTER (WHERE type='income'), 0)::bigint AS income,
+				COALESCE(SUM(amount) FILTER (WHERE type='expense'), 0)::bigint AS expense,
+				COUNT(*)::bigint AS transaction_count
+			FROM transactions
+			WHERE workspace_id=$1
+			GROUP BY 1
+		), budget_months AS (
+			SELECT month, COALESCE(SUM(planned_amount), 0)::bigint AS planned_expense
+			FROM monthly_budgets
+			WHERE workspace_id=$1
+			GROUP BY month
+		), months AS (
+			SELECT month FROM transaction_months
+			UNION
+			SELECT month FROM budget_months
+		)
+		SELECT to_char(m.month, 'YYYY-MM'),
+			COALESCE(b.planned_expense, 0)::bigint,
+			COALESCE(t.income, 0)::bigint,
+			COALESCE(t.expense, 0)::bigint,
+			COALESCE(t.transaction_count, 0)::bigint
+		FROM months m
+		LEFT JOIN transaction_months t ON t.month=m.month
+		LEFT JOIN budget_months b ON b.month=m.month
+		ORDER BY m.month
+	`, workspaceID)
+	if err != nil {
+		api.logger.Error("load monthly financial health", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to load monthly financial health")
+		return
+	}
+	defer monthlyRows.Close()
+	for monthlyRows.Next() {
+		var item financialHealthMonth
+		if err := monthlyRows.Scan(&item.Month, &item.PlannedExpense, &item.Income, &item.Expense, &item.TransactionCount); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to read monthly financial health")
+			return
+		}
+		item.Balance = item.Income - item.Expense
+		if item.Income > 0 {
+			item.SavingsRate = float64(item.Balance) / float64(item.Income) * 100
+		}
+		result.MonthlyReports = append(result.MonthlyReports, item)
+	}
+	if err := monthlyRows.Err(); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to read monthly financial health")
+		return
 	}
 
 	writeJSON(w, http.StatusOK, envelope{"data": result})
