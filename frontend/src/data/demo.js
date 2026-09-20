@@ -67,12 +67,12 @@ export const demoFinancialHealth = {
     { id: 8, name: 'Hiburan', color: '#638475', value: 1_800_000, share: 2.9, transactionCount: 1, averageTransaction: 1_800_000, largestAmount: 1_800_000, largestDescription: 'Nonton dan kopi', lastSpentAt: '2026-07-13' },
   ],
   monthlyReports: [
-    { month: '2026-02', plannedExpense: 9_000_000, income: 17_000_000, expense: 8_750_000, balance: 8_250_000, savingsRate: 48.5, transactionCount: 4 },
-    { month: '2026-03', plannedExpense: 9_500_000, income: 16_500_000, expense: 9_200_000, balance: 7_300_000, savingsRate: 44.2, transactionCount: 3 },
-    { month: '2026-04', plannedExpense: 10_000_000, income: 18_000_000, expense: 10_350_000, balance: 7_650_000, savingsRate: 42.5, transactionCount: 4 },
-    { month: '2026-05', plannedExpense: 10_000_000, income: 16_500_000, expense: 9_800_000, balance: 6_700_000, savingsRate: 40.6, transactionCount: 3 },
-    { month: '2026-06', plannedExpense: 10_500_000, income: 15_000_000, expense: 10_000_000, balance: 5_000_000, savingsRate: 33.3, transactionCount: 4 },
-    { month: '2026-07', plannedExpense: 12_000_000, income: 21_500_000, expense: 13_200_000, balance: 8_300_000, savingsRate: 38.6, transactionCount: 4 },
+    { month: '2026-02', periodStart: '2026-02-01', periodEnd: '2026-02-28', plannedExpense: 9_000_000, income: 17_000_000, expense: 8_750_000, balance: 8_250_000, savingsRate: 48.5, transactionCount: 4 },
+    { month: '2026-03', periodStart: '2026-03-01', periodEnd: '2026-03-31', plannedExpense: 9_500_000, income: 16_500_000, expense: 9_200_000, balance: 7_300_000, savingsRate: 44.2, transactionCount: 3 },
+    { month: '2026-04', periodStart: '2026-04-01', periodEnd: '2026-04-30', plannedExpense: 10_000_000, income: 18_000_000, expense: 10_350_000, balance: 7_650_000, savingsRate: 42.5, transactionCount: 4 },
+    { month: '2026-05', periodStart: '2026-05-01', periodEnd: '2026-05-31', plannedExpense: 10_000_000, income: 16_500_000, expense: 9_800_000, balance: 6_700_000, savingsRate: 40.6, transactionCount: 3 },
+    { month: '2026-06', periodStart: '2026-06-01', periodEnd: '2026-06-30', plannedExpense: 10_500_000, income: 15_000_000, expense: 10_000_000, balance: 5_000_000, savingsRate: 33.3, transactionCount: 4 },
+    { month: '2026-07', periodStart: '2026-07-01', periodEnd: '2026-07-31', plannedExpense: 12_000_000, income: 21_500_000, expense: 13_200_000, balance: 8_300_000, savingsRate: 38.6, transactionCount: 4 },
   ],
 }
 

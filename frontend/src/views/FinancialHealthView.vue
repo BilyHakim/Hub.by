@@ -29,6 +29,12 @@ const compactCurrency = (value) => `Rp${new Intl.NumberFormat('id-ID', {
 const date = (value) => value ? new Intl.DateTimeFormat('id-ID', {
   day: 'numeric', month: 'short', year: 'numeric',
 }).format(new Date(`${value}T00:00:00`)) : 'Belum ada transaksi'
+const shortDate = (value) => value ? new Intl.DateTimeFormat('id-ID', {
+  day: 'numeric', month: 'short',
+}).format(new Date(`${value}T00:00:00`)) : ''
+const reportPeriod = (row) => row.periodStart && row.periodEnd
+  ? `${shortDate(row.periodStart)}–${shortDate(row.periodEnd)}`
+  : ''
 const kindLabel = { cash: 'Tunai', bank: 'Bank', ewallet: 'E-wallet', investment: 'Investasi', property: 'Properti', liability: 'Kewajiban' }
 
 const selectedCategory = computed(() => data.value.expenseCategories.find((item) => item.id === selectedCategoryId.value) || data.value.expenseCategories[0])
@@ -160,7 +166,7 @@ onBeforeUnmount(() => {
           </thead>
           <tbody>
             <tr v-for="row in monthlyRows" :key="row.month" :class="{ empty: !row.hasData }">
-              <th scope="row"><span>{{ row.name }}</span><small v-if="row.hasData">{{ row.transactionCount }} transaksi</small></th>
+              <th scope="row"><span>{{ row.name }}</span><small v-if="row.hasData">{{ reportPeriod(row) }} · {{ row.transactionCount }} transaksi</small></th>
               <td>{{ reportCurrency(row.plannedExpense, row.hasData) }}</td>
               <td>{{ reportCurrency(row.income, row.hasData) }}</td>
               <td>{{ reportCurrency(row.expense, row.hasData) }}</td>
@@ -180,7 +186,7 @@ onBeforeUnmount(() => {
           </tfoot>
         </table>
       </div>
-      <p class="monthly-report-note">Rencana berasal dari modul Rencana Pengeluaran. Bulan tanpa transaksi atau anggaran tetap ditampilkan agar laporan tahunan mudah dipindai.</p>
+      <p class="monthly-report-note">Setiap bulan mengikuti periode keuangan workspace. Rencana berasal dari modul Rencana Pengeluaran dan realisasi pengeluaran tidak mencakup transaksi dana darurat.</p>
     </article>
 
     <div class="health-overview-grid">

@@ -52,6 +52,8 @@ type financialHealthCategory struct {
 
 type financialHealthMonth struct {
 	Month            string  `json:"month"`
+	PeriodStart      string  `json:"periodStart"`
+	PeriodEnd        string  `json:"periodEnd"`
 	PlannedExpense   int64   `json:"plannedExpense"`
 	Income           int64   `json:"income"`
 	Expense          int64   `json:"expense"`
@@ -172,15 +174,42 @@ func (api *API) financialHealth(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	periodSetting, err := api.financePeriodSetting(ctx, workspaceID)
+	if err != nil {
+		api.logger.Error("load finance period setting for monthly health", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to load monthly financial health")
+		return
+	}
 	monthlyRows, err := api.db.Query(ctx, `
-		WITH transaction_months AS (
-			SELECT date_trunc('month', occurred_at)::date AS month,
+		WITH transaction_context AS (
+			SELECT t.occurred_at, t.type, t.amount, a.is_emergency_fund,
+				date_trunc('month', t.occurred_at)::date AS calendar_month,
+				(date_trunc('month', t.occurred_at) + interval '1 month - 1 day')::date AS calendar_last_day
+			FROM transactions t
+			JOIN accounts a ON a.id=t.account_id
+			WHERE t.workspace_id=$1
+		), labeled_transactions AS (
+			SELECT CASE
+				WHEN $2::text='fixed_day' AND $3::int=1 THEN calendar_month
+				WHEN occurred_at >= CASE
+					WHEN $2::text='end_of_month' THEN calendar_last_day
+					ELSE make_date(
+						extract(year FROM calendar_month)::int,
+						extract(month FROM calendar_month)::int,
+						LEAST($3::int, extract(day FROM calendar_last_day)::int)
+					)
+				END THEN (calendar_month + interval '1 month')::date
+				ELSE calendar_month
+			END AS month,
+			type, amount, is_emergency_fund
+			FROM transaction_context
+		), transaction_months AS (
+			SELECT month,
 				COALESCE(SUM(amount) FILTER (WHERE type='income'), 0)::bigint AS income,
-				COALESCE(SUM(amount) FILTER (WHERE type='expense'), 0)::bigint AS expense,
+				COALESCE(SUM(amount) FILTER (WHERE type='expense' AND NOT is_emergency_fund), 0)::bigint AS expense,
 				COUNT(*)::bigint AS transaction_count
-			FROM transactions
-			WHERE workspace_id=$1
-			GROUP BY 1
+			FROM labeled_transactions
+			GROUP BY month
 		), budget_months AS (
 			SELECT month, COALESCE(SUM(planned_amount), 0)::bigint AS planned_expense
 			FROM monthly_budgets
@@ -200,7 +229,7 @@ func (api *API) financialHealth(w http.ResponseWriter, r *http.Request) {
 		LEFT JOIN transaction_months t ON t.month=m.month
 		LEFT JOIN budget_months b ON b.month=m.month
 		ORDER BY m.month
-	`, workspaceID)
+	`, workspaceID, periodSetting.Mode, periodSetting.StartDay)
 	if err != nil {
 		api.logger.Error("load monthly financial health", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to load monthly financial health")
@@ -213,6 +242,13 @@ func (api *API) financialHealth(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, "failed to read monthly financial health")
 			return
 		}
+		period, err := buildFinancePeriod(item.Month, periodSetting)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to resolve monthly financial health period")
+			return
+		}
+		item.PeriodStart = period.Start.Format("2006-01-02")
+		item.PeriodEnd = period.EndInclusive.Format("2006-01-02")
 		item.Balance = item.Income - item.Expense
 		if item.Income > 0 {
 			item.SavingsRate = float64(item.Balance) / float64(item.Income) * 100
