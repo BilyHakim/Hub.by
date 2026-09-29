@@ -25,6 +25,7 @@ type financialHealthSummary struct {
 	EmergencyProgress     float64                   `json:"emergencyProgress"`
 	Accounts              []financialHealthAccount  `json:"accounts"`
 	ExpenseCategories     []financialHealthCategory `json:"expenseCategories"`
+	MonthlyReports        []financialHealthMonth    `json:"monthlyReports"`
 }
 
 type financialHealthAccount struct {
@@ -49,6 +50,18 @@ type financialHealthCategory struct {
 	LastSpentAt        string  `json:"lastSpentAt"`
 }
 
+type financialHealthMonth struct {
+	Month            string  `json:"month"`
+	PeriodStart      string  `json:"periodStart"`
+	PeriodEnd        string  `json:"periodEnd"`
+	PlannedExpense   int64   `json:"plannedExpense"`
+	Income           int64   `json:"income"`
+	Expense          int64   `json:"expense"`
+	Balance          int64   `json:"balance"`
+	SavingsRate      float64 `json:"savingsRate"`
+	TransactionCount int64   `json:"transactionCount"`
+}
+
 // financialHealth returns a period-free view over every transaction in the
 // active workspace. Account balances remain point-in-time values by design.
 func (api *API) financialHealth(w http.ResponseWriter, r *http.Request) {
@@ -62,6 +75,7 @@ func (api *API) financialHealth(w http.ResponseWriter, r *http.Request) {
 	result := financialHealthSummary{
 		Accounts:          make([]financialHealthAccount, 0),
 		ExpenseCategories: make([]financialHealthCategory, 0),
+		MonthlyReports:    make([]financialHealthMonth, 0),
 	}
 	var firstDate, lastDate *time.Time
 	err = api.db.QueryRow(ctx, `
@@ -158,6 +172,92 @@ func (api *API) financialHealth(w http.ResponseWriter, r *http.Request) {
 				result.ExpenseCategories = append(result.ExpenseCategories, item)
 			}
 		}
+	}
+
+	periodSetting, err := api.financePeriodSetting(ctx, workspaceID)
+	if err != nil {
+		api.logger.Error("load finance period setting for monthly health", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to load monthly financial health")
+		return
+	}
+	monthlyRows, err := api.db.Query(ctx, `
+		WITH transaction_context AS (
+			SELECT t.occurred_at, t.type, t.amount, a.is_emergency_fund,
+				date_trunc('month', t.occurred_at)::date AS calendar_month,
+				(date_trunc('month', t.occurred_at) + interval '1 month - 1 day')::date AS calendar_last_day
+			FROM transactions t
+			JOIN accounts a ON a.id=t.account_id
+			WHERE t.workspace_id=$1
+		), labeled_transactions AS (
+			SELECT CASE
+				WHEN $2::text='fixed_day' AND $3::int=1 THEN calendar_month
+				WHEN occurred_at >= CASE
+					WHEN $2::text='end_of_month' THEN calendar_last_day
+					ELSE make_date(
+						extract(year FROM calendar_month)::int,
+						extract(month FROM calendar_month)::int,
+						LEAST($3::int, extract(day FROM calendar_last_day)::int)
+					)
+				END THEN (calendar_month + interval '1 month')::date
+				ELSE calendar_month
+			END AS month,
+			type, amount, is_emergency_fund
+			FROM transaction_context
+		), transaction_months AS (
+			SELECT month,
+				COALESCE(SUM(amount) FILTER (WHERE type='income'), 0)::bigint AS income,
+				COALESCE(SUM(amount) FILTER (WHERE type='expense' AND NOT is_emergency_fund), 0)::bigint AS expense,
+				COUNT(*)::bigint AS transaction_count
+			FROM labeled_transactions
+			GROUP BY month
+		), budget_months AS (
+			SELECT month, COALESCE(SUM(planned_amount), 0)::bigint AS planned_expense
+			FROM monthly_budgets
+			WHERE workspace_id=$1
+			GROUP BY month
+		), months AS (
+			SELECT month FROM transaction_months
+			UNION
+			SELECT month FROM budget_months
+		)
+		SELECT to_char(m.month, 'YYYY-MM'),
+			COALESCE(b.planned_expense, 0)::bigint,
+			COALESCE(t.income, 0)::bigint,
+			COALESCE(t.expense, 0)::bigint,
+			COALESCE(t.transaction_count, 0)::bigint
+		FROM months m
+		LEFT JOIN transaction_months t ON t.month=m.month
+		LEFT JOIN budget_months b ON b.month=m.month
+		ORDER BY m.month
+	`, workspaceID, periodSetting.Mode, periodSetting.StartDay)
+	if err != nil {
+		api.logger.Error("load monthly financial health", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to load monthly financial health")
+		return
+	}
+	defer monthlyRows.Close()
+	for monthlyRows.Next() {
+		var item financialHealthMonth
+		if err := monthlyRows.Scan(&item.Month, &item.PlannedExpense, &item.Income, &item.Expense, &item.TransactionCount); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to read monthly financial health")
+			return
+		}
+		period, err := buildFinancePeriod(item.Month, periodSetting)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to resolve monthly financial health period")
+			return
+		}
+		item.PeriodStart = period.Start.Format("2006-01-02")
+		item.PeriodEnd = period.EndInclusive.Format("2006-01-02")
+		item.Balance = item.Income - item.Expense
+		if item.Income > 0 {
+			item.SavingsRate = float64(item.Balance) / float64(item.Income) * 100
+		}
+		result.MonthlyReports = append(result.MonthlyReports, item)
+	}
+	if err := monthlyRows.Err(); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to read monthly financial health")
+		return
 	}
 
 	writeJSON(w, http.StatusOK, envelope{"data": result})
