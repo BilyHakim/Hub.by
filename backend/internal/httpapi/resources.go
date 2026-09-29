@@ -69,6 +69,7 @@ func (api *API) listTransactions(w http.ResponseWriter, r *http.Request) {
 		ORDER BY occurred_at DESC,id DESC
 	`, period.Start, period.EndExclusive, workspaceID)
 	if err != nil {
+		api.logger.Error("list transactions", "workspace_id", workspaceID, "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to load transactions")
 		return
 	}

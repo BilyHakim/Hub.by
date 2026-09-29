@@ -14,7 +14,6 @@ import {
   X,
 } from "@lucide/vue";
 import { api } from "../services/api";
-import { demoTransactions } from "../data/demo";
 import { exportExcel, exportPdf, rupiah } from "../utils/exportReport";
 import EmptyState from "../components/EmptyState.vue";
 import MonthPicker from "../components/MonthPicker.vue";
@@ -33,6 +32,7 @@ const saving = ref(false);
 const savingBalance = ref(false);
 const savingTransfer = ref(false);
 const transactionError = ref("");
+const loadError = ref("");
 const balanceError = ref("");
 const transferError = ref("");
 const exportError = ref("");
@@ -153,9 +153,15 @@ async function load() {
   loading.value = true;
   try {
     const result = await api.transactions(month.value);
-    if (requestID === requestSequence) transactions.value = result || [];
-  } catch {
-    if (requestID === requestSequence) transactions.value = demoTransactions;
+    if (requestID === requestSequence) {
+      transactions.value = result || [];
+      loadError.value = "";
+    }
+  } catch (error) {
+    if (requestID === requestSequence) {
+      transactions.value = [];
+      loadError.value = error.message || "Transaksi gagal dimuat.";
+    }
   }
   if (requestID === requestSequence) loading.value = false;
 }
@@ -327,8 +333,8 @@ async function remove(id) {
   try {
     await api.deleteTransaction(id);
     await Promise.all([load(), loadMetadata()]);
-  } catch {
-    transactions.value = transactions.value.filter((item) => item.id !== id);
+  } catch (error) {
+    loadError.value = error.message || "Transaksi gagal dihapus.";
   }
 }
 async function removeItem(item) {
@@ -339,10 +345,8 @@ async function removeItem(item) {
   try {
     await api.deleteTransfer(item.id);
     await Promise.all([load(), loadMetadata()]);
-  } catch {
-    transactions.value = transactions.value.filter(
-      (entry) => !(entry.type === "transfer" && entry.id === item.id),
-    );
+  } catch (error) {
+    loadError.value = error.message || "Transfer gagal dihapus.";
   }
 }
 async function handleTransactionsUpdated() {
@@ -487,8 +491,12 @@ async function handleWorkspaceChange() {
     </div>
 
     <p v-if="exportError" class="form-error export-error">{{ exportError }}</p>
+    <p v-if="loadError" class="form-error export-error" role="alert">
+      Data transaksi belum dapat ditampilkan: {{ loadError }}
+      <button type="button" @click="load">Coba lagi</button>
+    </p>
 
-    <div class="summary-strip">
+    <div v-if="!loadError" class="summary-strip">
       <div>
         <span class="summary-icon income"><ArrowDownLeft :size="19" /></span>
         <p>
@@ -576,7 +584,7 @@ async function handleWorkspaceChange() {
         </div>
         <MonthPicker v-model="month" compact @change="load" />
       </div>
-      <div v-if="filtered.length" class="transaction-list">
+      <div v-if="!loadError && filtered.length" class="transaction-list">
         <div
           v-for="item in filtered"
           :key="`${item.type}-${item.id}`"
@@ -627,7 +635,7 @@ async function handleWorkspaceChange() {
         </div>
       </div>
       <EmptyState
-        v-else
+        v-else-if="!loadError"
         title="Belum ada transaksi"
         text="Mulai dengan mencatat pemasukan atau pengeluaran pertamamu."
       />
