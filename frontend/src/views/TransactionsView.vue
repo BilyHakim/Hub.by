@@ -42,6 +42,7 @@ const form = ref({
   type: "expense",
   categoryId: null,
   accountId: null,
+  destinationAccountId: null,
   amount: "",
   description: "",
   occurredAt: new Date().toISOString().slice(0, 10),
@@ -105,6 +106,12 @@ const expense = computed(() =>
   transactions.value
     .filter((item) => item.type === "expense" && !item.account?.isEmergencyFund)
     .reduce((sum, item) => sum + item.amount, 0),
+);
+const selectedExpenseCategory = computed(() =>
+  categories.expense.find((item) => item.id === Number(form.value.categoryId)),
+);
+const canAllocateToAccount = computed(() =>
+  form.value.type === "expense" && selectedExpenseCategory.value?.expenseClass === "future",
 );
 const selectedSourceAccount = computed(() =>
   accounts.value.find(
@@ -186,6 +193,7 @@ function openModal() {
     type: "expense",
     categoryId: categories.expense[0]?.id || null,
     accountId: accounts.value[0]?.id || null,
+    destinationAccountId: null,
     amount: "",
     description: "",
     occurredAt: new Date().toISOString().slice(0, 10),
@@ -201,6 +209,7 @@ function openEditModal(item) {
     type: item.type,
     categoryId: item.category.id,
     accountId: item.account.id,
+    destinationAccountId: item.destinationAccount?.id || null,
     amount: item.amount,
     description: item.description,
     occurredAt: item.occurredAt,
@@ -238,6 +247,7 @@ function swapTransferAccounts() {
 function setType(type) {
   form.value.type = type;
   form.value.categoryId = categories[type][0]?.id || null;
+  form.value.destinationAccountId = null;
   if (type === "income") form.value.isDebtPayment = false;
 }
 async function save() {
@@ -246,6 +256,8 @@ async function save() {
   try {
     const payload = {
       ...form.value,
+      destinationAccountId: canAllocateToAccount.value ? form.value.destinationAccountId : null,
+      isDebtPayment: form.value.destinationAccountId && canAllocateToAccount.value ? false : form.value.isDebtPayment,
       amount: Number(form.value.amount),
     };
     if (editingID.value) {
@@ -256,24 +268,7 @@ async function save() {
     modalOpen.value = false;
     await Promise.all([load(), loadMetadata()]);
   } catch (error) {
-    if (editingID.value) {
-      transactionError.value = error.message;
-      return;
-    }
-    const category = categories[form.value.type].find(
-      (x) => x.id === Number(form.value.categoryId),
-    );
-    const account = accounts.value.find(
-      (x) => x.id === Number(form.value.accountId),
-    );
-    transactions.value.unshift({
-      id: Date.now(),
-      ...form.value,
-      amount: Number(form.value.amount),
-      category,
-      account,
-    });
-    modalOpen.value = false;
+    transactionError.value = error.message;
   } finally {
     saving.value = false;
   }
@@ -598,9 +593,10 @@ async function handleWorkspaceChange() {
               >{{ item.account.name }} →
               {{ item.destinationAccount.name }}</small
             >
-            <small v-else
-              >{{ item.category.name }} · {{ item.account.name }}</small
-            >
+            <small v-else>
+              {{ item.category.name }} · {{ item.account.name }}
+              <template v-if="item.destinationAccount"> → {{ item.destinationAccount.name }}</template>
+            </small>
           </div>
           <span class="transaction-date">{{ dateLabel(item.occurredAt) }}</span>
           <strong class="transaction-amount" :class="item.type"
@@ -682,7 +678,7 @@ async function handleWorkspaceChange() {
                   Kelola
                 </button>
               </div>
-              <select v-model="form.categoryId">
+              <select v-model="form.categoryId" @change="form.destinationAccountId = null">
                 <option
                   v-for="category in categories[form.type]"
                   :key="category.id"
@@ -694,12 +690,12 @@ async function handleWorkspaceChange() {
             </div>
             <div class="form-field">
               <div class="field-label-row">
-                <span>Rekening</span
+                <span>{{ canAllocateToAccount ? "Dari rekening" : "Rekening" }}</span
                 ><button type="button" @click="managerType = 'account'">
                   Kelola
                 </button>
               </div>
-              <select v-model="form.accountId">
+              <select v-model="form.accountId" @change="form.destinationAccountId = null">
                 <option
                   v-for="account in accounts"
                   :key="account.id"
@@ -710,6 +706,22 @@ async function handleWorkspaceChange() {
               </select>
             </div>
           </div>
+          <label v-if="canAllocateToAccount">
+            Masukkan dana ke rekening (opsional)
+            <select v-model="form.destinationAccountId">
+              <option :value="null">Tidak dipindahkan ke rekening lain</option>
+              <option
+                v-for="account in accounts.filter((item) => item.id !== form.accountId)"
+                :key="account.id"
+                :value="account.id"
+              >
+                {{ account.name }}
+              </option>
+            </select>
+          </label>
+          <p v-if="canAllocateToAccount && form.destinationAccountId" class="modal-description">
+            Saldo rekening asal berkurang dan saldo rekening tujuan bertambah. Nominal tetap tercatat sebagai pengeluaran kategori {{ selectedExpenseCategory.name }}, tanpa menambah pemasukan.
+          </p>
           <label
             >Tanggal<input v-model="form.occurredAt" type="date" required
           /></label>
@@ -719,7 +731,7 @@ async function handleWorkspaceChange() {
               placeholder="Contoh: Belanja mingguan"
               required
           /></label>
-          <label v-if="form.type === 'expense'" class="checkbox"
+          <label v-if="form.type === 'expense' && !form.destinationAccountId" class="checkbox"
             ><input v-model="form.isDebtPayment" type="checkbox" /> Ini
             pembayaran cicilan/kewajiban</label
           >

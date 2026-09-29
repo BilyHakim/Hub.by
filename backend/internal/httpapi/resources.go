@@ -11,13 +11,14 @@ import (
 )
 
 type transactionInput struct {
-	Type          string `json:"type"`
-	CategoryID    int64  `json:"categoryId"`
-	AccountID     int64  `json:"accountId"`
-	Amount        int64  `json:"amount"`
-	Description   string `json:"description"`
-	OccurredAt    string `json:"occurredAt"`
-	IsDebtPayment bool   `json:"isDebtPayment"`
+	Type                 string `json:"type"`
+	CategoryID           int64  `json:"categoryId"`
+	AccountID            int64  `json:"accountId"`
+	DestinationAccountID *int64 `json:"destinationAccountId"`
+	Amount               int64  `json:"amount"`
+	Description          string `json:"description"`
+	OccurredAt           string `json:"occurredAt"`
+	IsDebtPayment        bool   `json:"isDebtPayment"`
 }
 
 type transferInput struct {
@@ -51,10 +52,11 @@ func (api *API) listTransactions(w http.ResponseWriter, r *http.Request) {
 			SELECT t.id,t.type::text AS kind,t.amount,t.description,t.occurred_at,t.is_debt_payment,
 			       c.id AS category_id,c.name AS category_name,a.id AS account_id,a.name AS account_name,
 			       a.is_emergency_fund AS account_is_emergency_fund,
-			       0::bigint AS destination_account_id,''::text AS destination_account_name
+		       COALESCE(destination.id,0) AS destination_account_id,COALESCE(destination.name,'') AS destination_account_name
 			FROM transactions t
 			JOIN categories c ON c.id=t.category_id
 			JOIN accounts a ON a.id=t.account_id
+			LEFT JOIN accounts destination ON destination.id=t.destination_account_id
 			WHERE t.occurred_at >= $1 AND t.occurred_at < $2 AND t.workspace_id=$3
 			UNION ALL
 			SELECT tr.id,'transfer',tr.amount,tr.description,tr.occurred_at,false,
@@ -86,7 +88,7 @@ func (api *API) listTransactions(w http.ResponseWriter, r *http.Request) {
 			"category": envelope{"id": categoryID, "name": category},
 			"account":  envelope{"id": accountID, "name": account, "isEmergencyFund": accountIsEmergencyFund},
 		}
-		if kind == "transfer" {
+		if destinationAccountID != 0 {
 			item["destinationAccount"] = envelope{"id": destinationAccountID, "name": destinationAccount}
 		}
 		items = append(items, item)
@@ -162,6 +164,10 @@ func (api *API) createTransaction(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnprocessableEntity, "occurredAt must use YYYY-MM-DD")
 		return
 	}
+	if input.DestinationAccountID != nil {
+		api.createAllocatedTransaction(w, r, workspaceID, input, occurredAt)
+		return
+	}
 
 	var id, balance int64
 	err = api.db.QueryRow(r.Context(), `
@@ -226,11 +232,12 @@ func (api *API) updateTransaction(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback(r.Context())
 
 	var oldAccountID, oldAmount int64
+	var oldDestinationAccountID *int64
 	var oldType string
 	err = tx.QueryRow(r.Context(), `
-		SELECT account_id,type::text,amount FROM transactions
+		SELECT account_id,type::text,amount,destination_account_id FROM transactions
 		WHERE id=$1 AND workspace_id=$2 FOR UPDATE
-	`, id, workspaceID).Scan(&oldAccountID, &oldType, &oldAmount)
+	`, id, workspaceID).Scan(&oldAccountID, &oldType, &oldAmount, &oldDestinationAccountID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeError(w, http.StatusNotFound, "transaction not found")
 		return
@@ -256,6 +263,10 @@ func (api *API) updateTransaction(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnprocessableEntity, "category or account does not belong to the active workspace")
 		return
 	}
+	if err := validateAllocationDestination(r, tx, workspaceID, input); err != nil {
+		writeError(w, http.StatusUnprocessableEntity, err.Error())
+		return
+	}
 
 	_, err = tx.Exec(r.Context(), `
 		UPDATE accounts
@@ -265,11 +276,16 @@ func (api *API) updateTransaction(w http.ResponseWriter, r *http.Request) {
 		WHERE id=$3 AND workspace_id=$4
 	`, oldType, oldAmount, oldAccountID, workspaceID)
 	if err == nil {
+		if oldDestinationAccountID != nil {
+			_, err = tx.Exec(r.Context(), `UPDATE accounts SET current_balance=current_balance-$1,updated_at=now() WHERE id=$2 AND workspace_id=$3`, oldAmount, *oldDestinationAccountID, workspaceID)
+		}
+	}
+	if err == nil {
 		_, err = tx.Exec(r.Context(), `
 			UPDATE transactions SET type=$1::transaction_type,category_id=$2,account_id=$3,amount=$4,
-				description=$5,occurred_at=$6,is_debt_payment=$7
+				description=$5,occurred_at=$6,is_debt_payment=$7,destination_account_id=$10
 			WHERE id=$8 AND workspace_id=$9
-		`, input.Type, input.CategoryID, input.AccountID, input.Amount, input.Description, occurredAt, input.IsDebtPayment, id, workspaceID)
+		`, input.Type, input.CategoryID, input.AccountID, input.Amount, input.Description, occurredAt, input.IsDebtPayment, id, workspaceID, input.DestinationAccountID)
 	}
 	var balance int64
 	if err == nil {
@@ -281,6 +297,11 @@ func (api *API) updateTransaction(w http.ResponseWriter, r *http.Request) {
 			WHERE id=$3 AND workspace_id=$4
 			RETURNING current_balance
 		`, input.Type, input.Amount, input.AccountID, workspaceID).Scan(&balance)
+	}
+	if err == nil {
+		if input.DestinationAccountID != nil {
+			_, err = tx.Exec(r.Context(), `UPDATE accounts SET current_balance=current_balance+$1,updated_at=now() WHERE id=$2 AND workspace_id=$3`, input.Amount, *input.DestinationAccountID, workspaceID)
+		}
 	}
 	if err == nil {
 		err = tx.Commit(r.Context())
@@ -304,22 +325,16 @@ func (api *API) deleteTransaction(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid transaction id")
 		return
 	}
-	var balance int64
-	err = api.db.QueryRow(r.Context(), `
-		WITH removed AS (
-			DELETE FROM transactions
-			WHERE id=$1 AND workspace_id=$2
-			RETURNING id,account_id,type,amount
-		), updated AS (
-			UPDATE accounts a
-			SET current_balance=a.current_balance - CASE WHEN r.type='income' THEN r.amount ELSE -r.amount END,
-			    updated_at=now()
-			FROM removed r
-			WHERE a.id=r.account_id AND a.workspace_id=$2
-			RETURNING a.current_balance
-		)
-		SELECT current_balance FROM updated
-	`, id, workspaceID).Scan(&balance)
+	tx, err := api.db.Begin(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to start transaction removal")
+		return
+	}
+	defer tx.Rollback(r.Context())
+	var accountID, amount int64
+	var kind string
+	var destinationID *int64
+	err = tx.QueryRow(r.Context(), `DELETE FROM transactions WHERE id=$1 AND workspace_id=$2 RETURNING account_id,type::text,amount,destination_account_id`, id, workspaceID).Scan(&accountID, &kind, &amount, &destinationID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeError(w, http.StatusNotFound, "transaction not found")
 		return
@@ -328,7 +343,83 @@ func (api *API) deleteTransaction(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to delete transaction")
 		return
 	}
+	if _, err = tx.Exec(r.Context(), `UPDATE accounts SET current_balance=current_balance-CASE WHEN $1::text='income' THEN $2::bigint ELSE -$2::bigint END,updated_at=now() WHERE id=$3 AND workspace_id=$4`, kind, amount, accountID, workspaceID); err == nil && destinationID != nil {
+		_, err = tx.Exec(r.Context(), `UPDATE accounts SET current_balance=current_balance-$1,updated_at=now() WHERE id=$2 AND workspace_id=$3`, amount, *destinationID, workspaceID)
+	}
+	if err == nil {
+		err = tx.Commit(r.Context())
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to delete transaction")
+		return
+	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func validateAllocationDestination(r *http.Request, tx pgx.Tx, workspaceID int64, input transactionInput) error {
+	if input.DestinationAccountID == nil {
+		return nil
+	}
+	if input.Type != "expense" || input.IsDebtPayment || *input.DestinationAccountID <= 0 || *input.DestinationAccountID == input.AccountID {
+		return errors.New("allocation requires an expense and a different destination account")
+	}
+	var valid bool
+	err := tx.QueryRow(r.Context(), `
+		SELECT EXISTS(
+			SELECT 1 FROM categories c JOIN accounts a ON a.id=$2 AND a.workspace_id=$3
+			WHERE c.id=$1 AND c.workspace_id=$3 AND c.type='expense' AND c.expense_class='future'
+		)
+	`, input.CategoryID, *input.DestinationAccountID, workspaceID).Scan(&valid)
+	if err != nil {
+		return err
+	}
+	if !valid {
+		return errors.New("destination account requires a future/investment expense category in the active workspace")
+	}
+	return nil
+}
+
+func (api *API) createAllocatedTransaction(w http.ResponseWriter, r *http.Request, workspaceID int64, input transactionInput, occurredAt time.Time) {
+	tx, err := api.db.Begin(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to start transaction")
+		return
+	}
+	defer tx.Rollback(r.Context())
+	if err := validateAllocationDestination(r, tx, workspaceID, input); err != nil {
+		writeError(w, http.StatusUnprocessableEntity, err.Error())
+		return
+	}
+	var id, balance int64
+	err = tx.QueryRow(r.Context(), `
+		WITH inserted AS (
+			INSERT INTO transactions(workspace_id,type,category_id,account_id,destination_account_id,amount,description,occurred_at,is_debt_payment)
+			SELECT $6,'expense',c.id,a.id,$3,$4,$5,$7,false
+			FROM categories c CROSS JOIN accounts a
+			WHERE c.id=$1 AND a.id=$2 AND c.workspace_id=$6 AND a.workspace_id=$6 AND c.type='expense' AND c.expense_class='future'
+			RETURNING id,account_id,amount
+		), updated AS (
+			UPDATE accounts a SET current_balance=a.current_balance-i.amount,updated_at=now()
+			FROM inserted i WHERE a.id=i.account_id AND a.workspace_id=$6
+			RETURNING i.id,a.current_balance
+		)
+		SELECT id,current_balance FROM updated
+	`, input.CategoryID, input.AccountID, *input.DestinationAccountID, input.Amount, input.Description, workspaceID, occurredAt).Scan(&id, &balance)
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeError(w, http.StatusUnprocessableEntity, "category or source account does not belong to the active workspace")
+		return
+	}
+	if err == nil {
+		_, err = tx.Exec(r.Context(), `UPDATE accounts SET current_balance=current_balance+$1,updated_at=now() WHERE id=$2 AND workspace_id=$3`, input.Amount, *input.DestinationAccountID, workspaceID)
+	}
+	if err == nil {
+		err = tx.Commit(r.Context())
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to save transaction")
+		return
+	}
+	writeJSON(w, http.StatusCreated, envelope{"data": envelope{"id": id, "accountBalance": balance}})
 }
 
 func (api *API) createTransfer(w http.ResponseWriter, r *http.Request) {
