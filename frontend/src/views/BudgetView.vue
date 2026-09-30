@@ -27,6 +27,9 @@ const data = ref({
   planned: 0, actual: 0, remaining: 0, items: [],
 })
 const plans = ref({})
+const categoryMode = ref('all')
+const chosenCategoryIds = ref([])
+const nextCategoryId = ref('')
 
 const currency = (value) => new Intl.NumberFormat('id-ID', {
   style: 'currency', currency: 'IDR', maximumFractionDigits: 0,
@@ -36,6 +39,10 @@ const totalActual = computed(() => data.value.items.reduce((sum, item) => sum + 
 const totalRemaining = computed(() => totalPlanned.value - totalActual.value)
 const usage = computed(() => totalPlanned.value > 0 ? totalActual.value / totalPlanned.value * 100 : 0)
 const selectedCategory = computed(() => data.value.items.find((item) => item.categoryId === selectedCategoryId.value) || null)
+const visibleItems = computed(() => categoryMode.value === 'all'
+  ? data.value.items
+  : data.value.items.filter((item) => chosenCategoryIds.value.includes(item.categoryId)))
+const availableItems = computed(() => data.value.items.filter((item) => !chosenCategoryIds.value.includes(item.categoryId)))
 const selectedTransactions = computed(() => transactions.value.filter((item) =>
   item.type === 'expense' && Number(item.category?.id) === Number(selectedCategoryId.value),
 ))
@@ -61,6 +68,15 @@ function updatePlan(categoryId, value) {
   dirty.value = true
   saved.value = false
 }
+function chooseCategory() {
+  if (!nextCategoryId.value) return
+  chosenCategoryIds.value = [...chosenCategoryIds.value, Number(nextCategoryId.value)]
+  nextCategoryId.value = ''
+}
+function removeCategory(categoryId) {
+  chosenCategoryIds.value = chosenCategoryIds.value.filter((id) => id !== categoryId)
+  if (Number(plans.value[categoryId] || 0) !== 0) updatePlan(categoryId, 0)
+}
 function openDetail(categoryId) {
   selectedCategoryId.value = categoryId
   detailOpen.value = true
@@ -81,6 +97,8 @@ async function load(targetMonth = month.value) {
     const result = await api.budget(targetMonth)
     data.value = result
     plans.value = Object.fromEntries(result.items.map((item) => [item.categoryId, item.planned]))
+    chosenCategoryIds.value = result.items.filter((item) => Number(item.planned) > 0).map((item) => item.categoryId)
+    nextCategoryId.value = ''
     month.value = result.month
     loadedMonth.value = result.month
     if (!result.items.some((item) => item.categoryId === selectedCategoryId.value)) {
@@ -269,6 +287,20 @@ onBeforeUnmount(() => {
         </button>
       </div>
 
+      <div class="budget-category-controls">
+        <div class="budget-mode-options" role="group" aria-label="Cara mengisi rencana">
+          <button type="button" :class="{ active: categoryMode === 'all' }" :aria-pressed="categoryMode === 'all'" @click="categoryMode = 'all'">Semua kategori</button>
+          <button type="button" :class="{ active: categoryMode === 'chosen' }" :aria-pressed="categoryMode === 'chosen'" @click="categoryMode = 'chosen'">Pilih kategori</button>
+        </div>
+        <div v-if="categoryMode === 'chosen' && !loading && availableItems.length" class="budget-add-category">
+          <select v-model="nextCategoryId" aria-label="Kategori yang ingin direncanakan">
+            <option value="">Pilih kategori</option>
+            <option v-for="item in availableItems" :key="item.categoryId" :value="item.categoryId">{{ item.categoryName }}</option>
+          </select>
+          <button type="button" :disabled="!nextCategoryId" @click="chooseCategory">Tambah kategori</button>
+        </div>
+      </div>
+
       <div class="budget-table-scroll">
         <div class="budget-table-head">
           <span>Kategori</span><span>Rencana</span><span>Sebenarnya</span><span>Sisa / kekurangan</span><span>Detail</span>
@@ -278,8 +310,13 @@ onBeforeUnmount(() => {
           <strong>Belum ada kategori pengeluaran</strong>
           <p>Tambahkan kategori melalui halaman Arus kas, lalu kembali ke halaman ini.</p>
         </div>
+        <div v-else-if="!loading && categoryMode === 'chosen' && !visibleItems.length" class="budget-empty">
+          <ReceiptText :size="28" />
+          <strong>Belum ada kategori yang dipilih</strong>
+          <p>Pilih kategori di atas untuk mulai mengisi rencana satu per satu.</p>
+        </div>
         <div
-          v-for="item in data.items"
+          v-for="item in visibleItems"
           :key="item.categoryId"
           class="budget-row"
           :class="{ selected: detailOpen && selectedCategoryId === item.categoryId }"
@@ -307,7 +344,10 @@ onBeforeUnmount(() => {
               <small v-else>Sisa anggaran</small>
             </div>
           </div>
-          <button class="budget-detail-button" type="button" @click="openDetail(item.categoryId)"><Eye :size="15" /> Lihat detail</button>
+          <div class="budget-row-actions">
+            <button class="budget-detail-button" type="button" @click="openDetail(item.categoryId)"><Eye :size="15" /> Lihat detail</button>
+            <button v-if="categoryMode === 'chosen'" class="budget-remove-button" type="button" :aria-label="`Hapus ${item.categoryName} dari rencana`" @click="removeCategory(item.categoryId)">Hapus</button>
+          </div>
         </div>
         <div v-if="data.items.length" class="budget-total-row">
           <strong>Total pengeluaran</strong>
