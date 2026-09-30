@@ -132,11 +132,12 @@ async function changeMonth(value) {
   await load(value)
 }
 async function save() {
+  if (saving.value || loading.value || !dirty.value) return
   saving.value = true
   error.value = ''
   saved.value = false
   try {
-    const items = data.value.items.map((item) => ({
+    const items = data.value.items.filter((item) => Number(plans.value[item.categoryId] || 0) > 0).map((item) => ({
       categoryId: item.categoryId,
       plannedAmount: Number(plans.value[item.categoryId] || 0),
     }))
