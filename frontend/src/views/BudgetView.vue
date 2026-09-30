@@ -283,9 +283,10 @@ onBeforeUnmount(() => {
     <article class="panel budget-table-panel" :class="{ shimmer: loading }">
       <div class="panel-heading budget-table-heading">
         <div><h2>Rincian per kategori</h2><p>Nilai sebenarnya akan berubah otomatis saat transaksi ditambah atau dihapus.</p></div>
-        <button class="primary-button" type="button" :disabled="saving || loading || !dirty" @click="save">
-          <Save :size="16" />{{ saving ? 'Menyimpan...' : dirty ? 'Simpan rencana' : 'Tersimpan' }}
+        <button v-if="dirty || saving" class="primary-button" type="button" :disabled="saving || loading" @click="save">
+          <Save :size="16" />{{ saving ? 'Menyimpan...' : 'Simpan rencana' }}
         </button>
+        <span v-else-if="!loading" class="budget-saved-status" role="status"><BadgeCheck :size="16" /> Tersimpan</span>
       </div>
 
       <div class="budget-category-controls">
