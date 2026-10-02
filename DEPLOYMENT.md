@@ -107,6 +107,14 @@ Frontend dan backend perlu dideploy bersamaan karena backend mewajibkan header
 
 ## Verifikasi
 
+Halaman utama `https://bilyhakim.site/` kini menampilkan landing page publik Hub.by.
+Login berada di `/login`, dan portal pemilihan modul berada di `/hub`.
+Landing page tetap tampil sebelum login dan ketika API belum tersedia.
+Perubahan ini perlu build dan deployment frontend; tidak membutuhkan migration baru.
+Konfigurasi Nginx frontend sudah memakai fallback `index.html` untuk rute Vue.
+Setelah deployment, periksa halaman utama tanpa sesi login, lalu masuk dan pastikan
+portal `/hub` terbuka. Periksa juga tautan modul pada layar ponsel.
+
 ```bash
 docker compose --env-file .env.production -f compose.prod.yml ps
 docker compose --env-file .env.production -f compose.prod.yml logs --tail=100 backend frontend

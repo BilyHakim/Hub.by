@@ -20,11 +20,14 @@ import WatchDetailView from './views/WatchDetailView.vue'
 import BooksView from './views/BooksView.vue'
 import BookDetailView from './views/BookDetailView.vue'
 import FinancialHealthView from './views/FinancialHealthView.vue'
+import LandingView from './views/LandingView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/', name: 'hub', component: HubView, meta: { title: 'Pilih modul', product: 'Hubby', layout: 'portal' } },
+    { path: '/', name: 'landing', component: LandingView, meta: { title: 'Catatan sehari-hari', product: 'Hub.by', layout: 'landing' } },
+    { path: '/login', name: 'login', component: HubView, meta: { title: 'Masuk', product: 'Hub.by', layout: 'portal' } },
+    { path: '/hub', name: 'hub', component: HubView, meta: { title: 'Pilih modul', product: 'Hubby', layout: 'portal' } },
     { path: '/finance', name: 'dashboard', component: DashboardView, meta: { title: 'Ringkasan', product: 'Finance' } },
     { path: '/finance/health', name: 'financial-health', component: FinancialHealthView, meta: { title: 'Kesehatan keuangan', product: 'Finance' } },
     { path: '/finance/transactions', name: 'transactions', component: TransactionsView, meta: { title: 'Arus kas', product: 'Finance' } },
@@ -51,11 +54,11 @@ const router = createRouter({
     { path: '/modules/:pathMatch(.*)*', redirect: (to) => `/finance/modules/${Array.isArray(to.params.pathMatch) ? to.params.pathMatch.join('/') : to.params.pathMatch}` },
     { path: '/settings', redirect: '/finance/settings' },
   ],
-  scrollBehavior: () => ({ top: 0 }),
+  scrollBehavior: (to) => to.hash ? { el: to.hash } : { top: 0 },
 })
 
 router.afterEach((to) => {
-  const product = to.meta.product === 'Watch' ? 'Hubby Watch' : to.meta.product === 'Books' ? 'Hubby Books' : to.meta.product === 'Finance' ? 'Hubby Finance' : 'Hubby'
+  const product = to.meta.product === 'Watch' ? 'Hubby Watch' : to.meta.product === 'Books' ? 'Hubby Books' : to.meta.product === 'Finance' ? 'Hubby Finance' : to.meta.product === 'Hub.by' ? 'Hub.by' : 'Hubby'
   document.title = `${to.meta.title || 'Hubby'} · ${product}`
 })
 

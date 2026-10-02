@@ -11,6 +11,7 @@ import {
 } from '@lucide/vue'
 import { api } from './services/api'
 import LoginView from './components/LoginView.vue'
+import LandingView from './views/LandingView.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -287,7 +288,7 @@ async function handleAuthenticated() {
   if (await loadIdentity()) {
     authenticated.value = true
     startTransactionPolling()
-    await router.replace('/')
+    await router.replace('/hub')
   }
 }
 function handleUnauthorized() {
@@ -430,13 +431,15 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div v-if="authChecking" class="auth-loading" aria-label="Memuat Hubby">
+  <LandingView v-if="route.meta.layout === 'landing'" :authenticated="authenticated" />
+  <div v-else-if="authChecking" class="auth-loading" role="status" aria-label="Memuat Hubby">
     <span class="login-brand-mark"><HeartHandshake :size="28" stroke-width="1.8" /></span>
+    <span>Memeriksa sesi akun…</span>
   </div>
   <LoginView v-else-if="!authenticated" @authenticated="handleAuthenticated" />
   <div v-else-if="isPortal" class="hub-portal-shell">
     <header class="hub-portal-header">
-      <RouterLink class="hub-portal-brand" to="/">
+      <RouterLink class="hub-portal-brand" to="/hub">
         <span class="brand-mark"><HeartHandshake :size="23" stroke-width="1.8" /></span>
         <strong>hubby</strong>
       </RouterLink>
@@ -493,7 +496,7 @@ onBeforeUnmount(() => {
       </nav>
 
       <div class="sidebar-bottom">
-        <RouterLink to="/"><LayoutGrid :size="19" /> Semua modul</RouterLink>
+        <RouterLink to="/hub"><LayoutGrid :size="19" /> Semua modul</RouterLink>
         <RouterLink v-if="isFinance" to="/finance/settings"><Settings :size="19" /> Pengaturan</RouterLink>
         <div class="profile-menu-wrap" @click.stop>
           <button class="user-card" type="button" :aria-expanded="profileMenuOpen" @click="toggleProfileMenu">

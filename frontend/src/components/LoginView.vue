@@ -18,7 +18,9 @@ async function submit() {
     password.value = ''
     emit('authenticated')
   } catch (error) {
-    errorMessage.value = error.message
+    errorMessage.value = error instanceof TypeError
+      ? 'Tidak dapat terhubung ke server. Periksa koneksi lalu coba masuk kembali.'
+      : error.message
   } finally {
     submitting.value = false
   }
@@ -27,6 +29,7 @@ async function submit() {
 
 <template>
   <main class="login-page">
+    <RouterLink class="login-back" to="/">Kembali ke Hub.by</RouterLink>
     <section class="login-card">
       <div class="login-brand">
         <span class="login-brand-mark"><HeartHandshake :size="29" stroke-width="1.8" /></span>
@@ -59,8 +62,23 @@ async function submit() {
         <p v-if="errorMessage" class="login-error" role="alert">{{ errorMessage }}</p>
         <button class="primary-button login-submit" :disabled="submitting">{{ submitting ? 'Memeriksa...' : 'Masuk ke Hubby' }}</button>
       </form>
-      <p class="login-security"><LockKeyhole :size="13" /> Sesi dilindungi dengan cookie aman.</p>
     </section>
     <p class="login-footnote">Hubby · Semua yang penting, dalam satu tempat</p>
   </main>
 </template>
+
+<style scoped>
+.login-page { background: #f6f4ef; overflow: visible; }
+.login-page::before, .login-page::after { display: none; }
+.login-card { background: #fffefa; backdrop-filter: none; }
+.login-back { display: inline-flex; align-items: center; min-height: 44px; padding: 8px; font-size: .9rem; text-decoration: underline; text-underline-offset: 4px; }
+.login-page :focus-visible { outline: 3px solid #304c42; outline-offset: 4px; }
+.login-heading > p:last-child, .login-footnote { color: #526159; font-size: .875rem; }
+.login-input { border-color: #758079; color: #526159; }
+.login-input button { width: 44px; height: 44px; color: #526159; }
+.login-input input { font-size: 1rem; }
+.login-input input::placeholder { color: #526159; opacity: 1; }
+.login-form label { font-size: .875rem; }
+.login-error { color: #853b34; font-size: .875rem; }
+.login-submit { min-height: 44px; }
+</style>

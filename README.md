@@ -43,7 +43,7 @@ Hubby Books menyediakan:
 - daftar buku yang sedang dibaca dan riwayat terbaru;
 - halaman detail dengan persentase progres dan reading log lengkap.
 
-Setelah login, pengguna masuk ke portal Hubby untuk memilih modul. Hubby Finance tersedia di `/finance`, Hubby Watch di `/watch`, dan Hubby Books di `/books`; semuanya memakai akun dan workspace yang sama dengan navigasi produk terpisah.
+Halaman `/` menampilkan landing page publik Hub.by, termasuk sebelum login. Login tersedia di `/login`; setelah masuk, pengguna menuju portal `/hub` untuk memilih modul. Hubby Finance tersedia di `/finance`, Hubby Watch di `/watch`, dan Hubby Books di `/books`; semuanya memakai akun dan workspace yang sama dengan navigasi produk terpisah.
 
 Pemilik dapat menghapus ruang bersama selama masih memiliki ruang lain dan tidak ada anggota lain di ruang tersebut. Penghapusan bersifat permanen dan menghapus seluruh data Finance, Watch, serta Books dalam ruang itu.
 
