@@ -45,3 +45,8 @@ desktop/node_modules/
 desktop/src-tauri/target/
 .DS_Store
 
+# Local agent configuration and anti-slop artifacts
+.codex/
+[Aa][Gg][Ee][Nn][Tt][Ss].[Mm][Dd]
+anti-slop/
+
