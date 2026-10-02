@@ -8,7 +8,6 @@ import {
   ArrowRight,
   CircleCheck,
   CircleAlert,
-  Sparkles,
   Plus,
   ClipboardList,
 } from "@lucide/vue";
@@ -187,20 +186,19 @@ onBeforeUnmount(() =>
 </script>
 
 <template>
-  <section class="page dashboard-page">
+  <section class="page dashboard-page" :aria-busy="loading">
     <div class="page-heading">
       <div>
-        <p class="eyebrow">Hubby finance</p>
-        <h1>Selamat datang kembali, Bily <span>👋</span></h1>
+        <h1>Keuangan bersama,<br />lebih terencana.</h1>
         <p>
-          Ini cerita keuanganmu bulan ini. Pelan-pelan, yang penting konsisten.
+          Pantau pemasukan, pengeluaran, dan progres rencana keuangan dalam satu tempat.
         </p>
       </div>
       <div class="heading-actions">
         <div class="period-picker-group">
           <MonthPicker v-model="month" @change="loadDashboard" />
           <small v-if="data.periodStart"
-            >{{ data.periodStart }} — {{ data.periodEnd }}</small
+            >{{ data.periodStart }} sampai {{ data.periodEnd }}</small
           >
         </div>
         <RouterLink
@@ -215,10 +213,9 @@ onBeforeUnmount(() =>
     </div>
 
     <div v-if="usingDemo" class="demo-notice">
-      <Sparkles :size="17" />
+      <CircleAlert :size="17" />
       <span
-        >Mode pratinjau aktif. Jalankan backend untuk memakai data
-        PostgreSQL.</span
+        >Data keuangan belum dapat dimuat. Ringkasan ini menampilkan data contoh.</span
       >
     </div>
 
@@ -279,6 +276,7 @@ onBeforeUnmount(() =>
           /></RouterLink>
         </div>
         <CashflowChart :points="data.cashflow" />
+        <p v-if="!loading && !data.cashflow.length" class="finance-empty">Belum ada arus kas pada periode ini.</p>
       </article>
 
       <article class="panel expense-panel">
@@ -289,6 +287,7 @@ onBeforeUnmount(() =>
           </div>
         </div>
         <ExpenseDonut :items="data.expenseBreakdown" />
+        <p v-if="!loading && !data.expenseBreakdown.length" class="finance-empty">Belum ada pengeluaran pada periode ini.</p>
       </article>
 
       <article class="panel emergency-card">
@@ -323,10 +322,7 @@ onBeforeUnmount(() =>
             }}</span
           >
         </div>
-        <p class="gentle-note">
-          <Sparkles :size="16" /> Dengan ritme saat ini, targetmu bisa tercapai
-          sekitar 8 bulan lagi.
-        </p>
+        <RouterLink class="text-link" to="/finance/modules/emergency-fund">Kelola dana darurat <ArrowRight :size="16" /></RouterLink>
       </article>
 
       <article class="panel checkup-card">
@@ -343,6 +339,7 @@ onBeforeUnmount(() =>
           >
         </div>
         <div class="checkup-list">
+          <p v-if="!loading && !data.financialCheckup.length" class="finance-empty">Catat transaksi untuk melihat indikator kesehatan keuangan.</p>
           <div
             v-for="item in data.financialCheckup"
             :key="item.label"

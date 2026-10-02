@@ -451,7 +451,7 @@ onBeforeUnmount(() => {
     </header>
     <RouterView />
   </div>
-  <div v-else class="app-shell" :class="{ 'sidebar-hidden': sidebarHidden }">
+  <div v-else class="app-shell" :class="{ 'sidebar-hidden': sidebarHidden, 'finance-shell': isFinance }">
     <div v-if="sidebarOpen" class="sidebar-backdrop" @click="sidebarOpen = false" />
     <aside class="sidebar" :class="{ 'is-open': sidebarOpen }">
       <div class="brand">
@@ -595,7 +595,11 @@ onBeforeUnmount(() => {
               </section>
             </Transition>
           </div>
-          <span class="avatar top-avatar">{{ profile.initials }}</span>
+          <button v-if="isFinance" class="finance-top-profile" type="button" aria-label="Buka profil saya" @click="openProfile">
+            <strong>{{ profile.displayName }}</strong>
+            <span class="avatar">{{ profile.initials }}</span>
+          </button>
+          <span v-else class="avatar top-avatar">{{ profile.initials }}</span>
         </div>
       </header>
       <div class="page-wrap" :key="route.path">
