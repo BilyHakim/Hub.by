@@ -10,10 +10,10 @@
 .finance-shell .main-nav { gap: 8px; }
 .finance-shell .main-nav a, .finance-shell .sidebar-bottom > a { min-height: 46px; color: var(--surface); padding: 12px 18px; }
 .finance-shell .main-nav a:hover, .finance-shell .sidebar-bottom > a:hover { background: var(--sage); }
-.finance-shell .main-nav a.nav-current { position: relative; background: var(--paper); color: var(--sage-dark); border-radius: 28px 0 0 28px; margin-right: -19px; }
-.finance-shell .main-nav a.nav-current::before, .finance-shell .main-nav a.nav-current::after { content: ''; position: absolute; right: 0; width: 49px; height: 49px; pointer-events: none; border-radius: 0; box-shadow: none; }
-.finance-shell .main-nav a.nav-current::before { bottom: 100%; background: radial-gradient(circle at 0 0, transparent 48px, var(--paper) 49px); }
-.finance-shell .main-nav a.nav-current::after { top: 100%; background: radial-gradient(circle at 0 100%, transparent 48px, var(--paper) 49px); }
+.finance-shell .main-nav a.nav-current { --nav-curve: 48px; position: relative; background: var(--paper); color: var(--sage-dark); border-radius: 28px 0 0 28px; margin-right: -18px; }
+.finance-shell .main-nav a.nav-current::before, .finance-shell .main-nav a.nav-current::after { content: ''; position: absolute; right: 0; width: var(--nav-curve); height: var(--nav-curve); pointer-events: none; border-radius: 0; box-shadow: none; }
+.finance-shell .main-nav a.nav-current::before { bottom: 100%; background: radial-gradient(circle at 0 0, transparent calc(var(--nav-curve) - .25px), var(--paper) var(--nav-curve)); }
+.finance-shell .main-nav a.nav-current::after { top: 100%; background: radial-gradient(circle at 0 100%, transparent calc(var(--nav-curve) - .25px), var(--paper) var(--nav-curve)); }
 .finance-shell .user-card { color: var(--surface); border-color: var(--sage); }
 .finance-shell .main-content { min-height: calc(100vh - 20px); }
 .finance-shell.sidebar-hidden { padding-left: 20px; }
