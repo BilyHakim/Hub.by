@@ -522,6 +522,7 @@ onBeforeUnmount(() => {
     </aside>
 
     <button
+      v-if="!isFinance"
       class="sidebar-edge-toggle"
       type="button"
       :aria-label="sidebarHidden ? 'Tampilkan navigasi' : 'Sembunyikan navigasi'"
@@ -534,6 +535,7 @@ onBeforeUnmount(() => {
 
     <main class="main-content">
       <header class="topbar">
+        <button v-if="isFinance" class="icon-button finance-nav-toggle" type="button" :aria-label="sidebarHidden ? 'Tampilkan navigasi' : 'Sembunyikan navigasi'" :aria-expanded="!sidebarHidden" @click="toggleSidebar"><Menu v-if="sidebarHidden" :size="20" /><ChevronLeft v-else :size="20" /></button>
         <button class="icon-button menu-button" aria-label="Tampilkan navigasi" title="Tampilkan navigasi" @click="showSidebar"><Menu :size="21" /></button>
         <div class="search-box">
           <Search :size="18" />

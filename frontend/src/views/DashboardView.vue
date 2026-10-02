@@ -187,6 +187,8 @@ onBeforeUnmount(() =>
 
 <template>
   <section class="page dashboard-page" :aria-busy="loading">
+    <div v-if="usingDemo" class="demo-notice"><CircleAlert :size="17" /><span>Data keuangan belum dapat dimuat. Ringkasan ini menampilkan data contoh.</span></div>
+    <div class="dashboard-main">
     <div class="page-heading">
       <div>
         <h1>Keuangan bersama,<br />lebih terencana.</h1>
@@ -212,64 +214,11 @@ onBeforeUnmount(() =>
       </div>
     </div>
 
-    <div v-if="usingDemo" class="demo-notice">
-      <CircleAlert :size="17" />
-      <span
-        >Data keuangan belum dapat dimuat. Ringkasan ini menampilkan data contoh.</span
-      >
-    </div>
-
-    <div class="metrics-grid" :class="{ shimmer: loading }">
-      <MetricCard
-        label="Pemasukan"
-        :value="compactCurrency(data.income)"
-        note="Bulan berjalan"
-        :trend="data.incomeTrend"
-        :comparison="metricComparisons.income"
-        tone="sage"
-      >
-        <template #icon><WalletCards :size="20" /></template>
-      </MetricCard>
-      <MetricCard
-        label="Pengeluaran"
-        :value="compactCurrency(data.expense)"
-        :note="`${expenseShare.toFixed(1)}% dari pemasukan · di luar dana darurat`"
-        :trend="data.expenseTrend"
-        :comparison="metricComparisons.expense"
-        inverse-trend
-        tone="sand"
-      >
-        <template #icon><Landmark :size="20" /></template>
-      </MetricCard>
-      <MetricCard
-        label="Uang tersisa"
-        :value="compactCurrency(data.savings)"
-        :note="`${data.savingsRate.toFixed(1)}% berhasil disimpan`"
-        :trend="data.savingsTrend"
-        :comparison="metricComparisons.savings"
-        tone="moss"
-      >
-        <template #icon><PiggyBank :size="20" /></template>
-      </MetricCard>
-      <MetricCard
-        label="Nilai investasi"
-        :value="compactCurrency(data.investmentValue)"
-        :note="`${data.investmentReturn.toFixed(1)}% total imbal hasil`"
-        :trend="data.investmentReturn"
-        :comparison="metricComparisons.investment"
-        trend-hint="Total imbal hasil investasi"
-        tone="lilac"
-      >
-        <template #icon><TrendingUp :size="20" /></template>
-      </MetricCard>
-    </div>
-
-    <div class="dashboard-grid">
       <article class="panel cashflow-panel">
         <div class="panel-heading">
           <div>
             <h2>Arus kas</h2>
-            <p>Pengeluaran dana darurat dan Pengeluaran bulan ini</p>
+            <p>Pemasukan dan pengeluaran selama enam bulan</p>
           </div>
           <RouterLink to="/finance/transactions"
             >Lihat detail <ArrowRight :size="16"
@@ -286,8 +235,12 @@ onBeforeUnmount(() =>
             <p>Pengeluaran bulan ini</p>
           </div>
         </div>
-        <ExpenseDonut :items="data.expenseBreakdown" />
-        <p v-if="!loading && !data.expenseBreakdown.length" class="finance-empty">Belum ada pengeluaran pada periode ini.</p>
+        <ExpenseDonut v-if="data.expenseBreakdown.length" :items="data.expenseBreakdown" />
+        <div v-else class="finance-empty-expense">
+          <span class="finance-empty-icon"><WalletCards :size="24" /></span>
+          <div><strong>{{ loading ? 'Memuat pengeluaran...' : 'Belum ada pengeluaran' }}</strong><p>Pengeluaran yang dicatat akan ditampilkan per kategori di sini.</p></div>
+          <RouterLink class="text-link" to="/finance/transactions">Catat pengeluaran <ArrowRight :size="16" /></RouterLink>
+        </div>
       </article>
 
       <article class="panel emergency-card">
@@ -324,6 +277,15 @@ onBeforeUnmount(() =>
         </div>
         <RouterLink class="text-link" to="/finance/modules/emergency-fund">Kelola dana darurat <ArrowRight :size="16" /></RouterLink>
       </article>
+    </div>
+
+    <div class="dashboard-side">
+      <div class="metrics-grid" :class="{ shimmer: loading }">
+        <MetricCard label="Pemasukan" :value="compactCurrency(data.income)" note="Bulan berjalan" :trend="data.incomeTrend" :comparison="metricComparisons.income" tone="sage"><template #icon><WalletCards :size="20" /></template></MetricCard>
+        <MetricCard label="Pengeluaran" :value="compactCurrency(data.expense)" :note="`${expenseShare.toFixed(1)}% dari pemasukan · di luar dana darurat`" :trend="data.expenseTrend" :comparison="metricComparisons.expense" inverse-trend tone="sand"><template #icon><Landmark :size="20" /></template></MetricCard>
+        <MetricCard label="Uang tersisa" :value="compactCurrency(data.savings)" :note="`${data.savingsRate.toFixed(1)}% berhasil disimpan`" :trend="data.savingsTrend" :comparison="metricComparisons.savings" tone="moss"><template #icon><PiggyBank :size="20" /></template></MetricCard>
+        <MetricCard label="Nilai investasi" :value="compactCurrency(data.investmentValue)" :note="`${data.investmentReturn.toFixed(1)}% total imbal hasil`" :trend="data.investmentReturn" :comparison="metricComparisons.investment" trend-hint="Total imbal hasil investasi" tone="lilac"><template #icon><TrendingUp :size="20" /></template></MetricCard>
+      </div>
 
       <article class="panel checkup-card">
         <div class="panel-heading">
