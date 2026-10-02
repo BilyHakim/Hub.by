@@ -107,8 +107,8 @@ const booksNav = [
 const isPortal = computed(() => route.meta.layout === 'portal')
 const isFinance = computed(() => route.meta.product === 'Finance')
 const isWatch = computed(() => route.meta.product === 'Watch')
-const isModuleShell = computed(() => isFinance.value || isWatch.value)
 const isBooks = computed(() => route.meta.product === 'Books')
+const isModuleShell = computed(() => isFinance.value || isWatch.value || isBooks.value)
 const nav = computed(() => isFinance.value ? financeNav : isBooks.value ? booksNav : watchNav)
 const productName = computed(() => isFinance.value ? 'finance' : isBooks.value ? 'books' : 'watch')
 const navLabel = computed(() => isFinance.value ? 'Keuangan' : isBooks.value ? 'Bacaan' : 'Tontonan')
@@ -453,7 +453,7 @@ onBeforeUnmount(() => {
     </header>
     <RouterView />
   </div>
-  <div v-else class="app-shell" :class="{ 'sidebar-hidden': sidebarHidden, 'module-shell': isModuleShell, 'finance-shell': isFinance, 'watch-shell': isWatch }">
+  <div v-else class="app-shell" :class="{ 'sidebar-hidden': sidebarHidden, 'module-shell': isModuleShell, 'finance-shell': isFinance, 'watch-shell': isWatch, 'books-shell': isBooks }">
     <div v-if="sidebarOpen" class="sidebar-backdrop" @click="sidebarOpen = false" />
     <aside class="sidebar" :class="{ 'is-open': sidebarOpen }">
       <div class="brand">

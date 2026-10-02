@@ -1,5 +1,6 @@
 .watch-shell { --sage: #746494; --sage-dark: #4e3f68; --sage-light: var(--lilac-light); }
-/* Shared frame and navigation for Finance and Watch. */
+.books-shell { --sage: #9b6229; --sage-dark: #624125; --sage-light: var(--sand-light); }
+/* Shared frame and navigation for Finance, Watch, and Books. */
 .app-shell.module-shell { background: var(--sage-dark); padding: 0 20px 20px 0; }
 .module-shell .sidebar { width: 248px; padding: 28px 18px 20px 24px; background: var(--sage-dark); border: 0; color: var(--surface); }
 .module-shell .brand { padding-bottom: 28px; }
@@ -32,15 +33,20 @@
 .module-top-profile strong { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
 .module-top-profile .avatar { width: 40px; height: 40px; border-radius: 12px; }
 .module-shell .page-wrap { max-width: none; min-height: calc(100vh - 106px); padding: 28px; background: var(--paper); border-radius: 30px; animation: none; }
-.watch-shell .watch-heading { padding: 26px 28px; border-radius: 20px; background: var(--lilac-light); }
-.watch-shell .watch-heading h1 { font-size: clamp(27px, 2.4vw, 36px); }
-.watch-shell .watch-heading p { color: var(--sage-dark); }
-.watch-shell .watch-heading .heading-actions { flex-wrap: wrap; }
-.watch-shell .primary-button { box-shadow: none; }
-.watch-shell .watch-metrics article { border: 0; border-radius: 16px; background: var(--lilac-light); box-shadow: none; }
-.watch-shell .watch-panel { border-radius: 20px; box-shadow: none; }
-.watch-shell .watch-activity-chart { background: var(--surface-2); }
+:is(.watch-shell, .books-shell) .watch-heading { padding: 26px 28px; border-radius: 20px; background: var(--sage-light); }
+:is(.watch-shell, .books-shell) .watch-heading h1 { font-size: clamp(27px, 2.4vw, 36px); }
+:is(.watch-shell, .books-shell) .watch-heading p { color: var(--sage-dark); }
+:is(.watch-shell, .books-shell) .watch-heading .heading-actions { flex-wrap: wrap; }
+:is(.watch-shell, .books-shell) .primary-button { box-shadow: none; }
+:is(.watch-shell, .books-shell) .watch-metrics article { border: 0; border-radius: 16px; background: var(--sage-light); box-shadow: none; }
+:is(.watch-shell, .books-shell) .watch-panel { border-radius: 20px; box-shadow: none; }
+:is(.watch-shell, .books-shell) .watch-activity-chart { background: var(--surface-2); }
 .watch-shell .bar-track i { background: linear-gradient(180deg, var(--lilac), var(--sage-dark)); }
+.books-shell .bar-track i { background: linear-gradient(180deg, var(--sand), var(--sage-dark)); }
+.books-shell .book-progress-track i { background: linear-gradient(90deg, var(--sage), var(--sand)); }
+.books-shell :is(.continue-art, .title-art, .detail-poster) { color: var(--sage); background: var(--sage-light); }
+.books-shell .detail-badges > span:not(.status-dropped) { color: var(--sage); background: var(--sage-light); }
+.books-shell .watch-metric-icon.tone-lilac { color: var(--sage); background: var(--sage-light); }
 .finance-shell .dashboard-page { display: grid; grid-template-columns: minmax(0, 1fr) minmax(290px, .44fr); gap: 22px; align-items: start; color: var(--ink); --muted: #58665e; }
 .dashboard-main, .dashboard-side { min-width: 0; display: flex; flex-direction: column; gap: 20px; }
 .dashboard-bottom { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 20px; min-width: 0; }
@@ -120,7 +126,7 @@
 }
 @media (max-width: 580px) {
   .module-shell .page-wrap { padding: 14px; }
-  .watch-shell .watch-heading { padding: 22px 20px; }
+  :is(.watch-shell, .books-shell) .watch-heading { padding: 22px 20px; }
   .finance-shell .dashboard-page, .dashboard-main, .dashboard-side, .dashboard-bottom { gap: 14px; }
   .finance-shell .dashboard-page .page-heading { padding: 22px 20px; }
   .finance-shell .dashboard-page .heading-actions { display: grid; grid-template-columns: 1fr; gap: 12px; }
