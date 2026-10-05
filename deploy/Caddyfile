@@ -1,0 +1,4 @@
+bilyhakim.site, www.bilyhakim.site {
+	encode zstd gzip
+	reverse_proxy frontend:80
+}

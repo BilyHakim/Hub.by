@@ -63,8 +63,30 @@ services:
     networks:
       - internal
 
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+    networks:
+      - internal
+
 volumes:
   hubby_postgres:
+  caddy_data:
+    external: true
+    name: ${CADDY_DATA_VOLUME:-hubby_caddy_data}
+  caddy_config:
+    external: true
+    name: ${CADDY_CONFIG_VOLUME:-hubby_caddy_config}
 
 networks:
   internal:

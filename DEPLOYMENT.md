@@ -1,8 +1,9 @@
 # Deployment VPS
 
-Panduan ini menjalankan PostgreSQL, migration, Go API, dan frontend melalui
-`compose.prod.yml`. Hanya frontend yang diterbitkan ke loopback VPS pada port 8080;
-PostgreSQL dan backend tidak membuka port langsung ke internet.
+Panduan ini menjalankan PostgreSQL, migration, Go API, frontend, dan Caddy melalui
+`compose.prod.yml`. Caddy melayani HTTP/HTTPS pada port 80 dan 443. Frontend juga
+tersedia di loopback VPS pada port 8080; PostgreSQL dan backend tidak membuka port
+langsung ke internet.
 
 ## Persiapan pertama
 
@@ -58,27 +59,41 @@ dependency `postgres` pada Compose sebelum menjalankan migration.
 
 ## Reverse proxy HTTPS
 
-Arahkan domain ke frontend Compose pada `127.0.0.1:8080`. Contoh blok Nginx:
+Caddy berada pada network `internal` yang sama dengan frontend dan meneruskan
+request ke `frontend:80`. Konfigurasi repository ada di `deploy/Caddyfile`, dengan
+domain `bilyhakim.site` dan `www.bilyhakim.site`. File `/opt/hubby/Caddyfile` lama
+tetap dapat disimpan sebagai backup; service aktif memakai file di `deploy/`.
 
-```nginx
-server {
-    listen 443 ssl http2;
-    server_name bilyhakim.site;
+Sertifikat dan konfigurasi memakai volume eksternal yang sudah ada di VPS:
+`hubby_caddy_data` dan `hubby_caddy_config`. Compose tidak membuat volume pengganti
+yang kosong. Nama dapat disesuaikan melalui `CADDY_DATA_VOLUME` dan
+`CADDY_CONFIG_VOLUME` pada `.env.production`; jika tidak diisi, nama di atas dipakai.
+Pastikan kedua volume tersedia sebelum menjalankan service Caddy:
 
-    # ssl_certificate dan ssl_certificate_key dikelola di VPS, bukan di repository.
-
-    location / {
-        proxy_pass http://127.0.0.1:8080;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $remote_addr;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
+```bash
+docker volume inspect hubby_caddy_data hubby_caddy_config --format '{{.Name}}'
 ```
 
-Port 8080 harus diblokir dari jaringan publik. `TRUST_PROXY=true` aman hanya jika
-request ke aplikasi selalu melewati reverse proxy tersebut.
+Untuk instalasi baru saja, buat kedua volume dengan `docker volume create` sebelum
+menjalankan Caddy. Untuk VPS yang sudah aktif, gunakan volume sertifikat lama.
+
+Arahkan DNS kedua domain ke VPS dan pastikan port 80/TCP, 443/TCP, dan 443/UDP
+tersedia untuk Caddy. Frontend hanya diterbitkan ke `127.0.0.1`, dan
+`TRUST_PROXY=true` dipakai karena request publik melewati Caddy.
+
+Jika sebelumnya Caddy dipulihkan lewat `compose.prod.yml.backup` dan
+`docker network connect`, integrasikan service aktif setelah pull:
+
+```bash
+cd /opt/hubby
+docker compose --env-file .env.production -f compose.prod.yml config --quiet
+docker compose --env-file .env.production -f compose.prod.yml up -d --no-deps caddy
+curl -I https://bilyhakim.site
+```
+
+Compose akan memakai service Caddy dalam project yang sama, dengan volume lama
+dan network yang sekarang tercatat permanen. Recreate Caddy dapat memutus HTTPS
+sebentar. Tidak perlu menjalankan `down` atau menghapus volume.
 
 ## Deploy pembaruan
 
@@ -99,11 +114,15 @@ git pull --ff-only origin main
 docker compose --env-file .env.production -f compose.prod.yml build frontend backend migrate
 docker compose --env-file .env.production -f compose.prod.yml up -d postgres
 docker compose --env-file .env.production -f compose.prod.yml run --rm migrate up
-docker compose --env-file .env.production -f compose.prod.yml up -d --force-recreate --remove-orphans frontend backend
+docker compose --env-file .env.production -f compose.prod.yml up -d --force-recreate frontend backend
+docker compose --env-file .env.production -f compose.prod.yml up -d --no-deps caddy
 ```
 
 Frontend dan backend perlu dideploy bersamaan karena backend mewajibkan header
 `X-Hubby-Client` yang dikirim oleh frontend versi terbaru.
+
+Caddy kini tercantum dalam Compose aktif. Tetap hindari `--remove-orphans` pada
+deploy rutin karena service lokal lain yang belum tercantum dapat ikut terhapus.
 
 ## Verifikasi
 
@@ -117,7 +136,7 @@ portal `/hub` terbuka. Periksa juga tautan modul pada layar ponsel.
 
 ```bash
 docker compose --env-file .env.production -f compose.prod.yml ps
-docker compose --env-file .env.production -f compose.prod.yml logs --tail=100 backend frontend
+docker compose --env-file .env.production -f compose.prod.yml logs --tail=100 caddy backend frontend
 curl -fsS https://bilyhakim.site/health
 ```
 
