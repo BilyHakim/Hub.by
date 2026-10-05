@@ -1,5 +1,6 @@
 .watch-shell { --sage: #746494; --sage-dark: #4e3f68; --sage-light: var(--lilac-light); }
 .books-shell { --sage: #9b6229; --sage-dark: #624125; --sage-light: var(--sand-light); }
+.maintenance-shell, .maintenance-dialog, .maintenance-toast { --sage: var(--maintenance); --sage-dark: var(--maintenance-dark); --sage-light: var(--maintenance-light); --primary: var(--maintenance); }
 /* Shared frame and navigation for Finance, Watch, and Books. */
 .app-shell.module-shell { background: var(--sage-dark); padding: 0 20px 20px 0; }
 .module-shell .sidebar { width: 248px; padding: 28px 18px 20px 24px; background: var(--sage-dark); border: 0; color: var(--surface); }

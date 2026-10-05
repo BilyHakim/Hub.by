@@ -463,7 +463,7 @@ onBeforeUnmount(() => {
     </header>
     <RouterView />
   </div>
-  <div v-else class="app-shell" :class="{ 'sidebar-hidden': sidebarHidden, 'module-shell': isModuleShell, 'finance-shell': isFinance, 'watch-shell': isWatch, 'books-shell': isBooks }">
+  <div v-else class="app-shell" :class="{ 'sidebar-hidden': sidebarHidden, 'module-shell': isModuleShell, 'finance-shell': isFinance, 'watch-shell': isWatch, 'books-shell': isBooks, 'maintenance-shell': isMaintenance }">
     <div v-if="sidebarOpen" class="sidebar-backdrop" @click="sidebarOpen = false" />
     <aside class="sidebar" :class="{ 'is-open': sidebarOpen }">
       <div class="brand">

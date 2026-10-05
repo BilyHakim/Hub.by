@@ -15,6 +15,9 @@
   --sand-light: #f8ead7;
   --rose: #d77268;
   --rose-light: #f6e4e1;
+  --maintenance: #9d514a;
+  --maintenance-dark: #733e38;
+  --maintenance-light: var(--rose-light);
   --lilac: #8f82ad;
   --lilac-light: #ebe7f2;
   --blue: #6f909d;
@@ -91,12 +94,15 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
 .hub-module-finance::after { background: var(--sage-light); }
 .hub-module-watch::after { background: var(--lilac-light); }
 .hub-module-books::after { background: var(--sand-light); }
+.hub-module-maintenance::after { background: var(--maintenance-light); }
 .hub-module-icon { width: 57px; height: 57px; display: grid; place-items: center; margin-bottom: 25px; color: var(--sage); border-radius: 15px; background: var(--sage-light); }
 .hub-module-watch .hub-module-icon { color: #746494; background: var(--lilac-light); }
 .hub-module-books .hub-module-icon { color: #9b6229; background: var(--sand-light); }
+.hub-module-maintenance .hub-module-icon { color: var(--maintenance); background: var(--maintenance-light); }
 .hub-module-state { position: absolute; top: 29px; right: 28px; padding: 5px 8px; color: var(--sage); border-radius: 20px; background: var(--sage-light); font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
 .hub-module-watch .hub-module-state { color: #746494; background: var(--lilac-light); }
 .hub-module-books .hub-module-state { color: #9b6229; background: var(--sand-light); }
+.hub-module-maintenance .hub-module-state { color: var(--maintenance); background: var(--maintenance-light); }
 .hub-module-card h2 { margin-bottom: 8px; font-size: 22px; }
 .hub-module-card > p { max-width: 390px; margin-bottom: 20px; color: var(--muted); font-size: 12px; line-height: 1.55; }
 .hub-feature-list { display: flex; flex-wrap: wrap; gap: 7px; }
@@ -104,6 +110,7 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
 .hub-open-module { position: relative; z-index: 1; display: flex; align-items: center; gap: 7px; margin-top: auto; padding-top: 25px; color: var(--sage); font-size: 11px; font-weight: 700; }
 .hub-module-watch .hub-open-module { color: #746494; }
 .hub-module-books .hub-open-module { color: #9b6229; }
+.hub-module-maintenance .hub-open-module { color: var(--maintenance); }
 .logout-action { color: #a25750; }
 .logout-action:hover { color: #93463f; background: var(--rose-light); }
 

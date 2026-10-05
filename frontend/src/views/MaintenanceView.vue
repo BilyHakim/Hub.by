@@ -224,7 +224,7 @@ onBeforeUnmount(() => { requestSequence++; clearTimeout(toastTimer); window.remo
       </template>
       <p v-if="formError" class="form-error" role="alert">{{ formError }}</p><button class="primary-button full-button" :disabled="saving">{{ saving ? 'Menyimpan...' : modal === 'completion' ? 'Simpan penyelesaian' : 'Simpan' }}</button>
     </MaintenanceDialog>
-    <Teleport to="body"><Transition name="toast"><div v-if="toast" class="app-toast" role="status"><Check :size="16" />{{ toast }}</div></Transition></Teleport>
+    <Teleport to="body"><Transition name="toast"><div v-if="toast" class="app-toast maintenance-toast" role="status"><Check :size="16" />{{ toast }}</div></Transition></Teleport>
   </section>
 </template>
 

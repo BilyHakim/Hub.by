@@ -40,7 +40,7 @@ const modules = [
     description: 'Catat barang, jadwal perawatan, penggantian, dan biaya servisnya.',
     to: '/maintenance',
     icon: Wrench,
-    tone: 'finance',
+    tone: 'maintenance',
     features: [
       { icon: CalendarDays, label: 'Jadwal perawatan' },
       { icon: History, label: 'Riwayat servis' },
