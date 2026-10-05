@@ -27,6 +27,13 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  maintenance: () => request('/maintenance'),
+  createMaintenanceItem: (payload) => request('/maintenance/items', { method: 'POST', body: JSON.stringify(payload) }),
+  updateMaintenanceItem: (id, payload) => request(`/maintenance/items/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteMaintenanceItem: (id) => request(`/maintenance/items/${id}`, { method: 'DELETE' }),
+  createMaintenanceRule: (id, payload) => request(`/maintenance/items/${id}/rules`, { method: 'POST', body: JSON.stringify(payload) }),
+  updateMaintenanceRule: (id, payload) => request(`/maintenance/rules/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  completeMaintenance: (id, payload) => request(`/maintenance/rules/${id}/complete`, { method: 'POST', body: JSON.stringify(payload) }),
   login: (payload) => request('/auth/login', { method: 'POST', body: JSON.stringify(payload) }),
   logout: () => request('/auth/logout', { method: 'POST' }),
   dashboard: (month) => request(`/dashboard?month=${month}`),

@@ -1,6 +1,6 @@
 # Hubby
 
-Hubby (Hub Bily) adalah workspace aplikasi bily. **Hubby Finance** mengelola rencana keuangan, **Hubby Watch** mencatat film dan series, sedangkan **Hubby Books** melacak pustaka dan progres membaca.
+Hubby (Hub Bily) adalah workspace aplikasi bily. **Hubby Finance** mengelola rencana keuangan, **Hubby Watch** mencatat film dan series, **Hubby Books** melacak pustaka dan progres membaca, dan **Hubby Maintenance** mencatat barang serta jadwal perawatannya.
 
 ## Struktur
 
@@ -43,9 +43,18 @@ Hubby Books menyediakan:
 - daftar buku yang sedang dibaca dan riwayat terbaru;
 - halaman detail dengan persentase progres dan reading log lengkap.
 
-Halaman `/` menampilkan landing page publik Hub.by, termasuk sebelum login. Login tersedia di `/login`; setelah masuk, pengguna menuju portal `/hub` untuk memilih modul. Hubby Finance tersedia di `/finance`, Hubby Watch di `/watch`, dan Hubby Books di `/books`; semuanya memakai akun dan workspace yang sama dengan navigasi produk terpisah.
+Hubby Maintenance menyediakan:
 
-Pemilik dapat menghapus ruang bersama selama masih memiliki ruang lain dan tidak ada anggota lain di ruang tersebut. Penghapusan bersifat permanen dan menghapus seluruh data Finance, Watch, serta Books dalam ruang itu.
+- daftar barang dengan kategori bebas, informasi pembelian, mulai digunakan, umur pemakaian, dan URL gambar opsional;
+- satu atau lebih aturan perawatan/penggantian per barang, berdasarkan hari, minggu, bulan, tahun, kilometer, jam, atau siklus;
+- pengingat di dalam aplikasi untuk jadwal terlambat, hari ini, dan mendekati jatuh tempo;
+- pencatatan servis dengan tanggal, biaya, vendor, penggunaan, dan catatan;
+- riwayat tersimpan dengan nama aturan saat servis, sekalipun aturan kemudian diedit atau dinonaktifkan;
+- pembaruan penggunaan sederhana melalui Edit barang, tanpa pencatatan perjalanan otomatis.
+
+Halaman `/` menampilkan landing page publik Hub.by, termasuk sebelum login. Login tersedia di `/login`; setelah masuk, pengguna menuju portal `/hub` untuk memilih modul. Hubby Finance tersedia di `/finance`, Hubby Watch di `/watch`, Hubby Books di `/books`, dan Hubby Maintenance di `/maintenance`; semuanya memakai akun dan workspace yang sama dengan navigasi produk terpisah. Daftar barang tersedia di `/maintenance/items`, detail di `/maintenance/items/:id`, dan riwayat di `/maintenance/history`.
+
+Pemilik dapat menghapus ruang bersama selama masih memiliki ruang lain dan tidak ada anggota lain di ruang tersebut. Penghapusan bersifat permanen dan menghapus seluruh data Finance, Watch, Books, serta Maintenance dalam ruang itu.
 
 Katalog Hubby Watch memerlukan API Read Access Token dari [TMDB](https://www.themoviedb.org/settings/api). Simpan token hanya pada `backend/.env`:
 
@@ -81,6 +90,23 @@ go run ./cmd/migrate status
 ```
 
 Perintah yang tersedia adalah `up`, `up-by-one`, `down`, `status`, dan `version`. Migration SQL disematkan ke binary sehingga file migration tidak perlu disalin terpisah pada deployment.
+
+Hubby Maintenance memerlukan migration `025_maintenance.sql`. Jalankan migration sebelum membuka modul; tidak ada data barang contoh yang disisipkan. Jadwal dihitung dari tanggal acuan atau servis terakhir menggunakan tanggal Asia/Jakarta; akhir bulan dibatasi ke hari terakhir bulan tujuan. Untuk aturan gabungan, waktu atau penggunaan yang tercapai lebih dulu menentukan status. Nilai penggunaan bersifat kumulatif; penggantian komponen tidak mereset odometer aset.
+
+Pengujian Maintenance:
+
+```powershell
+cd backend
+go test ./...
+# Opsional: database PostgreSQL khusus pengujian yang sudah dimigrasikan.
+$env:MAINTENANCE_TEST_DATABASE_URL="postgres://user:password@localhost:5432/hubby_test?sslmode=disable"
+go test ./internal/httpapi -run Maintenance -v
+cd ../frontend
+node --test src/utils/*.test.js
+npm run build
+```
+
+Pengujian integrasi membuat pengguna dan workspace pengujian sendiri lalu membersihkannya setelah selesai. Gunakan database khusus pengujian.
 
 ### 2. Backend
 

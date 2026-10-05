@@ -1,5 +1,5 @@
 <script setup>
-import { ArrowUpRight, BarChart3, BookOpen, BookMarked, Clapperboard, Clock3, Film, PiggyBank, Sparkles, WalletCards } from '@lucide/vue'
+import { ArrowUpRight, BarChart3, BookOpen, BookMarked, Clapperboard, Clock3, Film, PiggyBank, Sparkles, WalletCards, Wrench, CalendarDays, History } from '@lucide/vue'
 
 const modules = [
   {
@@ -33,6 +33,17 @@ const modules = [
     features: [
       { icon: BookMarked, label: 'Progres halaman' },
       { icon: BarChart3, label: 'Aktivitas membaca' },
+    ],
+  },
+  {
+    name: 'Hubby Maintenance',
+    description: 'Catat barang, jadwal perawatan, penggantian, dan biaya servisnya.',
+    to: '/maintenance',
+    icon: Wrench,
+    tone: 'finance',
+    features: [
+      { icon: CalendarDays, label: 'Jadwal perawatan' },
+      { icon: History, label: 'Riwayat servis' },
     ],
   },
 ]

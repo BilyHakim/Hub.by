@@ -7,7 +7,7 @@ import {
   Check, Ellipsis, UserRound, SlidersHorizontal, Users, WalletCards,
   ArrowDownLeft, ArrowUpRight, LogOut, Clapperboard, LayoutGrid, Trash2,
   ChevronLeft, BookOpen,
-  Activity,
+  Activity, Wrench, Package, History,
 } from '@lucide/vue'
 import { api } from './services/api'
 import LoginView from './components/LoginView.vue'
@@ -107,13 +107,23 @@ const booksNav = [
 const isPortal = computed(() => route.meta.layout === 'portal')
 const isFinance = computed(() => route.meta.product === 'Finance')
 const isBooks = computed(() => route.meta.product === 'Books')
-const nav = computed(() => isFinance.value ? financeNav : isBooks.value ? booksNav : watchNav)
-const productName = computed(() => isFinance.value ? 'finance' : isBooks.value ? 'books' : 'watch')
-const navLabel = computed(() => isFinance.value ? 'Keuangan' : isBooks.value ? 'Bacaan' : 'Tontonan')
-const searchPlaceholder = computed(() => route.meta.product === 'Watch' ? 'Cari film atau series...' : route.meta.product === 'Books' ? 'Cari buku atau penulis...' : 'Cari transaksi, tujuan...')
+const isMaintenance = computed(() => route.meta.product === 'Maintenance')
+const maintenanceNav = [
+  { to: '/maintenance', label: 'Ringkasan', icon: Wrench },
+  { to: '/maintenance/items', label: 'Daftar barang', icon: Package },
+  { to: '/maintenance/history', label: 'Riwayat maintenance', icon: History },
+]
+const nav = computed(() => isMaintenance.value ? maintenanceNav : isFinance.value ? financeNav : isBooks.value ? booksNav : watchNav)
+const productName = computed(() => isMaintenance.value ? 'maintenance' : isFinance.value ? 'finance' : isBooks.value ? 'books' : 'watch')
+const navLabel = computed(() => isMaintenance.value ? 'Perawatan barang' : isFinance.value ? 'Keuangan' : isBooks.value ? 'Bacaan' : 'Tontonan')
+const searchPlaceholder = computed(() => isMaintenance.value ? 'Cari barang...' : route.meta.product === 'Watch' ? 'Cari film atau series...' : route.meta.product === 'Books' ? 'Cari buku atau penulis...' : 'Cari transaksi, tujuan...')
+
+function handleMaintenanceSearch(event) {
+  if (isMaintenance.value) window.dispatchEvent(new CustomEvent('hubby:maintenance-search', { detail: event.target.value }))
+}
 
 function isNavCurrent(item) {
-  if (item.to === '/finance') return route.path === item.to
+  if (item.to === '/finance' || item.to === '/maintenance') return route.path === item.to
   return route.path === item.to || route.path.startsWith(`${item.to}/`)
 }
 
@@ -514,7 +524,7 @@ onBeforeUnmount(() => {
               <button class="dropdown-action" type="button" @click="openProfile"><UserRound :size="17" /> Profil saya</button>
               <RouterLink v-if="isFinance" class="dropdown-action" to="/finance/settings" @click="closeMenus"><SlidersHorizontal :size="17" /> Pengaturan Finance</RouterLink>
               <button class="dropdown-action logout-action" type="button" @click="handleLogout"><LogOut :size="17" /> Keluar</button>
-              <div class="dropdown-footer"><WalletCards :size="14" /> Hubby {{ isFinance ? 'Finance' : isBooks ? 'Books' : 'Watch' }} · Sesi aman</div>
+              <div class="dropdown-footer"><WalletCards :size="14" /> Hubby {{ isMaintenance ? 'Maintenance' : isFinance ? 'Finance' : isBooks ? 'Books' : 'Watch' }} · Sesi aman</div>
             </div>
           </Transition>
         </div>
@@ -539,7 +549,7 @@ onBeforeUnmount(() => {
         <button class="icon-button menu-button" aria-label="Tampilkan navigasi" title="Tampilkan navigasi" @click="showSidebar"><Menu :size="21" /></button>
         <div class="search-box">
           <Search :size="18" />
-          <input aria-label="Cari" :placeholder="searchPlaceholder" />
+          <input aria-label="Cari" :placeholder="searchPlaceholder" @input="handleMaintenanceSearch" />
           <kbd>⌘ K</kbd>
         </div>
         <div class="topbar-actions">
