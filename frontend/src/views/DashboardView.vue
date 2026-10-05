@@ -227,7 +227,54 @@ onBeforeUnmount(() =>
         <CashflowChart :points="data.cashflow" />
         <p v-if="!loading && !data.cashflow.length" class="finance-empty">Belum ada arus kas pada periode ini.</p>
       </article>
+    </div>
 
+    <div class="dashboard-side">
+      <div class="metrics-grid" :class="{ shimmer: loading }">
+        <MetricCard label="Pemasukan" :value="compactCurrency(data.income)" note="Bulan berjalan" :trend="data.incomeTrend" :comparison="metricComparisons.income" tone="sage"><template #icon><WalletCards :size="20" /></template></MetricCard>
+        <MetricCard label="Pengeluaran" :value="compactCurrency(data.expense)" :note="`${expenseShare.toFixed(1)}% dari pemasukan · di luar dana darurat`" :trend="data.expenseTrend" :comparison="metricComparisons.expense" inverse-trend tone="sand"><template #icon><Landmark :size="20" /></template></MetricCard>
+        <MetricCard label="Uang tersisa" :value="compactCurrency(data.savings)" :note="`${data.savingsRate.toFixed(1)}% berhasil disimpan`" :trend="data.savingsTrend" :comparison="metricComparisons.savings" tone="moss"><template #icon><PiggyBank :size="20" /></template></MetricCard>
+        <MetricCard label="Nilai investasi" :value="compactCurrency(data.investmentValue)" :note="`${data.investmentReturn.toFixed(1)}% total imbal hasil`" :trend="data.investmentReturn" :comparison="metricComparisons.investment" trend-hint="Total imbal hasil investasi" tone="lilac"><template #icon><TrendingUp :size="20" /></template></MetricCard>
+      </div>
+
+      <article class="panel checkup-card">
+        <div class="panel-heading">
+          <div>
+            <h2>Financial check-up</h2>
+            <p>Tiga indikator kesehatan utama</p>
+          </div>
+          <span class="score-badge"
+            >{{ healthyCheckCount }}/{{
+              data.financialCheckup.length
+            }}
+            sehat</span
+          >
+        </div>
+        <div class="checkup-list">
+          <p v-if="!loading && !data.financialCheckup.length" class="finance-empty">Catat transaksi untuk melihat indikator kesehatan keuangan.</p>
+          <div
+            v-for="item in data.financialCheckup"
+            :key="item.label"
+            class="checkup-row"
+          >
+            <span class="status-icon" :class="item.status">
+              <CircleCheck v-if="item.status === 'healthy'" :size="19" />
+              <CircleAlert v-else :size="19" />
+            </span>
+            <div>
+              <strong>{{ item.label }}</strong
+              ><small>{{ item.recommendation }}</small>
+            </div>
+            <strong class="check-value">{{ item.value.toFixed(1) }}%</strong>
+          </div>
+        </div>
+        <RouterLink class="text-link" to="/finance/health"
+          >Lihat kesehatan lengkap <ArrowRight :size="16"
+        /></RouterLink>
+      </article>
+    </div>
+
+    <div class="dashboard-bottom">
       <article class="panel expense-panel">
         <div class="panel-heading">
           <div>
@@ -276,51 +323,6 @@ onBeforeUnmount(() =>
           >
         </div>
         <RouterLink class="text-link" to="/finance/modules/emergency-fund">Kelola dana darurat <ArrowRight :size="16" /></RouterLink>
-      </article>
-    </div>
-
-    <div class="dashboard-side">
-      <div class="metrics-grid" :class="{ shimmer: loading }">
-        <MetricCard label="Pemasukan" :value="compactCurrency(data.income)" note="Bulan berjalan" :trend="data.incomeTrend" :comparison="metricComparisons.income" tone="sage"><template #icon><WalletCards :size="20" /></template></MetricCard>
-        <MetricCard label="Pengeluaran" :value="compactCurrency(data.expense)" :note="`${expenseShare.toFixed(1)}% dari pemasukan · di luar dana darurat`" :trend="data.expenseTrend" :comparison="metricComparisons.expense" inverse-trend tone="sand"><template #icon><Landmark :size="20" /></template></MetricCard>
-        <MetricCard label="Uang tersisa" :value="compactCurrency(data.savings)" :note="`${data.savingsRate.toFixed(1)}% berhasil disimpan`" :trend="data.savingsTrend" :comparison="metricComparisons.savings" tone="moss"><template #icon><PiggyBank :size="20" /></template></MetricCard>
-        <MetricCard label="Nilai investasi" :value="compactCurrency(data.investmentValue)" :note="`${data.investmentReturn.toFixed(1)}% total imbal hasil`" :trend="data.investmentReturn" :comparison="metricComparisons.investment" trend-hint="Total imbal hasil investasi" tone="lilac"><template #icon><TrendingUp :size="20" /></template></MetricCard>
-      </div>
-
-      <article class="panel checkup-card">
-        <div class="panel-heading">
-          <div>
-            <h2>Financial check-up</h2>
-            <p>Tiga indikator kesehatan utama</p>
-          </div>
-          <span class="score-badge"
-            >{{ healthyCheckCount }}/{{
-              data.financialCheckup.length
-            }}
-            sehat</span
-          >
-        </div>
-        <div class="checkup-list">
-          <p v-if="!loading && !data.financialCheckup.length" class="finance-empty">Catat transaksi untuk melihat indikator kesehatan keuangan.</p>
-          <div
-            v-for="item in data.financialCheckup"
-            :key="item.label"
-            class="checkup-row"
-          >
-            <span class="status-icon" :class="item.status">
-              <CircleCheck v-if="item.status === 'healthy'" :size="19" />
-              <CircleAlert v-else :size="19" />
-            </span>
-            <div>
-              <strong>{{ item.label }}</strong
-              ><small>{{ item.recommendation }}</small>
-            </div>
-            <strong class="check-value">{{ item.value.toFixed(1) }}%</strong>
-          </div>
-        </div>
-        <RouterLink class="text-link" to="/finance/health"
-          >Lihat kesehatan lengkap <ArrowRight :size="16"
-        /></RouterLink>
       </article>
     </div>
   </section>

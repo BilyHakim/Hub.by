@@ -106,8 +106,10 @@ const booksNav = [
 ]
 const isPortal = computed(() => route.meta.layout === 'portal')
 const isFinance = computed(() => route.meta.product === 'Finance')
+const isWatch = computed(() => route.meta.product === 'Watch')
 const isBooks = computed(() => route.meta.product === 'Books')
 const isMaintenance = computed(() => route.meta.product === 'Maintenance')
+const isModuleShell = computed(() => isFinance.value || isWatch.value || isBooks.value || isMaintenance.value)
 const maintenanceNav = [
   { to: '/maintenance', label: 'Ringkasan', icon: Wrench },
   { to: '/maintenance/items', label: 'Daftar barang', icon: Package },
@@ -461,7 +463,7 @@ onBeforeUnmount(() => {
     </header>
     <RouterView />
   </div>
-  <div v-else class="app-shell" :class="{ 'sidebar-hidden': sidebarHidden, 'finance-shell': isFinance }">
+  <div v-else class="app-shell" :class="{ 'sidebar-hidden': sidebarHidden, 'module-shell': isModuleShell, 'finance-shell': isFinance, 'watch-shell': isWatch, 'books-shell': isBooks }">
     <div v-if="sidebarOpen" class="sidebar-backdrop" @click="sidebarOpen = false" />
     <aside class="sidebar" :class="{ 'is-open': sidebarOpen }">
       <div class="brand">
@@ -532,7 +534,7 @@ onBeforeUnmount(() => {
     </aside>
 
     <button
-      v-if="!isFinance"
+      v-if="!isModuleShell"
       class="sidebar-edge-toggle"
       type="button"
       :aria-label="sidebarHidden ? 'Tampilkan navigasi' : 'Sembunyikan navigasi'"
@@ -545,7 +547,7 @@ onBeforeUnmount(() => {
 
     <main class="main-content">
       <header class="topbar">
-        <button v-if="isFinance" class="icon-button finance-nav-toggle" type="button" :aria-label="sidebarHidden ? 'Tampilkan navigasi' : 'Sembunyikan navigasi'" :aria-expanded="!sidebarHidden" @click="toggleSidebar"><Menu v-if="sidebarHidden" :size="20" /><ChevronLeft v-else :size="20" /></button>
+        <button v-if="isModuleShell" class="icon-button module-nav-toggle" type="button" :aria-label="sidebarHidden ? 'Tampilkan navigasi' : 'Sembunyikan navigasi'" :aria-expanded="!sidebarHidden" @click="toggleSidebar"><Menu v-if="sidebarHidden" :size="20" /><ChevronLeft v-else :size="20" /></button>
         <button class="icon-button menu-button" aria-label="Tampilkan navigasi" title="Tampilkan navigasi" @click="showSidebar"><Menu :size="21" /></button>
         <div class="search-box">
           <Search :size="18" />
@@ -607,7 +609,7 @@ onBeforeUnmount(() => {
               </section>
             </Transition>
           </div>
-          <button v-if="isFinance" class="finance-top-profile" type="button" aria-label="Buka profil saya" @click="openProfile">
+          <button v-if="isModuleShell" class="module-top-profile" type="button" aria-label="Buka profil saya" @click="openProfile">
             <strong>{{ profile.displayName }}</strong>
             <span class="avatar">{{ profile.initials }}</span>
           </button>
