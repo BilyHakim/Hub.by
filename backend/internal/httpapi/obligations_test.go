@@ -1,10 +1,48 @@
 package httpapi
 
 import (
+	"math"
 	"net/http/httptest"
 	"strings"
 	"testing"
 )
+
+func TestPaymentSources(t *testing.T) {
+	tests := []struct {
+		name  string
+		input obligationPaymentInput
+		valid bool
+	}{
+		{"legacy single wallet", obligationPaymentInput{Amount: 100, AccountID: 1}, true},
+		{"split wallets", obligationPaymentInput{Amount: 100, Sources: []paymentSource{{1, 60}, {2, 40}}}, true},
+		{"missing wallet", obligationPaymentInput{Amount: 100}, false},
+		{"zero total", obligationPaymentInput{AccountID: 1}, false},
+		{"duplicate wallets", obligationPaymentInput{Amount: 100, Sources: []paymentSource{{1, 60}, {1, 40}}}, false},
+		{"underallocated", obligationPaymentInput{Amount: 100, Sources: []paymentSource{{1, 60}, {2, 30}}}, false},
+		{"overallocated", obligationPaymentInput{Amount: 100, Sources: []paymentSource{{1, 60}, {2, 50}}}, false},
+		{"negative source", obligationPaymentInput{Amount: 100, Sources: []paymentSource{{1, 110}, {2, -10}}}, false},
+		{"zero source", obligationPaymentInput{Amount: 100, Sources: []paymentSource{{1, 100}, {2, 0}}}, false},
+		{"ambiguous format", obligationPaymentInput{Amount: 100, AccountID: 1, Sources: []paymentSource{{2, 100}}}, false},
+		{"overflow", obligationPaymentInput{Amount: math.MaxInt64, Sources: []paymentSource{{1, math.MaxInt64}, {2, math.MaxInt64}, {3, 1}}}, false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			sources, err := test.input.paymentSources()
+			if (err == nil) != test.valid {
+				t.Fatalf("sources=%v error=%v, valid=%v", sources, err, test.valid)
+			}
+			if test.valid {
+				var total int64
+				for _, source := range sources {
+					total += source.Amount
+				}
+				if total != test.input.Amount {
+					t.Fatalf("total=%d want=%d", total, test.input.Amount)
+				}
+			}
+		})
+	}
+}
 
 func TestDecodeObligationInput(t *testing.T) {
 	request := httptest.NewRequest("POST", "/api/v1/obligations", strings.NewReader(`{

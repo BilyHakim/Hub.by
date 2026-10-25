@@ -1,9 +1,11 @@
 package httpapi
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -22,10 +24,48 @@ type obligationInput struct {
 }
 
 type obligationPaymentInput struct {
-	Amount    int64  `json:"amount"`
-	PaidAt    string `json:"paidAt"`
-	Notes     string `json:"notes"`
-	AccountID int64  `json:"accountId"`
+	Amount    int64           `json:"amount"`
+	PaidAt    string          `json:"paidAt"`
+	Notes     string          `json:"notes"`
+	AccountID int64           `json:"accountId"`
+	Sources   []paymentSource `json:"sources"`
+}
+
+type paymentSource struct {
+	AccountID int64 `json:"accountId"`
+	Amount    int64 `json:"amount"`
+}
+
+func (input obligationPaymentInput) paymentSources() ([]paymentSource, error) {
+	if input.Amount <= 0 {
+		return nil, errors.New("Nominal pembayaran harus lebih dari nol.")
+	}
+	sources := input.Sources
+	if len(sources) == 0 {
+		sources = []paymentSource{{AccountID: input.AccountID, Amount: input.Amount}}
+	} else if input.AccountID != 0 {
+		return nil, errors.New("Gunakan satu rekening atau rincian sumber dana, bukan keduanya.")
+	}
+	remaining := input.Amount
+	seen := make(map[int64]bool)
+	for _, source := range sources {
+		if source.AccountID <= 0 || source.Amount <= 0 {
+			return nil, errors.New("Setiap sumber dana wajib memiliki rekening dan nominal positif.")
+		}
+		if seen[source.AccountID] {
+			return nil, errors.New("Pilih dompet yang berbeda untuk setiap sumber dana.")
+		}
+		seen[source.AccountID] = true
+		// Subtraction avoids overflow when validating untrusted amounts.
+		if source.Amount > remaining {
+			return nil, errors.New("Total sumber dana harus sama dengan nominal pembayaran.")
+		}
+		remaining -= source.Amount
+	}
+	if remaining != 0 {
+		return nil, errors.New("Total sumber dana harus sama dengan nominal pembayaran.")
+	}
+	return sources, nil
 }
 
 func (api *API) listObligations(w http.ResponseWriter, r *http.Request) {
@@ -153,22 +193,17 @@ func (api *API) deleteObligation(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback(r.Context())
 
-	// Remove the cash-flow records created by payments and restore every affected
-	// account before the obligation's cascading payment history is removed.
-	_, err = tx.Exec(r.Context(), `
-		WITH removed AS (
-			DELETE FROM transactions t USING obligation_payments p
-			WHERE p.obligation_id=$1 AND p.transaction_id=t.id AND t.workspace_id=$2
-			RETURNING t.account_id,t.type,t.amount
-		), changes AS (
-			SELECT account_id,
-			       SUM(CASE WHEN type='income' THEN amount ELSE -amount END)::bigint AS balance_change
-			FROM removed GROUP BY account_id
-		)
-		UPDATE accounts a
-		SET current_balance=a.current_balance-c.balance_change,updated_at=now()
-		FROM changes c WHERE a.id=c.account_id AND a.workspace_id=$2
-	`, id, workspaceID)
+	var lockedID int64
+	err = tx.QueryRow(r.Context(), `SELECT id FROM obligations WHERE id=$1 AND workspace_id=$2 FOR UPDATE`, id, workspaceID).Scan(&lockedID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeError(w, http.StatusNotFound, "obligation not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load obligation")
+		return
+	}
+	err = removeObligationTransactions(r.Context(), tx, workspaceID, id, 0)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to remove obligation transactions")
 		return
@@ -195,8 +230,13 @@ func (api *API) createObligationPayment(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	var input obligationPaymentInput
-	if decodeJSON(r, &input) != nil || input.Amount <= 0 || input.AccountID <= 0 {
+	if decodeJSON(r, &input) != nil {
 		writeError(w, http.StatusUnprocessableEntity, "positive payment amount and payment account are required")
+		return
+	}
+	sources, err := input.paymentSources()
+	if err != nil {
+		writeError(w, http.StatusUnprocessableEntity, err.Error())
 		return
 	}
 	paidAt, err := time.Parse("2006-01-02", input.PaidAt)
@@ -214,9 +254,7 @@ func (api *API) createObligationPayment(w http.ResponseWriter, r *http.Request) 
 	var obligationType, obligationName string
 	var remaining int64
 	err = tx.QueryRow(r.Context(), `
-		SELECT o.type,o.name,o.original_amount-(
-			SELECT COALESCE(SUM(p.amount),0) FROM obligation_payments p WHERE p.obligation_id=o.id
-		)::bigint
+		SELECT o.type,o.name,o.original_amount
 		FROM obligations o WHERE o.id=$1 AND o.workspace_id=$2 FOR UPDATE
 	`, id, workspaceID).Scan(&obligationType, &obligationName, &remaining)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -227,6 +265,14 @@ func (api *API) createObligationPayment(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusInternalServerError, "failed to load obligation")
 		return
 	}
+	// Read payments after acquiring the obligation lock so a concurrent payment
+	// that just committed is included in this statement's snapshot.
+	var paid int64
+	if err = tx.QueryRow(r.Context(), `SELECT COALESCE(SUM(amount),0)::bigint FROM obligation_payments WHERE obligation_id=$1`, id).Scan(&paid); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load payment total")
+		return
+	}
+	remaining -= paid
 	if input.Amount > remaining {
 		writeError(w, http.StatusUnprocessableEntity, "payment exceeds the remaining amount")
 		return
@@ -257,8 +303,21 @@ func (api *API) createObligationPayment(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	var transactionID, balance int64
+	var paymentID int64
 	err = tx.QueryRow(r.Context(), `
+		INSERT INTO obligation_payments(obligation_id,amount,paid_at,notes)
+		VALUES($1,$2,$3,$4) RETURNING id
+	`, id, input.Amount, paidAt, strings.TrimSpace(input.Notes)).Scan(&paymentID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to record payment")
+		return
+	}
+	// Lock wallets in a stable order for concurrent split payments.
+	sort.Slice(sources, func(i, j int) bool { return sources[i].AccountID < sources[j].AccountID })
+	results := make([]envelope, 0, len(sources))
+	for _, source := range sources {
+		var transactionID, balance int64
+		err = tx.QueryRow(r.Context(), `
 		WITH inserted AS (
 			INSERT INTO transactions(workspace_id,type,category_id,account_id,amount,description,occurred_at,is_debt_payment)
 			SELECT $1,$2,$3,a.id,$5,$6,$7,$8 FROM accounts a
@@ -272,32 +331,32 @@ func (api *API) createObligationPayment(w http.ResponseWriter, r *http.Request) 
 			RETURNING i.id,a.current_balance
 		)
 		SELECT id,current_balance FROM updated
-	`, workspaceID, transactionType, categoryID, input.AccountID, input.Amount, description, paidAt, isDebtPayment).Scan(&transactionID, &balance)
-	if errors.Is(err, pgx.ErrNoRows) {
-		writeError(w, http.StatusUnprocessableEntity, "payment account must be a cash, bank, or e-wallet account in the active workspace")
-		return
-	}
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to create payment transaction")
-		return
-	}
+	`, workspaceID, transactionType, categoryID, source.AccountID, source.Amount, description, paidAt, isDebtPayment).Scan(&transactionID, &balance)
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusUnprocessableEntity, "payment account must be a cash, bank, or e-wallet account in the active workspace")
+			return
+		}
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to create payment transaction")
+			return
+		}
 
-	var paymentID int64
-	err = tx.QueryRow(r.Context(), `
-		INSERT INTO obligation_payments(obligation_id,amount,paid_at,notes,transaction_id)
-		VALUES($1,$2,$3,$4,$5) RETURNING id
-	`, id, input.Amount, paidAt, strings.TrimSpace(input.Notes), transactionID).Scan(&paymentID)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to record payment")
-		return
+		if _, err = tx.Exec(r.Context(), `INSERT INTO obligation_payment_transactions(payment_id,transaction_id) VALUES($1,$2)`, paymentID, transactionID); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to link payment transaction")
+			return
+		}
+		results = append(results, envelope{"accountId": source.AccountID, "amount": source.Amount, "transactionId": transactionID, "accountBalance": balance})
 	}
 	if err := tx.Commit(r.Context()); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to commit payment")
 		return
 	}
-	writeJSON(w, http.StatusCreated, envelope{"data": envelope{
-		"id": paymentID, "transactionId": transactionID, "accountBalance": balance,
-	}})
+	result := envelope{"id": paymentID, "sources": results}
+	if len(results) == 1 {
+		result["transactionId"] = results[0]["transactionId"]
+		result["accountBalance"] = results[0]["accountBalance"]
+	}
+	writeJSON(w, http.StatusCreated, envelope{"data": result})
 }
 
 func (api *API) deleteObligationPayment(w http.ResponseWriter, r *http.Request) {
@@ -318,12 +377,11 @@ func (api *API) deleteObligationPayment(w http.ResponseWriter, r *http.Request) 
 	}
 	defer tx.Rollback(r.Context())
 
-	var transactionID sql.NullInt64
+	var obligationID int64
 	err = tx.QueryRow(r.Context(), `
-		SELECT p.transaction_id FROM obligation_payments p
-		JOIN obligations o ON o.id=p.obligation_id
-		WHERE p.id=$1 AND o.workspace_id=$2 FOR UPDATE
-	`, id, workspaceID).Scan(&transactionID)
+  SELECT o.id FROM obligations o JOIN obligation_payments p ON p.obligation_id=o.id
+  WHERE p.id=$1 AND o.workspace_id=$2 FOR UPDATE OF o,p
+ `, id, workspaceID).Scan(&obligationID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeError(w, http.StatusNotFound, "payment not found")
 		return
@@ -332,27 +390,9 @@ func (api *API) deleteObligationPayment(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusInternalServerError, "failed to load payment")
 		return
 	}
-	if transactionID.Valid {
-		var accountID, amount int64
-		var transactionType string
-		err = tx.QueryRow(r.Context(), `
-			DELETE FROM transactions WHERE id=$1 AND workspace_id=$2
-			RETURNING account_id,type,amount
-		`, transactionID.Int64, workspaceID).Scan(&accountID, &transactionType, &amount)
-		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-			writeError(w, http.StatusInternalServerError, "failed to remove payment transaction")
-			return
-		}
-		if err == nil {
-			_, err = tx.Exec(r.Context(), `
-				UPDATE accounts SET current_balance=current_balance-CASE WHEN $1='income' THEN $2 ELSE -$2 END,updated_at=now()
-				WHERE id=$3 AND workspace_id=$4
-			`, transactionType, amount, accountID, workspaceID)
-			if err != nil {
-				writeError(w, http.StatusInternalServerError, "failed to restore payment account")
-				return
-			}
-		}
+	if err = removeObligationTransactions(r.Context(), tx, workspaceID, obligationID, id); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to restore payment accounts")
+		return
 	}
 	if _, err = tx.Exec(r.Context(), `DELETE FROM obligation_payments WHERE id=$1`, id); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to delete payment")
@@ -363,6 +403,27 @@ func (api *API) deleteObligationPayment(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// paymentID=0 removes all funding transactions for an obligation.
+func removeObligationTransactions(ctx context.Context, tx pgx.Tx, workspaceID, obligationID, paymentID int64) error {
+	_, err := tx.Exec(ctx, `
+  WITH unlinked AS (
+   DELETE FROM obligation_payment_transactions l USING obligation_payments p
+   WHERE l.payment_id=p.id AND p.obligation_id=$1 AND ($3::bigint=0 OR p.id=$3)
+   RETURNING l.transaction_id
+  ), removed AS (
+   DELETE FROM transactions t USING unlinked l
+   WHERE t.id=l.transaction_id AND t.workspace_id=$2
+   RETURNING t.account_id,t.type,t.amount
+  ), changes AS (
+   SELECT account_id,SUM(CASE WHEN type='income' THEN amount ELSE -amount END)::bigint AS delta
+   FROM removed GROUP BY account_id
+  )
+  UPDATE accounts a SET current_balance=a.current_balance-c.delta,updated_at=now()
+  FROM changes c WHERE a.id=c.account_id AND a.workspace_id=$2
+ `, obligationID, workspaceID, paymentID)
+	return err
 }
 
 func decodeObligationInput(r *http.Request, input *obligationInput) (time.Time, bool) {

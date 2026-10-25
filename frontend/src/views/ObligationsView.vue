@@ -19,7 +19,7 @@ const editingID = ref(null)
 const today = () => new Date().toISOString().slice(0, 10)
 const blank = () => ({ type: filter.value, name: '', platform: '', originalAmount: 0, installmentCount: 3, startDate: today(), notes: '' })
 const form = reactive(blank())
-const payment = reactive({ amount: 0, paidAt: today(), notes: '', accountId: '' })
+const payment = reactive({ amount: 0, paidAt: today(), notes: '', sources: [] })
 const currency = (value = 0) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(value)
 const filtered = computed(() => items.value.filter((item) => item.type === filter.value))
 const debts = computed(() => items.value.filter((item) => item.type === 'debt'))
@@ -29,6 +29,25 @@ const totalDebt = computed(() => total(debts.value, 'remainingAmount'))
 const totalReceivable = computed(() => total(receivables.value, 'remainingAmount'))
 const completedCount = computed(() => items.value.filter((item) => item.remainingAmount === 0).length)
 const paymentAccounts = computed(() => accounts.value.filter((account) => ['cash', 'bank', 'ewallet'].includes(account.kind)))
+const sourceTotal = computed(() => payment.sources.reduce((sum, source) => sum + Number(source.amount || 0), 0))
+const paymentDifference = computed(() => Number(payment.amount) - sourceTotal.value)
+const canSavePayment = computed(() => Number.isSafeInteger(Number(payment.amount)) && Number(payment.amount) > 0 &&
+  Number(payment.amount) <= Number(paymentItem.value?.remainingAmount) && paymentDifference.value === 0 &&
+  payment.sources.length > 0 && payment.sources.every((source) => source.accountId && Number.isSafeInteger(Number(source.amount)) && Number(source.amount) > 0) &&
+  new Set(payment.sources.map((source) => Number(source.accountId))).size === payment.sources.length)
+
+function setPaymentAmount(amount) {
+  payment.amount = amount
+  if (payment.sources.length === 1) payment.sources[0].amount = amount
+}
+function addPaymentSource() {
+  const account = paymentAccounts.value.find((account) => !payment.sources.some((source) => Number(source.accountId) === account.id))
+  if (account) payment.sources.push({ accountId: account.id, amount: Math.max(0, paymentDifference.value) })
+}
+function removePaymentSource(index) {
+  payment.sources.splice(index, 1)
+  if (payment.sources.length === 1) payment.sources[0].amount = payment.amount
+}
 
 async function load() {
   loading.value = true
@@ -67,17 +86,18 @@ function openPayment(item) {
   payment.amount = Math.min(item.expectedInstallment, item.remainingAmount)
   payment.paidAt = today()
   payment.notes = ''
-  payment.accountId = paymentAccounts.value[0]?.id || ''
+  payment.sources = [{ accountId: paymentAccounts.value[0]?.id || '', amount: payment.amount }]
   paymentError.value = ''
 }
 async function savePayment() {
+  if (saving.value || !canSavePayment.value) return
   paymentError.value = ''
   saving.value = true
   try {
     await api.createObligationPayment(paymentItem.value.id, {
       ...payment,
       amount: Number(payment.amount),
-      accountId: Number(payment.accountId),
+      sources: payment.sources.map((source) => ({ accountId: Number(source.accountId), amount: Number(source.amount) })),
     })
     paymentItem.value = null
     await load()
@@ -194,21 +214,44 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
         <h2>{{ paymentItem.name }}</h2>
         <p class="payment-caption">Sisa saat ini {{ currency(paymentItem.remainingAmount) }}</p>
         <form class="calculator-form" @submit.prevent="savePayment">
-          <label>Nominal<MoneyInput v-model="payment.amount" /></label>
+          <label>Nominal total<MoneyInput :model-value="payment.amount" @update:model-value="setPaymentAmount" /></label>
           <label>Tanggal<input v-model="payment.paidAt" type="date" required></label>
-          <label>{{ paymentItem.type === 'debt' ? 'Metode pembayaran / rekening' : 'Rekening penerima' }}
-            <select v-model="payment.accountId" required>
+          <div v-for="(source, index) in payment.sources" :key="index" class="payment-source">
+          <label>{{ paymentItem.type === 'debt' ? 'Sumber dana' : 'Rekening penerima' }} {{ payment.sources.length > 1 ? index + 1 : '' }}
+            <select v-model="source.accountId" required>
               <option disabled value="">Pilih rekening</option>
-              <option v-for="account in paymentAccounts" :key="account.id" :value="account.id">
+              <option v-for="account in paymentAccounts" :key="account.id" :value="account.id" :disabled="payment.sources.some((other, otherIndex) => otherIndex !== index && Number(other.accountId) === account.id)">
                 {{ account.name }} · {{ currency(account.balance) }}
               </option>
             </select>
           </label>
+          <label v-if="payment.sources.length > 1">Nominal dari dompet ini<MoneyInput v-model="source.amount" /></label>
+          <button v-if="payment.sources.length > 1" type="button" class="undo-payment" @click="removePaymentSource(index)"><Trash2 :size="14" />Hapus sumber</button>
+          </div>
+          <button v-if="payment.sources.length < paymentAccounts.length" type="button" class="undo-payment" @click="addPaymentSource"><Plus :size="15" />{{ paymentItem.type === 'debt' ? 'Tambah sumber dana' : 'Tambah rekening penerima' }}</button>
+          <p v-if="payment.sources.length > 1" class="payment-caption" aria-live="polite">
+            Total rincian {{ currency(sourceTotal) }}.
+            <template v-if="paymentDifference > 0">Kurang {{ currency(paymentDifference) }}.</template>
+            <template v-else-if="paymentDifference < 0">Lebih {{ currency(-paymentDifference) }}.</template>
+            <template v-else>Nominal sudah sesuai.</template>
+          </p>
+          <p v-if="Number(payment.amount) > paymentItem.remainingAmount" class="form-error">Nominal melebihi sisa utang/piutang.</p>
+          <p v-if="!paymentAccounts.length" class="form-error">Tambahkan rekening kas, bank, atau e-wallet terlebih dahulu.</p>
           <label>Catatan<input v-model.trim="payment.notes" placeholder="Contoh: Cicilan ke-2"></label>
           <p v-if="paymentError" class="form-error">{{ paymentError }}</p>
-          <button class="primary-button full-button" :disabled="saving || Number(payment.amount) <= 0 || !payment.accountId"><Save :size="16" />{{ saving ? 'Menyimpan...' : 'Simpan pembayaran' }}</button>
+          <button class="primary-button full-button" :disabled="saving || !canSavePayment"><Save :size="16" />{{ saving ? 'Menyimpan...' : 'Simpan pembayaran' }}</button>
         </form>
       </div>
     </div>
   </section>
 </template>
+
+<style scoped>
+.payment-source {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 12px;
+}
+</style>

@@ -84,7 +84,7 @@ func (api *API) dashboard(w http.ResponseWriter, r *http.Request) {
 				COALESCE(SUM(t.amount) FILTER (WHERE t.type = 'income'), 0)::bigint AS income,
 				COALESCE(SUM(t.amount) FILTER (WHERE t.type = 'expense' AND NOT a.is_emergency_fund), 0)::bigint AS expense,
 				COALESCE(SUM(t.amount) FILTER (WHERE t.type = 'expense' AND a.is_emergency_fund), 0)::bigint AS emergency_expense,
-				COALESCE(SUM(t.amount) FILTER (WHERE t.type = 'expense' AND t.is_debt_payment AND NOT a.is_emergency_fund), 0)::bigint AS debt
+				COALESCE(SUM(t.amount) FILTER (WHERE t.type = 'expense' AND t.is_debt_payment), 0)::bigint AS debt
 			FROM transactions t
 			JOIN accounts a ON a.id = t.account_id
 			WHERE t.occurred_at >= $1 AND t.occurred_at < $2 AND t.workspace_id = $3
@@ -203,7 +203,7 @@ func (api *API) dashboard(w http.ResponseWriter, r *http.Request) {
 		_ = api.db.QueryRow(ctx, `
 			SELECT COALESCE(SUM(t.amount),0)::bigint
 			FROM transactions t JOIN accounts a ON a.id=t.account_id
-			WHERE t.type='expense' AND t.is_debt_payment AND NOT a.is_emergency_fund
+			WHERE t.type='expense' AND t.is_debt_payment
 				AND t.occurred_at >= $1 AND t.occurred_at < $2 AND t.workspace_id=$3
 		`, period.Start, period.EndExclusive, workspaceID).Scan(&debt)
 		debtRatio = float64(debt) / float64(result.Income) * 100

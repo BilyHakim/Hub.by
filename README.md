@@ -91,6 +91,10 @@ go run ./cmd/migrate status
 
 Perintah yang tersedia adalah `up`, `up-by-one`, `down`, `status`, dan `version`. Migration SQL disematkan ke binary sehingga file migration tidak perlu disalin terpisah pada deployment.
 
+Pembayaran utang dan penerimaan piutang mendukung beberapa dompet dalam satu pembayaran (migration `026_split_obligation_payments.sql`). Isi nominal total, pilih **Tambah sumber dana**, lalu bagi nominal per dompet sampai totalnya sesuai. Pembayaran tetap dihitung sekali; **Urungkan terakhir** mengembalikan seluruh bagian ke dompet masing-masing. Transaksi yang terkait pembayaran harus dibatalkan melalui menu Utang & piutang. Riwayat pembayaran lama dipertahankan oleh migration. Rasio kewajiban dashboard mencakup cicilan dari dana darurat; pengeluaran dana darurat tetap ditampilkan terpisah dari pengeluaran rutin.
+
+Pengujian database pembayaran dapat dijalankan dengan `OBLIGATIONS_TEST_DATABASE_URL` yang menunjuk ke PostgreSQL khusus pengujian yang sudah dimigrasikan, lalu `go test ./internal/httpapi -run TestObligationDatabaseLifecycle -v` dari direktori `backend`.
+
 Hubby Maintenance memerlukan migration `025_maintenance.sql`. Jalankan migration sebelum membuka modul; tidak ada data barang contoh yang disisipkan. Jadwal dihitung dari tanggal acuan atau servis terakhir menggunakan tanggal Asia/Jakarta; akhir bulan dibatasi ke hari terakhir bulan tujuan. Untuk aturan gabungan, waktu atau penggunaan yang tercapai lebih dulu menentukan status. Nilai penggunaan bersifat kumulatif; penggantian komponen tidak mereset odometer aset.
 
 Pengujian Maintenance:

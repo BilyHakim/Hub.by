@@ -248,6 +248,10 @@ func (api *API) updateTransaction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !allowPaymentTransactionMutation(w, r, tx, id) {
+		return
+	}
+
 	var valid bool
 	err = tx.QueryRow(r.Context(), `
 		SELECT EXISTS(
@@ -332,6 +336,20 @@ func (api *API) deleteTransaction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback(r.Context())
+	var lockedID int64
+	err = tx.QueryRow(r.Context(), `SELECT id FROM transactions WHERE id=$1 AND workspace_id=$2 FOR UPDATE`, id, workspaceID).Scan(&lockedID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeError(w, http.StatusNotFound, "transaction not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load transaction")
+		return
+	}
+	if !allowPaymentTransactionMutation(w, r, tx, id) {
+		return
+	}
+
 	var accountID, amount int64
 	var kind string
 	var destinationID *int64
@@ -705,4 +723,19 @@ func (api *API) listInvestments(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeJSON(w, http.StatusOK, envelope{"data": items})
+}
+
+// A funding transaction must be undone together with its payment.
+func allowPaymentTransactionMutation(w http.ResponseWriter, r *http.Request, tx pgx.Tx, id int64) bool {
+	var linked bool
+	err := tx.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM obligation_payment_transactions WHERE transaction_id=$1)`, id).Scan(&linked)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to check payment transaction")
+		return false
+	}
+	if linked {
+		writeError(w, http.StatusConflict, "Transaksi ini terkait pembayaran utang/piutang. Gunakan Urungkan terakhir pada menu Utang & piutang, lalu catat ulang pembayarannya.")
+		return false
+	}
+	return true
 }
