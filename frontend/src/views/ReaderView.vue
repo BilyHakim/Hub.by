@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import DOMPurify from 'dompurify'
+import { ChevronLeft, ChevronRight } from '@lucide/vue'
 import { api } from '../services/api'
 import { bookPage, pdfEngine, readingTime } from '../services/reader'
 
@@ -335,7 +336,11 @@ onBeforeUnmount(() => {
       <label class="reader-scale">{{ book.format === 'pdf' ? 'Skala' : 'Ukuran teks' }}<select :aria-label="book.format === 'pdf' ? 'Skala' : 'Ukuran teks'" :value="book.format === 'pdf' ? pdfScale : epubScale" :disabled="loading || rendering" @change="changeScale"><template v-if="book.format === 'pdf'"><option value="width">Sesuai lebar</option><option value="page">Satu halaman penuh</option></template><option v-for="value in [50, 75, 100, 125, 150, 200]" :key="value" :value="String(value)">{{ value }}%</option></select></label>
       <button class="secondary-button" role="switch" :aria-checked="timer" :disabled="loading" @click="toggleTimer">Timer {{ timer ? 'ON' : 'OFF' }}</button><span>Waktu: {{ readingTime(baseSeconds + elapsed) }}</span><button class="secondary-button" :disabled="loading" @click="save">Simpan posisi</button><span role="status">{{ status }}</span>
     </div>
-    <button v-if="fullscreen && navigationHidden" ref="showNavigationButton" class="secondary-button reader-nav-show" aria-controls="reader-toolbar" :aria-expanded="!navigationHidden" @click="toggleNavigation">Tampilkan navigasi</button>
+    <div v-if="fullscreen && navigationHidden" class="reader-nav-show" role="group" aria-label="Navigasi halaman cepat">
+      <button class="reader-icon-button" type="button" aria-label="Halaman sebelumnya" title="Halaman sebelumnya" :disabled="loading || rendering || (book.format === 'pdf' && page <= 1)" @click="navigate(book.format === 'pdf' ? page - 1 : 'prev')"><ChevronLeft :size="22" aria-hidden="true" /></button>
+      <button class="reader-icon-button" type="button" aria-label="Halaman berikutnya" title="Halaman berikutnya" :disabled="loading || rendering || (book.format === 'pdf' && page >= count)" @click="navigate(book.format === 'pdf' ? page + 1 : 'next')"><ChevronRight :size="22" aria-hidden="true" /></button>
+      <button ref="showNavigationButton" class="secondary-button" aria-controls="reader-toolbar" :aria-expanded="!navigationHidden" @click="toggleNavigation">Tampilkan navigasi</button>
+    </div>
     <div ref="contentHost" class="reader-content-grid">
       <div class="reader-paper" :aria-busy="loading || rendering">
         <div v-show="book?.format === 'pdf'" ref="pdfHost" class="reader-pdf-page" @mouseup="capturePDFSelection" @touchend="capturePDFSelection" @keyup="capturePDFSelection"><canvas ref="canvas" aria-label="Halaman PDF" /><div ref="textHost" class="textLayer" tabindex="0" aria-label="Teks halaman PDF" /><div class="reader-pdf-highlights" aria-hidden="true"><i v-for="(rect, i) in pageRects" :key="i" :style="{ left: `${rect.x * 100}%`, top: `${rect.y * 100}%`, width: `${rect.width * 100}%`, height: `${rect.height * 100}%` }" /></div></div>

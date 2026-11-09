@@ -59,7 +59,9 @@
 .reader-is-fullscreen .reader-content-grid { order: 1; flex: 1; min-height: 0; overflow: auto; grid-template-columns: minmax(0, 1fr); }
 .reader-toolbar > .reader-scale { flex: 0 1 180px; }
 .reader-is-fullscreen .reader-epub { min-height: 0; }
-.reader-nav-show { position: absolute; z-index: 6; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); box-shadow: var(--shadow); }
+.reader-nav-show { position: absolute; z-index: 6; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); display: flex; align-items: center; gap: 8px; max-width: calc(100% - 32px); padding: 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: var(--shadow); }
+.reader-nav-show .reader-icon-button { flex: none; padding: 0; }
+.reader-nav-show > .secondary-button { min-width: 0; }
 .reader-is-fullscreen .reader-annotation-panel { display: none; }
 .reader-shell:has(.reader-is-fullscreen) :is(.sidebar, .sidebar-backdrop, .sidebar-edge-toggle, .topbar, .app-toast) { display: none; }
 @media (min-width: 660px) {
