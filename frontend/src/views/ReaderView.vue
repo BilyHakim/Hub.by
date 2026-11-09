@@ -29,6 +29,12 @@ const readerHost = ref(null)
 const toolbar = ref(null)
 const fullscreenButton = ref(null)
 const fullscreen = ref(false)
+const navigationHidden = ref(false)
+const hideNavigationButton = ref(null)
+const showNavigationButton = ref(null)
+const contentHost = ref(null)
+const pdfScale = ref('width')
+const epubScale = ref('100')
 const pdfHost = ref(null)
 const canvas = ref(null)
 const textHost = ref(null)
@@ -51,15 +57,53 @@ function resizeEPUB() {
   if (!rendition || loading.value || disposed) return
   cancelAnimationFrame(epubResizeFrame)
   epubResizeFrame = requestAnimationFrame(() => {
-    if (disposed) return
-    const height = fullscreen.value ? Math.max(260, window.innerHeight - (toolbar.value?.offsetHeight || 0) - 48) : 620
-    rendition.resize(epubHost.value.clientWidth, height, location.value || undefined)
+    if (disposed || rendering.value) return
+    const height = fullscreen.value ? Math.max(180, contentHost.value.clientHeight - 24) : 620
+    const width = epubHost.value.clientWidth
+    const container = epubHost.value.querySelector('.epub-container')
+    if (container?.clientWidth === width && container.clientHeight === height) return
+    rendering.value = true
+    relocateEPUB(() => rendition.resize(width, height, location.value || undefined))
+      .catch(e => { error.value = e.message })
+      .finally(() => { rendering.value = false; if (!disposed) resizeEPUB() })
   })
+}
+async function changeScale(event) {
+  clearSelection()
+  if (book.value.format === 'pdf') {
+    pdfScale.value = event.target.value
+    await renderPDF()
+  } else {
+    epubScale.value = event.target.value
+    const position = location.value
+    rendering.value = true
+    try {
+      await relocateEPUB(() => {
+        rendition.themes.fontSize(`${18 * Number(epubScale.value) / 100}px`)
+        return rendition.display(position)
+      })
+    } catch (e) { error.value = e.message }
+    finally { rendering.value = false; resizeEPUB() }
+  }
+}
+async function relocateEPUB(action) {
+  let relocated
+  const positionReady = new Promise(resolve => { relocated = resolve; rendition.once('relocated', relocated) })
+  try { await action(); await positionReady }
+  finally { rendition.off('relocated', relocated) }
+}
+async function toggleNavigation() {
+  navigationHidden.value = !navigationHidden.value
+  await nextTick()
+  resizeEPUB()
+  const button = navigationHidden.value ? showNavigationButton.value : hideNavigationButton.value
+  button?.focus({ preventScroll: true })
 }
 async function setFullscreen(active) {
   if (fullscreen.value === active) return
   if (active) previousBodyOverflow = document.body.style.overflow
   fullscreen.value = active
+  navigationHidden.value = false
   document.body.style.overflow = active ? 'hidden' : previousBodyOverflow
   await nextTick()
   if (disposed) return
@@ -131,7 +175,9 @@ async function renderPDF() {
     if (disposed) return
     const original = source.getViewport({ scale: 1 })
     const available = Math.max(240, pdfHost.value.parentElement.clientWidth - 24)
-    const viewport = source.getViewport({ scale: (fullscreen.value ? available : Math.min(available, 920)) / original.width })
+    const availableHeight = Math.max(180, (fullscreen.value ? contentHost.value.clientHeight : window.innerHeight - (toolbar.value?.offsetHeight || 0) - 120) - 24)
+    const scale = pdfScale.value === 'width' ? available / original.width : pdfScale.value === 'page' ? Math.min(available / original.width, availableHeight / original.height) : Number(pdfScale.value) / 100
+    const viewport = source.getViewport({ scale })
     const ratio = window.devicePixelRatio || 1
     canvas.value.width = Math.floor(viewport.width * ratio); canvas.value.height = Math.floor(viewport.height * ratio)
     pdfHost.value.style.width = `${viewport.width}px`; pdfHost.value.style.height = `${viewport.height}px`
@@ -157,9 +203,10 @@ async function navigate(target) {
       await save()
     } else {
       clearSelection()
-      if (target === 'next') await rendition.next()
-      else if (target === 'prev') await rendition.prev()
-      else await rendition.display(target)
+      rendering.value = true
+      try {
+        await relocateEPUB(() => target === 'next' ? rendition.next() : target === 'prev' ? rendition.prev() : rendition.display(target))
+      } finally { rendering.value = false; resizeEPUB() }
     }
   } catch (e) { error.value = e.message }
 }
@@ -205,6 +252,7 @@ async function load() {
       await nextTick(); await renderPDF()
       observer = new ResizeObserver(() => { if (!rendering.value) renderPDF() })
       observer.observe(pdfHost.value.parentElement)
+      observer.observe(contentHost.value)
     } else {
       const { default: ePub } = await import('epubjs')
       epub = ePub()
@@ -232,9 +280,10 @@ async function load() {
         canonicalPage.value = loc.atEnd ? book.value.totalPages : bookPage(Math.max(1, index + 1), Math.max(1, epub.locations.length()), book.value.totalPages)
         if (!loading.value) save()
       })
-      await rendition.display(target || undefined)
+      await relocateEPUB(() => rendition.display(target || undefined))
       observer = new ResizeObserver(resizeEPUB)
       observer.observe(toolbar.value)
+      observer.observe(contentHost.value)
       for (const mark of currentMarks.value.filter(m => m.quote)) rendition.annotations.highlight(mark.location, {}, undefined, 'reader-highlight', { fill: '#e4bc61', 'fill-opacity': '0.4' })
     }
   } catch (e) { error.value = e.message || 'Buku tidak dapat dibuka. Pastikan file tidak terkunci atau rusak.' }
@@ -278,13 +327,16 @@ onBeforeUnmount(() => {
     <div v-show="!fullscreen" class="page-heading"><div><p class="eyebrow">Hubby Reader</p><h1>{{ book?.title || 'Membuka buku' }}</h1><p>{{ book?.author }}</p></div><RouterLink class="secondary-button" to="/reader/annotations">Semua mark & anotasi</RouterLink></div>
     <p v-if="loading" role="status">Memuat dan menyiapkan buku...</p>
     <p v-if="error" role="alert" class="watch-error">{{ error }}</p>
-    <div v-if="book" ref="toolbar" class="reader-toolbar watch-panel">
+    <div v-if="book" v-show="!fullscreen || !navigationHidden" id="reader-toolbar" ref="toolbar" class="reader-toolbar watch-panel">
       <button ref="fullscreenButton" class="secondary-button" :aria-pressed="fullscreen" :disabled="loading || rendering" @click="toggleFullscreen">{{ fullscreen ? 'Keluar layar penuh' : 'Layar penuh' }}</button>
+      <button v-if="fullscreen" ref="hideNavigationButton" class="secondary-button" aria-controls="reader-toolbar" :aria-expanded="!navigationHidden" @click="toggleNavigation">Sembunyikan navigasi</button>
       <div class="reader-page-nav"><button class="secondary-button" :disabled="loading || rendering || (book.format === 'pdf' && page <= 1)" @click="navigate(book.format === 'pdf' ? page - 1 : 'prev')">Sebelumnya</button><form v-if="book.format === 'pdf'" @submit.prevent="navigate(page)"><label>Halaman PDF<input :value="page" type="number" min="1" :max="count" :disabled="loading || rendering" @change="navigate($event.target.value)" /></label><span>/ {{ count }}</span></form><span v-else>Halaman estimasi {{ canonicalPage }} / {{ book.totalPages }}</span><button class="secondary-button" :disabled="loading || rendering || (book.format === 'pdf' && page >= count)" @click="navigate(book.format === 'pdf' ? page + 1 : 'next')">Berikutnya</button></div>
-      <label v-if="book.format === 'epub'">Daftar isi<select v-model="chapter" :disabled="loading" @change="navigate(chapter)"><option value="" disabled>Pilih bab</option><option v-for="item in toc" :key="item.href" :value="item.href">{{ item.label }}</option></select></label>
+      <label v-if="book.format === 'epub'">Daftar isi<select v-model="chapter" :disabled="loading || rendering" @change="navigate(chapter)"><option value="" disabled>Pilih bab</option><option v-for="item in toc" :key="item.href" :value="item.href">{{ item.label }}</option></select></label>
+      <label class="reader-scale">{{ book.format === 'pdf' ? 'Skala' : 'Ukuran teks' }}<select :aria-label="book.format === 'pdf' ? 'Skala' : 'Ukuran teks'" :value="book.format === 'pdf' ? pdfScale : epubScale" :disabled="loading || rendering" @change="changeScale"><template v-if="book.format === 'pdf'"><option value="width">Sesuai lebar</option><option value="page">Satu halaman penuh</option></template><option v-for="value in [50, 75, 100, 125, 150, 200]" :key="value" :value="String(value)">{{ value }}%</option></select></label>
       <button class="secondary-button" role="switch" :aria-checked="timer" :disabled="loading" @click="toggleTimer">Timer {{ timer ? 'ON' : 'OFF' }}</button><span>Waktu: {{ readingTime(baseSeconds + elapsed) }}</span><button class="secondary-button" :disabled="loading" @click="save">Simpan posisi</button><span role="status">{{ status }}</span>
     </div>
-    <div class="reader-content-grid">
+    <button v-if="fullscreen && navigationHidden" ref="showNavigationButton" class="secondary-button reader-nav-show" aria-controls="reader-toolbar" :aria-expanded="!navigationHidden" @click="toggleNavigation">Tampilkan navigasi</button>
+    <div ref="contentHost" class="reader-content-grid">
       <div class="reader-paper" :aria-busy="loading || rendering">
         <div v-show="book?.format === 'pdf'" ref="pdfHost" class="reader-pdf-page" @mouseup="capturePDFSelection" @touchend="capturePDFSelection" @keyup="capturePDFSelection"><canvas ref="canvas" aria-label="Halaman PDF" /><div ref="textHost" class="textLayer" tabindex="0" aria-label="Teks halaman PDF" /><div class="reader-pdf-highlights" aria-hidden="true"><i v-for="(rect, i) in pageRects" :key="i" :style="{ left: `${rect.x * 100}%`, top: `${rect.y * 100}%`, width: `${rect.width * 100}%`, height: `${rect.height * 100}%` }" /></div></div>
         <div v-show="book?.format === 'epub'" ref="epubHost" class="reader-epub" />

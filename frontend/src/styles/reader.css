@@ -37,8 +37,8 @@
 .reader-page-nav input { max-width: 90px; }
 .reader-toolbar > label { flex: 1 1 180px; }
 .reader-content-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: start; }
-.reader-paper { min-width: 0; min-height: 220px; overflow: hidden; padding: 12px 0; background: #fffefa; border: 1px solid var(--line); border-radius: 12px; }
-.reader-pdf-page { position: relative; margin: 0 auto; max-width: 100%; }
+.reader-paper { min-width: 0; min-height: 220px; overflow: auto; padding: 12px 0; background: #fffefa; border: 1px solid var(--line); border-radius: 12px; }
+.reader-pdf-page { position: relative; margin: 0 auto; }
 .reader-pdf-page canvas { width: 100%; height: 100%; display: block; }
 .reader-pdf-page .textLayer { position: absolute; inset: 0; overflow: clip; user-select: text; line-height: 1; text-align: initial; transform-origin: 0 0; --min-font-size: 1; --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size)); --min-font-size-inv: calc(1 / var(--min-font-size)); }
 .reader-pdf-page .textLayer :is(span, br) { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0 0; line-height: 1; letter-spacing: normal; word-spacing: normal; }
@@ -54,9 +54,12 @@
 .reader-mark-link { text-align: left; border: 1px solid #71838a; background: var(--surface); border-radius: 8px; padding: 12px; cursor: pointer; overflow-wrap: anywhere; }
 .reader-mark-link small { display: block; color: var(--muted); }
 .reader-marks p { white-space: pre-wrap; overflow-wrap: anywhere; }
-.reader-page.reader-is-fullscreen { position: fixed; inset: 0; z-index: 100; width: 100%; height: 100dvh; overflow: auto; overscroll-behavior: contain; padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); background: var(--paper); color: var(--ink); }
-.reader-is-fullscreen .reader-toolbar { position: sticky; top: 0; z-index: 5; margin-bottom: 12px; padding: 12px; }
-.reader-is-fullscreen .reader-content-grid { grid-template-columns: minmax(0, 1fr); }
+.reader-page.reader-is-fullscreen { position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; gap: 12px; width: 100%; height: 100dvh; overflow: hidden; overscroll-behavior: contain; padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); background: var(--paper); color: var(--ink); }
+.reader-is-fullscreen .reader-toolbar { order: 2; flex: none; max-height: 45%; overflow: auto; z-index: 5; margin: 0; padding: 12px; }
+.reader-is-fullscreen .reader-content-grid { order: 1; flex: 1; min-height: 0; overflow: auto; grid-template-columns: minmax(0, 1fr); }
+.reader-toolbar > .reader-scale { flex: 0 1 180px; }
+.reader-is-fullscreen .reader-epub { min-height: 0; }
+.reader-nav-show { position: absolute; z-index: 6; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); box-shadow: var(--shadow); }
 .reader-is-fullscreen .reader-annotation-panel { display: none; }
 .reader-shell:has(.reader-is-fullscreen) :is(.sidebar, .sidebar-backdrop, .sidebar-edge-toggle, .topbar, .app-toast) { display: none; }
 @media (min-width: 660px) {

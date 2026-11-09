@@ -18,9 +18,15 @@ PDF dirender memakai [PDF.js](https://mozilla.github.io/pdf.js/examples/), denga
 
 Tombol **Layar penuh** pada toolbar memperluas area buku, menyembunyikan navigasi aplikasi dan panel anotasi, serta mempertahankan navigasi halaman/bab, timer, dan penyimpanan progres. Keluar melalui tombol **Keluar layar penuh** atau Escape. Isi anotasi dan posisi baca tetap dipertahankan; panel kembali ketika keluar. EPUB menyesuaikan ukuran sambil membawa posisi CFI terakhir. PDF dirender ulang sesuai lebar layar.
 
+Toolbar fullscreen berada di bawah area baca dan mendapat ruang tersendiri sehingga tidak menutupi halaman. Tombol **Sembunyikan navigasi** memberi seluruh area tersebut ke buku; tombol **Tampilkan navigasi** tetap tersedia di pojok bawah dan menerima fokus keyboard. Keluar fullscreen mengembalikan toolbar biasa. Pada layar sempit, toolbar dapat digulir dan tingginya dibatasi agar isi buku tetap terlihat.
+
+PDF menyediakan skala **Sesuai lebar**, **Satu halaman penuh**, dan **50/75/100/125/150/200%**. Ukuran persentase memakai ukuran halaman PDF; teks, canvas, dan highlight mengikuti skala yang sama. Halaman yang lebih lebar dari panel dapat digeser horizontal. EPUB menyediakan ukuran teks **50–200%** dari ukuran dasar 18px dan membawa CFI saat teks mengalir ulang. Perubahan skala dan navigasi menunggu posisi EPUB selesai diperbarui.
+
 Implementasi memakai [Fullscreen API](https://developer.mozilla.org/en-US/docs/Web/API/Element/requestFullscreen) dengan fallback memenuhi viewport ketika API tidak tersedia atau permintaan ditolak. Pada fallback, bingkai browser tetap terlihat. Tidak memerlukan perubahan backend atau migration; cukup rebuild dan recreate frontend.
 
 Validasi fullscreen memakai build produksi dan data API contoh lokal di Chrome headless. PDF/EPUB diuji pada desktop 1440px dan mobile 390px: masuk, keluar lewat tombol/Escape, pergantian halaman/bab, timer, penyimpanan posisi, pengembalian panel, dan tidak ada overflow horizontal. Mode native, API tidak tersedia, dan permintaan ditolak semuanya lulus tanpa page error. Screenshot desktop/mobile diperiksa dan EPUB tetap menampilkan teks setelah perubahan ukuran. Pengujian ini tidak mengakses database VPS.
+
+Validasi skala dan toolbar bawah: rasio lebar PDF 100% ke 150% diperiksa, zoom 200% menghasilkan area geser horizontal, mode satu halaman muat di area baca, toolbar berada di bawah konten, hide/unhide memperbesar dan mengembalikan area baca, serta ukuran EPUB 150% menghasilkan 27px. Bab EPUB dipastikan tetap sama setelah perubahan ukuran dan resize mobile. Semua mode native/fallback/rejection lulus tanpa page error. Build dan `git diff --check` lulus.
 
 Hard Gate PASS: kontrol fullscreen dan keluar bekerja, Escape diuji, panel tersembunyi tidak dapat ditab, dan build produksi berhasil.
 
