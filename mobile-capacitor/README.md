@@ -51,7 +51,7 @@ Android memakai [CapacitorHttp](https://capacitorjs.com/docs/apis/http) untuk `f
 - Membuka `/hub` saat startup; form login yang sama muncul bila belum ada sesi.
 - Tombol Back Android keluar dari fullscreen Reader terlebih dahulu, kemudian mengikuti riwayat navigasi. Pada halaman awal, aplikasi diminimalkan.
 - Tata letak HP/tablet, Reader, skala, anotasi, dan navigasi fullscreen memakai implementasi web yang sama. Area layar mengikuti safe-area perangkat dan zoom browser tetap diizinkan.
-- Ikon aplikasi memakai aset Hubby dari proyek desktop. Tema native mengikuti latar kertas/sage yang sudah ada. Orientasi tidak dikunci.
+- Ikon aplikasi memakai simbol hati/jabat tangan sage yang sama dengan web dan desktop, termasuk versi adaptif, bulat, dan monokrom. Sumber dan regenerasi dijelaskan di [panduan ikon](../desktop/ICONS.md). Tema native mengikuti latar kertas/sage yang sudah ada. Orientasi tidak dikunci.
 - Worker PDF dibundel sebagai `.js` agar disajikan dengan MIME JavaScript oleh server aset native.
 - Upload memakai pemilih file Android/WebView; tidak meminta akses seluruh penyimpanan. File besar tetap melewati bridge native dan perlu pengujian memori pada perangkat fisik.
 

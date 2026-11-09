@@ -1,0 +1,15 @@
+{
+  "id": "/hub",
+  "name": "Hub.by",
+  "short_name": "Hub.by",
+  "lang": "id",
+  "start_url": "/hub",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fffefa",
+  "theme_color": "#49685c",
+  "icons": [
+    { "src": "/icons/192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
