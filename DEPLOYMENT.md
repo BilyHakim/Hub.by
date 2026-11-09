@@ -129,7 +129,7 @@ deploy rutin karena service lokal lain yang belum tercantum dapat ikut terhapus.
 Halaman utama `https://bilyhakim.site/` kini menampilkan landing page publik Hub.by.
 Login berada di `/login`, dan portal pemilihan modul berada di `/hub`.
 Landing page tetap tampil sebelum login dan ketika API belum tersedia.
-Perubahan ini perlu build dan deployment frontend; tidak membutuhkan migration baru.
+Landing page hanya memerlukan build frontend. Hubby Reader memerlukan build backend dan frontend serta migration `027_reader.sql` sebelum API baru digunakan. File PDF/EPUB tersimpan di database dan ikut backup PostgreSQL. Batas upload aplikasi 50 MB; Nginx frontend mengizinkan request hingga 51 MB untuk menampung multipart. Jika ada proxy tambahan dengan batas upload sendiri, sesuaikan batasnya juga.
 Konfigurasi Nginx frontend sudah memakai fallback `index.html` untuk rute Vue.
 Setelah deployment, periksa halaman utama tanpa sesi login, lalu masuk dan pastikan
 portal `/hub` terbuka. Periksa juga tautan modul pada layar ponsel.

@@ -61,8 +61,8 @@ func main() {
 		Addr:              ":" + cfg.Port,
 		Handler:           httpapi.NewRouter(pool, logger, cfg.FrontendOrigin, cfg.TMDBAPIToken, cfg.TrustProxy, cfg.CORSAllowedOrigins...),
 		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       15 * time.Second,
-		WriteTimeout:      15 * time.Second,
+		ReadTimeout:       120 * time.Second,
+		WriteTimeout:      120 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
 

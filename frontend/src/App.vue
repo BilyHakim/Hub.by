@@ -103,28 +103,37 @@ const watchNav = [
 ]
 const booksNav = [
   { to: '/books', label: 'Ringkasan Books', icon: BookOpen },
+  { to: '/reader', label: 'Buku digital', icon: BookOpen },
 ]
+const readerNav = [
+  { to: '/reader', label: 'Pustaka digital', icon: BookOpen },
+  { to: '/reader/annotations', label: 'Mark & anotasi', icon: History },
+  { to: '/books', label: 'Hubby Books', icon: BookOpen },
+]
+const isReader = computed(() => route.meta.product === 'Reader')
 const isPortal = computed(() => route.meta.layout === 'portal')
 const isFinance = computed(() => route.meta.product === 'Finance')
 const isWatch = computed(() => route.meta.product === 'Watch')
 const isBooks = computed(() => route.meta.product === 'Books')
 const isMaintenance = computed(() => route.meta.product === 'Maintenance')
-const isModuleShell = computed(() => isFinance.value || isWatch.value || isBooks.value || isMaintenance.value)
+const isModuleShell = computed(() => isFinance.value || isWatch.value || isBooks.value || isMaintenance.value || isReader.value)
 const maintenanceNav = [
   { to: '/maintenance', label: 'Ringkasan', icon: Wrench },
   { to: '/maintenance/items', label: 'Daftar barang', icon: Package },
   { to: '/maintenance/history', label: 'Riwayat maintenance', icon: History },
 ]
-const nav = computed(() => isMaintenance.value ? maintenanceNav : isFinance.value ? financeNav : isBooks.value ? booksNav : watchNav)
-const productName = computed(() => isMaintenance.value ? 'maintenance' : isFinance.value ? 'finance' : isBooks.value ? 'books' : 'watch')
-const navLabel = computed(() => isMaintenance.value ? 'Perawatan barang' : isFinance.value ? 'Keuangan' : isBooks.value ? 'Bacaan' : 'Tontonan')
-const searchPlaceholder = computed(() => isMaintenance.value ? 'Cari barang...' : route.meta.product === 'Watch' ? 'Cari film atau series...' : route.meta.product === 'Books' ? 'Cari buku atau penulis...' : 'Cari transaksi, tujuan...')
+const nav = computed(() => isReader.value ? readerNav : isMaintenance.value ? maintenanceNav : isFinance.value ? financeNav : isBooks.value ? booksNav : watchNav)
+const productName = computed(() => isReader.value ? 'reader' : isMaintenance.value ? 'maintenance' : isFinance.value ? 'finance' : isBooks.value ? 'books' : 'watch')
+const navLabel = computed(() => isReader.value ? 'Bacaan digital' : isMaintenance.value ? 'Perawatan barang' : isFinance.value ? 'Keuangan' : isBooks.value ? 'Bacaan' : 'Tontonan')
+const searchPlaceholder = computed(() => isReader.value ? 'Cari buku atau anotasi...' : isMaintenance.value ? 'Cari barang...' : route.meta.product === 'Watch' ? 'Cari film atau series...' : route.meta.product === 'Books' ? 'Cari buku atau penulis...' : 'Cari transaksi, tujuan...')
 
 function handleMaintenanceSearch(event) {
+  if (isReader.value) window.dispatchEvent(new CustomEvent('hubby:reader-search', { detail: event.target.value }))
   if (isMaintenance.value) window.dispatchEvent(new CustomEvent('hubby:maintenance-search', { detail: event.target.value }))
 }
 
 function isNavCurrent(item) {
+  if (item.to === '/reader') return route.path === '/reader' || route.name === 'reader-book'
   if (item.to === '/finance' || item.to === '/maintenance') return route.path === item.to
   return route.path === item.to || route.path.startsWith(`${item.to}/`)
 }
@@ -463,7 +472,7 @@ onBeforeUnmount(() => {
     </header>
     <RouterView />
   </div>
-  <div v-else class="app-shell" :class="{ 'sidebar-hidden': sidebarHidden, 'module-shell': isModuleShell, 'finance-shell': isFinance, 'watch-shell': isWatch, 'books-shell': isBooks, 'maintenance-shell': isMaintenance }">
+  <div v-else class="app-shell" :class="{ 'sidebar-hidden': sidebarHidden, 'module-shell': isModuleShell, 'finance-shell': isFinance, 'watch-shell': isWatch, 'books-shell': isBooks, 'maintenance-shell': isMaintenance, 'reader-shell': isReader }">
     <div v-if="sidebarOpen" class="sidebar-backdrop" @click="sidebarOpen = false" />
     <aside class="sidebar" :class="{ 'is-open': sidebarOpen }">
       <div class="brand">
@@ -526,7 +535,7 @@ onBeforeUnmount(() => {
               <button class="dropdown-action" type="button" @click="openProfile"><UserRound :size="17" /> Profil saya</button>
               <RouterLink v-if="isFinance" class="dropdown-action" to="/finance/settings" @click="closeMenus"><SlidersHorizontal :size="17" /> Pengaturan Finance</RouterLink>
               <button class="dropdown-action logout-action" type="button" @click="handleLogout"><LogOut :size="17" /> Keluar</button>
-              <div class="dropdown-footer"><WalletCards :size="14" /> Hubby {{ isMaintenance ? 'Maintenance' : isFinance ? 'Finance' : isBooks ? 'Books' : 'Watch' }} · Sesi aman</div>
+              <div class="dropdown-footer"><WalletCards :size="14" /> Hubby {{ isReader ? 'Reader' : isMaintenance ? 'Maintenance' : isFinance ? 'Finance' : isBooks ? 'Books' : 'Watch' }} · Sesi aman</div>
             </div>
           </Transition>
         </div>
@@ -549,7 +558,7 @@ onBeforeUnmount(() => {
       <header class="topbar">
         <button v-if="isModuleShell" class="icon-button module-nav-toggle" type="button" :aria-label="sidebarHidden ? 'Tampilkan navigasi' : 'Sembunyikan navigasi'" :aria-expanded="!sidebarHidden" @click="toggleSidebar"><Menu v-if="sidebarHidden" :size="20" /><ChevronLeft v-else :size="20" /></button>
         <button class="icon-button menu-button" aria-label="Tampilkan navigasi" title="Tampilkan navigasi" @click="showSidebar"><Menu :size="21" /></button>
-        <div class="search-box">
+        <div v-if="route.name !== 'reader-book'" class="search-box">
           <Search :size="18" />
           <input aria-label="Cari" :placeholder="searchPlaceholder" @input="handleMaintenanceSearch" />
           <kbd>⌘ K</kbd>
@@ -617,7 +626,7 @@ onBeforeUnmount(() => {
         </div>
       </header>
       <div class="page-wrap" :key="route.path">
-        <RouterView />
+        <RouterView :key="isReader && route.name === 'reader-book' ? route.params.id : undefined" />
       </div>
     </main>
 

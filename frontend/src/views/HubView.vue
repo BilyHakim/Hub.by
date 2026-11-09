@@ -3,6 +3,17 @@ import { ArrowUpRight, BarChart3, BookOpen, BookMarked, Clapperboard, Clock3, Fi
 
 const modules = [
   {
+    name: 'Hubby Reader',
+    description: 'Baca PDF dan EPUB, tandai bagian penting, dan lanjutkan dari posisi terakhir. Terhubung ke Hubby Books.',
+    to: '/reader',
+    icon: BookOpen,
+    tone: 'reader',
+    features: [
+      { icon: BookMarked, label: 'Highlight & catatan' },
+      { icon: Clock3, label: 'Timer opsional' },
+    ],
+  },
+  {
     name: 'Hubby Finance',
     description: 'Kelola arus kas, tujuan, investasi, dan rencana keuangan dalam satu ruang yang tenang.',
     to: '/finance',

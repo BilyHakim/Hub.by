@@ -52,6 +52,20 @@ Hubby Maintenance menyediakan:
 - riwayat tersimpan dengan nama aturan saat servis, sekalipun aturan kemudian diedit atau dinonaktifkan;
 - pembaruan penggunaan sederhana melalui Edit barang, tanpa pencatatan perjalanan otomatis.
 
+Hubby Reader tersedia di `/reader` dengan warna biru slate dan style aplikasi yang sama:
+
+- upload PDF/EPUB maksimal 50 MB, membuat buku baru atau melampirkan file ke buku di Hubby Books;
+- pustaka hanya berisi buku dengan file digital; buku fisik tetap di Books;
+- posisi terakhir tersimpan otomatis, memakai halaman PDF atau posisi teks EPUB (CFI);
+- timer on/off menghitung waktu ketika reader terlihat; posisi tetap disimpan saat timer off;
+- highlight teks, bookmark, dan catatan, dengan kumpulan anotasi di `/reader/annotations` yang dapat dibuka kembali atau dihapus;
+- progres halaman baru masuk ke reading log Books, sementara kembali ke halaman sebelumnya hanya mengubah posisi Reader;
+- menghapus file digital menghapus anotasi dan waktu Reader, tetapi mempertahankan buku dan reading log di Books.
+
+Jalankan migration `027_reader.sql` sebelum membuka modul: dari `backend`, jalankan `go run ./cmd/migrate up`. File disimpan dalam PostgreSQL sehingga ikut backup database dan tidak memerlukan volume upload terpisah. PDF scan tanpa lapisan teks mendukung bookmark dan catatan halaman, tetapi tidak highlight teks. EPUB memakai estimasi halaman yang tetap; posisi teks tetap menjadi acuan ketika tata letak berubah. Untuk buku yang dilampirkan ke entri Books, progres file dipetakan proporsional ke jumlah halaman entri tersebut. File dengan DRM atau password tidak didukung.
+
+Tes unit: `go test ./...` dari `backend`. Untuk tes integrasi Reader, arahkan `READER_TEST_DATABASE_URL` ke database PostgreSQL sementara yang sudah dimigrasikan, lalu jalankan `go test ./internal/httpapi -run Reader -v`. Tes memeriksa upload/link, timer idempoten, progres mundur, isolasi workspace, serta penghapusan file dan buku.
+
 Halaman `/` menampilkan landing page publik Hub.by, termasuk sebelum login. Login tersedia di `/login`; setelah masuk, pengguna menuju portal `/hub` untuk memilih modul. Hubby Finance tersedia di `/finance`, Hubby Watch di `/watch`, Hubby Books di `/books`, dan Hubby Maintenance di `/maintenance`; semuanya memakai akun dan workspace yang sama dengan navigasi produk terpisah. Daftar barang tersedia di `/maintenance/items`, detail di `/maintenance/items/:id`, dan riwayat di `/maintenance/history`.
 
 Pemilik dapat menghapus ruang bersama selama masih memiliki ruang lain dan tidak ada anggota lain di ruang tersebut. Penghapusan bersifat permanen dan menghapus seluruh data Finance, Watch, Books, serta Maintenance dalam ruang itu.

@@ -5,7 +5,7 @@ async function request(path, options = {}) {
     ...options,
     credentials: 'include',
     headers: {
-      'Content-Type': 'application/json',
+      ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
       'X-Hubby-Client': '1',
       ...options.headers,
     },
@@ -22,11 +22,20 @@ async function request(path, options = {}) {
   }
 
   if (response.status === 204) return null
+  if (options.binary) return response.arrayBuffer()
   const payload = await response.json()
   return payload.data
 }
 
 export const api = {
+  reader: () => request('/reader'),
+  readerFile: (id) => request(`/reader/books/${id}/file`, { binary: true }),
+  uploadReaderBook: (body) => request('/reader/books', { method: 'POST', body }),
+  deleteReaderBook: (id) => request(`/reader/books/${id}`, { method: 'DELETE' }),
+  saveReaderProgress: (id, payload) => request(`/reader/books/${id}/progress`, { method: 'PUT', body: JSON.stringify(payload), keepalive: true }),
+  readerAnnotations: () => request('/reader/annotations'),
+  createReaderAnnotation: (id, payload) => request(`/reader/books/${id}/annotations`, { method: 'POST', body: JSON.stringify(payload) }),
+  deleteReaderAnnotation: (id) => request(`/reader/annotations/${id}`, { method: 'DELETE' }),
   maintenance: () => request('/maintenance'),
   createMaintenanceItem: (payload) => request('/maintenance/items', { method: 'POST', body: JSON.stringify(payload) }),
   updateMaintenanceItem: (id, payload) => request(`/maintenance/items/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),

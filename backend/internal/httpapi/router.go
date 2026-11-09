@@ -82,6 +82,14 @@ func NewRouter(db *pgxpool.Pool, logger *slog.Logger, frontendOrigin, tmdbAPITok
 	protected.HandleFunc("GET /api/v1/watch/catalog/titles/{catalogID}", api.getTMDBTitle)
 	protected.HandleFunc("GET /api/v1/watch/catalog/titles/{catalogID}/seasons/{season}", api.getTMDBSeason)
 	protected.HandleFunc("GET /api/v1/books", api.getBooksOverview)
+	protected.HandleFunc("GET /api/v1/reader", api.getReader)
+	protected.HandleFunc("POST /api/v1/reader/books", api.uploadReaderBook)
+	protected.HandleFunc("GET /api/v1/reader/books/{id}/file", api.readerFile)
+	protected.HandleFunc("PUT /api/v1/reader/books/{id}/progress", api.saveReaderProgress)
+	protected.HandleFunc("DELETE /api/v1/reader/books/{id}", api.deleteReaderBook)
+	protected.HandleFunc("GET /api/v1/reader/annotations", api.getReaderAnnotations)
+	protected.HandleFunc("POST /api/v1/reader/books/{id}/annotations", api.createReaderAnnotation)
+	protected.HandleFunc("DELETE /api/v1/reader/annotations/{id}", api.deleteReaderAnnotation)
 	protected.HandleFunc("GET /api/v1/maintenance", api.getMaintenance)
 	protected.HandleFunc("POST /api/v1/maintenance/items", api.saveMaintenanceItem)
 	protected.HandleFunc("PUT /api/v1/maintenance/items/{id}", api.saveMaintenanceItem)
@@ -167,18 +175,23 @@ func corsMiddleware(origin string, additionalOrigins []string, next http.Handler
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
+		readerUpload := r.Method == http.MethodPost && r.URL.Path == "/api/v1/reader/books"
 		if isUnsafeMethod(r.Method) {
 			if r.Header.Get(clientVerificationHeader) != "1" {
 				writeError(w, http.StatusForbidden, "missing client verification header")
 				return
 			}
-			if methodRequiresJSON(r.Method) && !hasJSONContentType(r) {
+			if methodRequiresJSON(r.Method) && !hasJSONContentType(r) && !readerUpload {
 				writeError(w, http.StatusUnsupportedMediaType, "Content-Type must be application/json")
 				return
 			}
 		}
 		if r.Body != nil {
-			r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
+			limit := int64(maxRequestBodyBytes)
+			if readerUpload {
+				limit = maxReaderFileBytes + (1 << 20)
+			}
+			r.Body = http.MaxBytesReader(w, r.Body, limit)
 		}
 		next.ServeHTTP(w, r)
 	})

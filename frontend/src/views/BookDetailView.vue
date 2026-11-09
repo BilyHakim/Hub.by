@@ -10,6 +10,7 @@ const saving = ref(false)
 const error = ref('')
 const editModalOpen = ref(false)
 const detail = ref({ title: {}, sessions: [] })
+const digitalBook = ref(false)
 const editForm = reactive({ title: '', author: '', description: '', coverUrl: '', publishYear: 0, totalPages: 1 })
 const title = computed(() => detail.value.title || {})
 const progress = computed(() => title.value.totalPages ? Math.min(100, Math.round((title.value.currentPage / title.value.totalPages) * 100)) : 0)
@@ -67,7 +68,10 @@ async function saveBook() {
 async function loadDetail() {
   loading.value = true
   error.value = ''
-  try { detail.value = await api.bookTitle(route.params.id) }
+  try {
+    detail.value = await api.bookTitle(route.params.id)
+    digitalBook.value = (await api.reader()).books.some(book => book.id === Number(route.params.id))
+  }
   catch (requestError) { error.value = requestError.message }
   finally { loading.value = false }
 }
@@ -92,6 +96,8 @@ onBeforeUnmount(() => window.removeEventListener('hubby:workspace-changed', hand
         <div class="detail-copy">
           <div class="detail-heading-row"><div class="detail-badges"><span>Buku</span><span :class="`status-${title.status}`">{{ statusLabel(title.status) }}</span></div><button class="detail-edit-button" type="button" @click="openEditModal"><Pencil :size="14" /> Edit buku</button></div>
           <h1>{{ title.title }}</h1>
+          <RouterLink v-if="digitalBook" class="primary-button" :to="`/reader/books/${title.id}`">Baca di Hubby Reader</RouterLink>
+          <RouterLink v-else class="secondary-button" :to="{ path: '/reader', query: { titleId: title.id } }">Lampirkan PDF/EPUB</RouterLink>
           <p class="detail-meta">{{ title.author || 'Penulis tidak diketahui' }}<template v-if="title.publishYear"> · {{ title.publishYear }}</template></p>
           <p class="detail-plot">{{ title.description || 'Buku ini ditambahkan dari katalog Open Library. Catat progres membaca untuk melihat perjalananmu.' }}</p>
           <div class="detail-facts book-detail-facts"><span><Library :size="16" /><strong>{{ title.currentPage }}/{{ title.totalPages }}</strong><small>Halaman saat ini</small></span><span><CalendarDays :size="16" /><strong>{{ firstReadAt ? formatDate(firstReadAt) : '–' }}</strong><small>Mulai dibaca</small></span><span><Clock3 :size="16" /><strong>{{ readingDays ? `${readingDays} hari` : '–' }}</strong><small>Durasi membaca</small></span><span><CalendarDays :size="16" /><strong>{{ title.lastReadAt ? formatDate(title.lastReadAt) : '–' }}</strong><small>Terakhir dibaca</small></span></div>
