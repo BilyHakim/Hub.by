@@ -131,6 +131,7 @@ Login berada di `/login`, dan portal pemilihan modul berada di `/hub`.
 Landing page tetap tampil sebelum login dan ketika API belum tersedia.
 Landing page hanya memerlukan build frontend. Hubby Reader memerlukan build backend dan frontend serta migration `027_reader.sql` sebelum API baru digunakan. File PDF/EPUB tersimpan di database dan ikut backup PostgreSQL. Batas upload aplikasi 50 MB; Nginx frontend mengizinkan request hingga 51 MB untuk menampung multipart. Jika ada proxy tambahan dengan batas upload sendiri, sesuaikan batasnya juga.
 Konfigurasi Nginx frontend sudah memakai fallback `index.html` untuk rute Vue.
+Worker PDF.js berekstensi `.mjs` harus dikirim dengan `Content-Type: application/javascript`. Konfigurasi `frontend/nginx.conf` memetakan MIME tersebut khusus aset `.mjs`. Jika Reader menampilkan `Setting up fake worker failed`, periksa header URL worker pada pesan error dengan `curl -I URL_WORKER`. Respons `application/octet-stream` memerlukan rebuild dan recreate service frontend; tidak memerlukan migration database atau perubahan Caddy.
 Setelah deployment, periksa halaman utama tanpa sesi login, lalu masuk dan pastikan
 portal `/hub` terbuka. Periksa juga tautan modul pada layar ponsel.
 
