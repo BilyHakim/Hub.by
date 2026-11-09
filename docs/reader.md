@@ -14,6 +14,24 @@ PDF dirender memakai [PDF.js](https://mozilla.github.io/pdf.js/examples/), denga
 
 ## Validasi
 
+### Layar penuh
+
+Tombol **Layar penuh** pada toolbar memperluas area buku, menyembunyikan navigasi aplikasi dan panel anotasi, serta mempertahankan navigasi halaman/bab, timer, dan penyimpanan progres. Keluar melalui tombol **Keluar layar penuh** atau Escape. Isi anotasi dan posisi baca tetap dipertahankan; panel kembali ketika keluar. EPUB menyesuaikan ukuran sambil membawa posisi CFI terakhir. PDF dirender ulang sesuai lebar layar.
+
+Implementasi memakai [Fullscreen API](https://developer.mozilla.org/en-US/docs/Web/API/Element/requestFullscreen) dengan fallback memenuhi viewport ketika API tidak tersedia atau permintaan ditolak. Pada fallback, bingkai browser tetap terlihat. Tidak memerlukan perubahan backend atau migration; cukup rebuild dan recreate frontend.
+
+Validasi fullscreen memakai build produksi dan data API contoh lokal di Chrome headless. PDF/EPUB diuji pada desktop 1440px dan mobile 390px: masuk, keluar lewat tombol/Escape, pergantian halaman/bab, timer, penyimpanan posisi, pengembalian panel, dan tidak ada overflow horizontal. Mode native, API tidak tersedia, dan permintaan ditolak semuanya lulus tanpa page error. Screenshot desktop/mobile diperiksa dan EPUB tetap menampilkan teks setelah perubahan ukuran. Pengujian ini tidak mengakses database VPS.
+
+Hard Gate PASS: kontrol fullscreen dan keluar bekerja, Escape diuji, panel tersembunyi tidak dapat ditab, dan build produksi berhasil.
+
+Purpose Gate PASS: area layar diberikan ke isi buku; toolbar tetap tersedia untuk berpindah halaman, mengatur timer, dan keluar. Warna dan tipografi memakai token Reader yang sudah terukur.
+
+Liveliness PASS: ENERGY 1 / RHYTHM 1 / MOTION 1 tetap; isi buku menjadi fokus tunggal tanpa animasi tambahan.
+
+Craftsmanship PASS: native/fallback/rejection diuji dengan PDF dan EPUB, termasuk resize mobile dan pengembalian tampilan. Belum diuji pada Safari/perangkat fisik atau dideploy ke VPS.
+
+### Pustaka dan anotasi
+
 - Unit Go memeriksa format file, timer/progres, dan batas koordinat anotasi.
 - `TestReaderDatabaseLifecycle` memakai `READER_TEST_DATABASE_URL` untuk memeriksa upload/link, retry timer, progres mundur, isolasi workspace, penghapusan, dan cascade. Jalankan hanya terhadap database QA yang telah dimigrasikan.
 - Uji browser lokal memakai PDF dua halaman dan EPUB dua bab: upload, lanjut baca, timer, highlight kedua format, bookmark, catatan, lompat ke anotasi, daftar isi, navigasi, serta Books. Script dalam EPUB contoh tidak berjalan. Tidak ditemukan page error pada alur tersebut.

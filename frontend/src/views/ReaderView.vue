@@ -25,6 +25,10 @@ const selectionLocation = ref('')
 const selectionRects = ref([])
 const savingMark = ref(false)
 const rendering = ref(false)
+const readerHost = ref(null)
+const toolbar = ref(null)
+const fullscreenButton = ref(null)
+const fullscreen = ref(false)
 const pdfHost = ref(null)
 const canvas = ref(null)
 const textHost = ref(null)
@@ -37,9 +41,48 @@ let disposed = false
 let tickAt = Date.now()
 let ticks = 0
 let saveQueue = Promise.resolve()
+let previousBodyOverflow = ''
+let epubResizeFrame
 const currentMarks = computed(() => marks.value.filter(m => m.titleId === book.value?.id))
 const pageRects = computed(() => currentMarks.value.filter(m => m.location === location.value).flatMap(m => m.rects || []))
 const canAnnotate = computed(() => !loading.value && !rendering.value && !savingMark.value && !!location.value)
+
+function resizeEPUB() {
+  if (!rendition || loading.value || disposed) return
+  cancelAnimationFrame(epubResizeFrame)
+  epubResizeFrame = requestAnimationFrame(() => {
+    if (disposed) return
+    const height = fullscreen.value ? Math.max(260, window.innerHeight - (toolbar.value?.offsetHeight || 0) - 48) : 620
+    rendition.resize(epubHost.value.clientWidth, height, location.value || undefined)
+  })
+}
+async function setFullscreen(active) {
+  if (fullscreen.value === active) return
+  if (active) previousBodyOverflow = document.body.style.overflow
+  fullscreen.value = active
+  document.body.style.overflow = active ? 'hidden' : previousBodyOverflow
+  await nextTick()
+  if (disposed) return
+  readerHost.value.scrollTop = 0
+  resizeEPUB()
+  fullscreenButton.value?.focus({ preventScroll: true })
+}
+async function toggleFullscreen() {
+  if (fullscreen.value) {
+    if (document.fullscreenElement === readerHost.value) await document.exitFullscreen().catch(() => {})
+    await setFullscreen(false)
+  } else {
+    const request = readerHost.value.requestFullscreen?.()
+    await setFullscreen(true)
+    if (request) await request.catch(() => {})
+  }
+}
+function fullscreenChanged() {
+  if (document.fullscreenElement !== readerHost.value && fullscreen.value) setFullscreen(false)
+}
+function fullscreenKeydown(event) {
+  if (event.key === 'Escape' && fullscreen.value) toggleFullscreen()
+}
 
 function accountTime() {
   const now = Date.now()
@@ -88,7 +131,7 @@ async function renderPDF() {
     if (disposed) return
     const original = source.getViewport({ scale: 1 })
     const available = Math.max(240, pdfHost.value.parentElement.clientWidth - 24)
-    const viewport = source.getViewport({ scale: Math.min(available, 920) / original.width })
+    const viewport = source.getViewport({ scale: (fullscreen.value ? available : Math.min(available, 920)) / original.width })
     const ratio = window.devicePixelRatio || 1
     canvas.value.width = Math.floor(viewport.width * ratio); canvas.value.height = Math.floor(viewport.height * ratio)
     pdfHost.value.style.width = `${viewport.width}px`; pdfHost.value.style.height = `${viewport.height}px`
@@ -182,6 +225,7 @@ async function load() {
         quote.value = contents.window.getSelection().toString().slice(0, 10000)
         selectionLocation.value = cfi; selectionRects.value = []
       })
+      rendition.on('keydown', fullscreenKeydown)
       rendition.on('relocated', loc => {
         location.value = loc.start.cfi
         const index = epub.locations.locationFromCfi(loc.start.cfi)
@@ -189,6 +233,8 @@ async function load() {
         if (!loading.value) save()
       })
       await rendition.display(target || undefined)
+      observer = new ResizeObserver(resizeEPUB)
+      observer.observe(toolbar.value)
       for (const mark of currentMarks.value.filter(m => m.quote)) rendition.annotations.highlight(mark.location, {}, undefined, 'reader-highlight', { fill: '#e4bc61', 'fill-opacity': '0.4' })
     }
   } catch (e) { error.value = e.message || 'Buku tidak dapat dibuka. Pastikan file tidak terkunci atau rusak.' }
@@ -206,24 +252,34 @@ onMounted(() => {
   load()
   interval = setInterval(() => { accountTime(); ticks++; if (ticks % 10 === 0 && !document.hidden) save() }, 1000)
   document.addEventListener('visibilitychange', visibilityChange)
+  document.addEventListener('fullscreenchange', fullscreenChanged)
+  window.addEventListener('keydown', fullscreenKeydown)
+  window.addEventListener('resize', resizeEPUB)
   window.addEventListener('pagehide', save)
   window.addEventListener('hubby:workspace-changed', workspaceChange)
 })
 onBeforeUnmount(() => {
   disposed = true; clearInterval(interval); observer?.disconnect(); renderTask?.cancel(); textLayer?.cancel(); pdf?.loadingTask.destroy(); epub?.destroy()
+  cancelAnimationFrame(epubResizeFrame)
+  if (fullscreen.value) document.body.style.overflow = previousBodyOverflow
+  if (document.fullscreenElement === readerHost.value) document.exitFullscreen().catch(() => {})
   document.removeEventListener('visibilitychange', visibilityChange)
+  document.removeEventListener('fullscreenchange', fullscreenChanged)
+  window.removeEventListener('keydown', fullscreenKeydown)
+  window.removeEventListener('resize', resizeEPUB)
   window.removeEventListener('pagehide', save)
   window.removeEventListener('hubby:workspace-changed', workspaceChange)
 })
 </script>
 
 <template>
-  <section class="page reader-page">
-    <RouterLink class="back-link" to="/reader">Kembali ke pustaka digital</RouterLink>
-    <div class="page-heading"><div><p class="eyebrow">Hubby Reader</p><h1>{{ book?.title || 'Membuka buku' }}</h1><p>{{ book?.author }}</p></div><RouterLink class="secondary-button" to="/reader/annotations">Semua mark & anotasi</RouterLink></div>
+  <section ref="readerHost" class="page reader-page" :class="{ 'reader-is-fullscreen': fullscreen }" :aria-label="fullscreen ? `Layar penuh: ${book?.title || 'Reader'}` : undefined">
+    <RouterLink v-show="!fullscreen" class="back-link" to="/reader">Kembali ke pustaka digital</RouterLink>
+    <div v-show="!fullscreen" class="page-heading"><div><p class="eyebrow">Hubby Reader</p><h1>{{ book?.title || 'Membuka buku' }}</h1><p>{{ book?.author }}</p></div><RouterLink class="secondary-button" to="/reader/annotations">Semua mark & anotasi</RouterLink></div>
     <p v-if="loading" role="status">Memuat dan menyiapkan buku...</p>
     <p v-if="error" role="alert" class="watch-error">{{ error }}</p>
-    <div v-if="book" class="reader-toolbar watch-panel">
+    <div v-if="book" ref="toolbar" class="reader-toolbar watch-panel">
+      <button ref="fullscreenButton" class="secondary-button" :aria-pressed="fullscreen" :disabled="loading || rendering" @click="toggleFullscreen">{{ fullscreen ? 'Keluar layar penuh' : 'Layar penuh' }}</button>
       <div class="reader-page-nav"><button class="secondary-button" :disabled="loading || rendering || (book.format === 'pdf' && page <= 1)" @click="navigate(book.format === 'pdf' ? page - 1 : 'prev')">Sebelumnya</button><form v-if="book.format === 'pdf'" @submit.prevent="navigate(page)"><label>Halaman PDF<input :value="page" type="number" min="1" :max="count" :disabled="loading || rendering" @change="navigate($event.target.value)" /></label><span>/ {{ count }}</span></form><span v-else>Halaman estimasi {{ canonicalPage }} / {{ book.totalPages }}</span><button class="secondary-button" :disabled="loading || rendering || (book.format === 'pdf' && page >= count)" @click="navigate(book.format === 'pdf' ? page + 1 : 'next')">Berikutnya</button></div>
       <label v-if="book.format === 'epub'">Daftar isi<select v-model="chapter" :disabled="loading" @change="navigate(chapter)"><option value="" disabled>Pilih bab</option><option v-for="item in toc" :key="item.href" :value="item.href">{{ item.label }}</option></select></label>
       <button class="secondary-button" role="switch" :aria-checked="timer" :disabled="loading" @click="toggleTimer">Timer {{ timer ? 'ON' : 'OFF' }}</button><span>Waktu: {{ readingTime(baseSeconds + elapsed) }}</span><button class="secondary-button" :disabled="loading" @click="save">Simpan posisi</button><span role="status">{{ status }}</span>

@@ -54,6 +54,11 @@
 .reader-mark-link { text-align: left; border: 1px solid #71838a; background: var(--surface); border-radius: 8px; padding: 12px; cursor: pointer; overflow-wrap: anywhere; }
 .reader-mark-link small { display: block; color: var(--muted); }
 .reader-marks p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.reader-page.reader-is-fullscreen { position: fixed; inset: 0; z-index: 100; width: 100%; height: 100dvh; overflow: auto; overscroll-behavior: contain; padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); background: var(--paper); color: var(--ink); }
+.reader-is-fullscreen .reader-toolbar { position: sticky; top: 0; z-index: 5; margin-bottom: 12px; padding: 12px; }
+.reader-is-fullscreen .reader-content-grid { grid-template-columns: minmax(0, 1fr); }
+.reader-is-fullscreen .reader-annotation-panel { display: none; }
+.reader-shell:has(.reader-is-fullscreen) :is(.sidebar, .sidebar-backdrop, .sidebar-edge-toggle, .topbar, .app-toast) { display: none; }
 @media (min-width: 660px) {
   .reader-upload { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 24px; }
   .reader-upload > div { grid-column: 1 / -1; }
