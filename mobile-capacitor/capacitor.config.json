@@ -1,0 +1,17 @@
+{
+  "appId": "by.hubby.mobile",
+  "appName": "Hubby",
+  "webDir": "www",
+  "backgroundColor": "#f6f4ef",
+  "server": {
+    "hostname": "localhost",
+    "androidScheme": "https",
+    "cleartext": false
+  },
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "CapacitorHttp": { "enabled": true }
+  }
+}
