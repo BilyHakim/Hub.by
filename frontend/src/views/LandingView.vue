@@ -17,7 +17,7 @@ defineProps({ authenticated: Boolean })
       <section class="landing-intro" aria-labelledby="landing-title">
         <div>
           <h1 id="landing-title">Catatan sehari-hari,<br />punya tempat sendiri.</h1>
-          <p class="landing-lead">Kelola keuangan, simpan tontonan, dan lanjutkan bacaan. Hub.by menyatukan catatanmu dalam satu akun dan ruang bersama.</p>
+          <p class="landing-lead">Kelola keuangan, simpan tontonan, catat bacaan, baca buku digital, dan rawat barangmu. Lima modul Hub.by terhubung dalam satu akun dan ruang bersama.</p>
           <RouterLink class="landing-cta" :to="authenticated ? '/hub' : '/login'">{{ authenticated ? 'Buka ruang saya' : 'Masuk ke Hub.by' }}</RouterLink>
           <p class="landing-account-note">Gunakan akun yang sudah tersedia untuk masuk.</p>
         </div>
@@ -27,6 +27,8 @@ defineProps({ authenticated: Boolean })
             <div><dt>Finance</dt><dd>Pemasukan, pengeluaran, dan tujuan</dd></div>
             <div><dt>Watch</dt><dd>Film, series, dan progres episode</dd></div>
             <div><dt>Books</dt><dd>Pustaka dan halaman terakhir</dd></div>
+            <div><dt>Reader</dt><dd>Baca PDF dan EPUB, simpan anotasi</dd></div>
+            <div><dt>Maintenance</dt><dd>Barang, jadwal perawatan, dan servis</dd></div>
           </dl>
           <span>Catat hari ini. Lanjutkan saat kamu kembali.</span>
         </aside>
@@ -55,15 +57,25 @@ defineProps({ authenticated: Boolean })
             <p class="landing-module-name">Hubby Watch</p>
             <h3>Ingat episode<br />terakhirmu.</h3>
             <p>Simpan film dan series, atur status tontonan, lalu catat sesi menonton beserta durasi dan catatan. Progres episode membantumu melanjutkan series.</p>
-            <p class="landing-source-note">Pencarian katalog menggunakan TMDB dan memerlukan konfigurasi token oleh pengelola.</p>
             <RouterLink class="landing-module-link" to="/watch">Buka Watch</RouterLink>
           </article>
           <article>
             <p class="landing-module-name">Hubby Books</p>
             <h3>Kembali ke<br />halaman terakhir.</h3>
             <p>Cari buku melalui Open Library, simpan ke pustaka, dan catat halaman terakhir yang dibaca. Lihat progres serta riwayat membaca setiap buku.</p>
-            <p class="landing-source-note">Pencarian buku menggunakan Open Library tanpa API key.</p>
             <RouterLink class="landing-module-link" to="/books">Buka Books</RouterLink>
+          </article>
+          <article>
+            <p class="landing-module-name">Hubby Reader</p>
+            <h3>Baca dan tandai<br />bagian penting.</h3>
+            <p>Unggah PDF atau EPUB, lalu baca langsung di Hub.by. Simpan highlight, bookmark, dan catatan, kemudian lanjutkan dari posisi terakhir. Progres membaca terhubung ke Hubby Books.</p>
+            <RouterLink class="landing-module-link" to="/reader">Buka Reader</RouterLink>
+          </article>
+          <article>
+            <p class="landing-module-name">Hubby Maintenance</p>
+            <h3>Ingat kapan<br />barang perlu dirawat.</h3>
+            <p>Simpan daftar barang dan atur jadwal perawatan atau penggantian. Lihat pengingat yang jatuh tempo, lalu catat servis beserta biaya dan riwayatnya.</p>
+            <RouterLink class="landing-module-link" to="/maintenance">Buka Maintenance</RouterLink>
           </article>
         </div>
       </section>
@@ -72,7 +84,7 @@ defineProps({ authenticated: Boolean })
         <RouterLink class="landing-cta" :to="authenticated ? '/hub' : '/login'">{{ authenticated ? 'Pilih modul saya' : 'Masuk dan pilih modul' }}</RouterLink>
       </section>
     </main>
-    <footer class="landing-footer landing-width"><span>Hub.by</span><p>Keuangan, tontonan, dan bacaan dalam satu ruang.</p><a href="#landing-title">Kembali ke atas</a></footer>
+    <footer class="landing-footer landing-width"><span>Hub.by</span><p>Keuangan, tontonan, bacaan, dan perawatan barang dalam satu ruang.</p><a href="#landing-title">Kembali ke atas</a></footer>
   </div>
 </template>
 
@@ -117,7 +129,6 @@ defineProps({ authenticated: Boolean })
 .landing-finance-list span { color: var(--landing-muted); margin-top: 4px; }
 .landing-personal { display: grid; }
 .landing-personal article { padding: 32px 0; border-bottom: 1px solid #cccfc6; }
-.landing-source-note { font-size: .875rem; }
 .landing-closing { padding-block: 40px; display: grid; align-items: center; gap: 20px; }
 .landing-closing h2 { max-width: 650px; }
 .landing-closing p { margin: 0; color: var(--landing-muted); }
@@ -128,8 +139,8 @@ defineProps({ authenticated: Boolean })
 @media (min-width: 640px) {
   .landing-width { width: min(1120px, calc(100% - 64px)); }
   .landing-intro { padding-block: 72px; }
-  .landing-directory dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
-  .landing-personal { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px; }
+  .landing-directory dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; }
+  .landing-personal { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 40px; }
   .landing-personal article { padding-block: 48px; }
   .landing-finance { padding: 40px; }
   .landing-footer a { margin-left: auto; }
