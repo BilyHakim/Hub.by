@@ -31,16 +31,20 @@
 .reader-icon-button { display: inline-grid; place-items: center; width: 44px; border: 1px solid #71838a; border-radius: 8px; background: var(--surface); cursor: pointer; }
 .reader-empty { padding: 40px 20px; text-align: center; }
 .reader-empty svg { color: #456b79; margin-bottom: 12px; }
-.reader-toolbar { display: flex; flex-direction: column; gap: 12px; padding: 16px; margin-bottom: 20px; font-size: 13px; }
-.reader-page-nav { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 24px; width: 100%; }
-.reader-page-nav form { display: flex; align-items: end; justify-content: center; gap: 8px; }
-.reader-page-nav input { max-width: 90px; }
+.reader-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 12px 16px; margin-bottom: 20px; font-size: 13px; }
+.reader-page-nav { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.reader-page-nav form { display: flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap; }
+.reader-page .reader-toolbar label { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.reader-page-nav input { width: 72px; }
 .reader-page-position { text-align: center; font-variant-numeric: tabular-nums; }
-.reader-page-nav .reader-page-turn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 52px; width: 100%; max-width: 220px; padding: 12px 16px; border: 1px solid #71838a; border-radius: 10px; }
+.reader-page-nav .reader-page-turn { display: inline-flex; flex: none; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 12px; border: 1px solid #71838a; border-radius: 10px; }
 .reader-page-turn:last-child { justify-self: end; }
 .reader-page-turn svg { flex: none; }
-.reader-toolbar-settings { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; width: 100%; padding-top: 12px; border-top: 1px solid var(--line); }
-.reader-toolbar-settings > label { flex: 1 1 180px; }
+.reader-toolbar-settings { display: flex; flex: 1 1 540px; flex-wrap: wrap; align-items: center; gap: 12px; min-width: 0; }
+.reader-toolbar-settings > label { flex: 0 1 auto; }
+.reader-toolbar-settings select { width: auto; max-width: 180px; }
+.reader-toolbar-settings > span { font-variant-numeric: tabular-nums; }
+.reader-toolbar-settings > [role="status"] { overflow-wrap: anywhere; }
 .reader-content-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: start; }
 .reader-paper { min-width: 0; min-height: 220px; overflow: auto; padding: 12px 0; background: #fffefa; border: 1px solid var(--line); border-radius: 12px; }
 .reader-pdf-page { position: relative; margin: 0 auto; }
@@ -62,7 +66,6 @@
 .reader-page.reader-is-fullscreen { position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; gap: 12px; width: 100%; height: 100dvh; overflow: hidden; overscroll-behavior: contain; padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); background: var(--paper); color: var(--ink); }
 .reader-is-fullscreen .reader-toolbar { order: 2; flex: none; max-height: 45%; overflow: auto; z-index: 5; margin: 0; padding: 12px; }
 .reader-is-fullscreen .reader-content-grid { order: 1; flex: 1; min-height: 0; overflow: auto; grid-template-columns: minmax(0, 1fr); }
-.reader-toolbar-settings > .reader-scale { flex: 0 1 180px; }
 .reader-is-fullscreen .reader-epub { min-height: 0; }
 .reader-nav-show { order: 2; flex: none; display: grid; grid-template-columns: 52px minmax(0, 1fr) 52px; align-items: center; gap: 24px; width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 .reader-nav-show .reader-icon-button { width: 52px; min-height: 52px; padding: 0; color: #354f59; }
@@ -70,6 +73,12 @@
 .reader-nav-show > .secondary-button { min-width: 0; }
 .reader-is-fullscreen .reader-annotation-panel { display: none; }
 .reader-shell:has(.reader-is-fullscreen) :is(.sidebar, .sidebar-backdrop, .sidebar-edge-toggle, .topbar, .app-toast) { display: none; }
+@media (max-width: 660px) {
+  .reader-page-nav { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; width: 100%; }
+  .reader-page .reader-page-nav label { display: grid; white-space: normal; }
+  .reader-toolbar-settings { flex-basis: 100%; }
+  .reader-toolbar-settings select { max-width: 100%; }
+}
 @media (max-width: 480px) {
   .reader-page-nav { gap: 12px; }
   .reader-page-nav .reader-page-turn { padding: 12px; }
