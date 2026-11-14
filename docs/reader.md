@@ -20,6 +20,8 @@ Tombol **Layar penuh** pada toolbar memperluas area buku, menyembunyikan navigas
 
 Toolbar fullscreen berada di bawah area baca dan mendapat ruang tersendiri sehingga tidak menutupi halaman. Tombol **Sembunyikan navigasi** memberi seluruh area tersebut ke buku; tombol **Tampilkan navigasi** tetap tersedia di pojok bawah dan menerima fokus keyboard. Keluar fullscreen mengembalikan toolbar biasa. Pada layar sempit, toolbar dapat digulir dan tingginya dibatasi agar isi buku tetap terlihat.
 
+Setiap navigasi ke halaman sebelumnya/berikutnya mengembalikan posisi vertikal area baca ke paling atas setelah halaman selesai dirender, termasuk saat navigasi disembunyikan dalam fullscreen. Perilaku ini berlaku untuk PDF dan EPUB, juga saat melompat melalui nomor halaman, daftar isi, atau mark. Mengubah skala atau ukuran layar saja tidak mereset scroll.
+
 Saat toolbar disembunyikan, ikon chevron kiri/kanan tetap tersedia bersama tombol **Tampilkan navigasi**. Ikon memakai library aplikasi, dengan label dan tooltip **Halaman sebelumnya/berikutnya**, serta target sentuh 44px. Tombol mengikuti status loading/rendering dan batas halaman PDF, memakai fungsi navigasi serta penyimpanan progres yang sama. Kontrol mengambang diberi panel solid dan bayangan untuk membedakannya dari isi buku.
 
 Validasi navigasi cepat PASS: build produksi berhasil; ikon PDF diuji dari halaman pertama ke terakhir dan kembali tanpa membuka toolbar; tombol batas halaman nonaktif; ikon EPUB diuji next/previous pada layar 320px, ukuran tombol minimal 44px, dan seluruh grup muat dalam viewport. Mode native, fallback, dan fullscreen ditolak semuanya lulus tanpa page error. Screenshot desktop dan mobile diperiksa. Validasi ini memakai data contoh lokal, belum deployment VPS.

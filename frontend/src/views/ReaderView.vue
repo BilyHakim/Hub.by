@@ -34,6 +34,7 @@ const navigationHidden = ref(false)
 const hideNavigationButton = ref(null)
 const showNavigationButton = ref(null)
 const contentHost = ref(null)
+const paperHost = ref(null)
 const pdfScale = ref('width')
 const epubScale = ref('100')
 const pdfHost = ref(null)
@@ -192,6 +193,13 @@ async function renderPDF() {
   } catch (e) { if (e.name !== 'RenderingCancelledException' && !disposed) error.value = e.message }
   finally { rendering.value = false }
 }
+async function resetPageScroll() {
+  await nextTick()
+  if (disposed) return
+  paperHost.value?.scrollTo({ top: 0, behavior: 'instant' })
+  contentHost.value?.scrollTo({ top: 0, behavior: 'instant' })
+  if (!fullscreen.value) contentHost.value?.scrollIntoView({ block: 'start', behavior: 'instant' })
+}
 async function navigate(target) {
   if (loading.value || rendering.value) return
   error.value = ''
@@ -201,12 +209,14 @@ async function navigate(target) {
       location.value = String(page.value)
       canonicalPage.value = bookPage(page.value, count.value, book.value.totalPages)
       await renderPDF()
+      await resetPageScroll()
       await save()
     } else {
       clearSelection()
       rendering.value = true
       try {
         await relocateEPUB(() => target === 'next' ? rendition.next() : target === 'prev' ? rendition.prev() : rendition.display(target))
+        await resetPageScroll()
       } finally { rendering.value = false; resizeEPUB() }
     }
   } catch (e) { error.value = e.message }
@@ -342,7 +352,7 @@ onBeforeUnmount(() => {
       <button ref="showNavigationButton" class="secondary-button" aria-controls="reader-toolbar" :aria-expanded="!navigationHidden" @click="toggleNavigation">Tampilkan navigasi</button>
     </div>
     <div ref="contentHost" class="reader-content-grid">
-      <div class="reader-paper" :aria-busy="loading || rendering">
+      <div ref="paperHost" class="reader-paper" :aria-busy="loading || rendering">
         <div v-show="book?.format === 'pdf'" ref="pdfHost" class="reader-pdf-page" @mouseup="capturePDFSelection" @touchend="capturePDFSelection" @keyup="capturePDFSelection"><canvas ref="canvas" aria-label="Halaman PDF" /><div ref="textHost" class="textLayer" tabindex="0" aria-label="Teks halaman PDF" /><div class="reader-pdf-highlights" aria-hidden="true"><i v-for="(rect, i) in pageRects" :key="i" :style="{ left: `${rect.x * 100}%`, top: `${rect.y * 100}%`, width: `${rect.width * 100}%`, height: `${rect.height * 100}%` }" /></div></div>
         <div v-show="book?.format === 'epub'" ref="epubHost" class="reader-epub" />
       </div>
