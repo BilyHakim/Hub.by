@@ -1,2 +1,9 @@
 .mobile-capacitor body { padding-top: env(safe-area-inset-top, 0px); padding-right: env(safe-area-inset-right, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: env(safe-area-inset-left, 0px); }
 .mobile-capacitor .reader-is-fullscreen { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: max(12px, env(safe-area-inset-bottom, 0px)); }
+.mobile-capacitor, .mobile-capacitor body { background: var(--mobile-bar-background, #f6f4ef); }
+/* Keep scrolling content behind the system bars on edge-to-edge WebViews. */
+.mobile-capacitor body::before, .mobile-capacitor body::after { content: ''; position: fixed; left: 0; right: 0; z-index: 2000; pointer-events: none; background: var(--mobile-bar-background, #f6f4ef); }
+.mobile-capacitor body::before { top: 0; height: env(safe-area-inset-top, 0px); }
+.mobile-capacitor body::after { bottom: 0; height: env(safe-area-inset-bottom, 0px); }
+.mobile-capacitor .topbar { top: env(safe-area-inset-top, 0px); }
+.mobile-capacitor .sidebar { top: env(safe-area-inset-top, 0px); bottom: env(safe-area-inset-bottom, 0px); }

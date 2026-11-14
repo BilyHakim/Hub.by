@@ -1,8 +1,9 @@
-import { Capacitor } from '@capacitor/core'
+import { Capacitor, registerPlugin } from '@capacitor/core'
 import { App } from '@capacitor/app'
 import router from '../../frontend/src/router'
 import './mobile.css'
 import { handleAndroidBack } from './back-navigation'
+import { syncSystemBars } from './system-bars.mjs'
 
 document.documentElement.classList.add('mobile-capacitor')
 
@@ -12,6 +13,10 @@ async function start() {
   }
   if (window.location.pathname === '/' || window.location.pathname === '/index.html') await router.replace('/hub')
   await import('../../frontend/src/main.js')
+  if (Capacitor.getPlatform() === 'android') {
+    const stop = syncSystemBars(registerPlugin('SystemBarTheme'))
+    if (import.meta.hot) import.meta.hot.dispose(stop)
+  }
 }
 
 start().catch(error => {

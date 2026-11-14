@@ -35,6 +35,12 @@ Hasil APK: `android/app/build/outputs/apk/debug/app-debug.apk`. APK debug belum 
 
 Setelah mengubah UI pada `frontend`, jalankan `npm run sync` lalu build ulang aplikasi. `npm run build` menulis aset hanya ke `mobile-capacitor/www`, sehingga hasil build web di `frontend/dist` tidak tertimpa. Perubahan frontend pada VPS tidak otomatis memperbarui UI yang sudah dibundel di APK.
 
+### Warna area sistem Android
+
+Status bar dan navigation bar mengikuti warna bingkai modul yang sedang ditampilkan. Halaman login, portal, dan Reader layar penuh memakai warna kertas dengan ikon gelap. Warna diambil dari CSS yang dirender; palet modul tidak disalin ke Android. `SystemBarThemePlugin` mengatur latar native dan kontras ikon, termasuk setelah rotasi atau kembali ke aplikasi. CSS mobile mewarnai safe area dan menjaga konten yang di-scroll agar tidak menutupi area sistem.
+
+Proyek tetap memakai edge-to-edge dan penanganan inset bawaan [Capacitor SystemBars](https://capacitorjs.com/docs/apis/system-bars), termasuk padding native pada WebView lama. Perubahan ini memerlukan build dan instalasi APK baru. Verifikasi pada tablet fisik tetap diperlukan untuk gestur/tiga tombol, rotasi, keyboard, perpindahan modul, serta masuk/keluar Reader layar penuh.
+
 ## Preview browser dengan API produksi
 
 ```sh
