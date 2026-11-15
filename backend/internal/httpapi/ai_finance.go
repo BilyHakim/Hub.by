@@ -57,6 +57,20 @@ func aiPercentOf(amount int64, percent int) int64 {
 	return amount/100*int64(percent) + amount%100*int64(percent)/100
 }
 
+// This is the only transaction used to read Finance for AI. PostgreSQL enforces
+// READ ONLY even if a future query accidentally attempts to modify source data.
+func (api *API) beginAIFinanceRead(ctx context.Context) (pgx.Tx, error) {
+	tx, err := api.db.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	if err != nil {
+		return nil, err
+	}
+	if _, err = tx.Exec(ctx, `SET LOCAL statement_timeout = '8s'`); err != nil {
+		tx.Rollback(context.Background())
+		return nil, err
+	}
+	return tx, nil
+}
+
 func (api *API) aiFinanceContext(ctx context.Context, workspace int64, settings aiSettings, month string, reduction int) (aiFinanceContext, error) {
 	result := aiFinanceContext{WorkspaceID: workspace, GeneratedAt: time.Now().UTC(), Currency: "IDR", FinanceEnabled: settings.FinanceEnabled,
 		Periods: make([]aiPeriodSummary, 0), Categories: make([]aiCategory, 0), Sources: make([]string, 0), Notes: make([]string, 0), ReductionPercent: reduction}
@@ -72,14 +86,11 @@ func (api *API) aiFinanceContext(ctx context.Context, workspace int64, settings 
 		return result, nil
 	}
 	// All finance reads share one snapshot and a read-only transaction.
-	tx, err := api.db.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	tx, err := api.beginAIFinanceRead(ctx)
 	if err != nil {
 		return result, err
 	}
 	defer tx.Rollback(context.Background())
-	if _, err = tx.Exec(ctx, `SET LOCAL statement_timeout = '8s'`); err != nil {
-		return result, err
-	}
 	periodSetting := financePeriodSetting{Mode: periodModeFixedDay, StartDay: 1}
 	err = tx.QueryRow(ctx, `SELECT period_mode,period_start_day FROM workspace_finance_settings WHERE workspace_id=$1`, workspace).Scan(&periodSetting.Mode, &periodSetting.StartDay)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {

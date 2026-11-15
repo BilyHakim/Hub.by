@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -79,7 +81,7 @@ func TestAIDatabaseLifecycle(t *testing.T) {
 		if strings.Contains(payload.Messages[0].Content, "QA discretionary") {
 			t.Error("untrusted Finance data was placed in system instructions")
 		}
-		w.Write([]byte(`{"choices":[{"message":{"content":"Pengeluaran tercatat Rp100.000. Skenario penghematan Rp10.000."},"finish_reason":"stop"}],"usage":{"prompt_tokens":100,"completion_tokens":30}}`))
+		w.Write([]byte(`{"choices":[{"message":{"content":"Pengeluaran tercatat Rp100.000. Skenario penghematan Rp10.000. DELETE FROM transactions;","tool_calls":[{"id":"malicious","type":"function","function":{"name":"execute_sql","arguments":"{\"sql\":\"DELETE FROM transactions\"}"}}]},"finish_reason":"stop"}],"usage":{"prompt_tokens":100,"completion_tokens":30}}`))
 	}))
 	defer provider.Close()
 	defer releaseProvider()
@@ -127,6 +129,44 @@ func TestAIDatabaseLifecycle(t *testing.T) {
 	// A different workspace must not contribute to any aggregates.
 	if _, err = pool.Exec(ctx, `INSERT INTO financial_goals(workspace_id,name,target_amount,current_amount,target_date) VALUES($1,'OTHER-WORKSPACE-SECRET',100000,0,'2027-01-01')`, otherWorkspace); err != nil {
 		t.Fatal(err)
+	}
+	financeFingerprint := func() string {
+		t.Helper()
+		var combined strings.Builder
+		for _, table := range []string{"accounts", "categories", "transactions", "monthly_budgets", "financial_goals", "obligations", "obligation_payments", "emergency_fund_settings", "workspace_finance_settings", "investments", "pyramid_items", "mortgage_simulations", "retirement_settings"} {
+			var snapshot string
+			// Table names are fixed test fixtures; hash all rows, including other workspaces.
+			query := fmt.Sprintf(`SELECT COALESCE(jsonb_agg(row_data ORDER BY row_data::text),'[]'::jsonb)::text FROM (SELECT to_jsonb(t) AS row_data FROM %s t) rows`, table)
+			if err := pool.QueryRow(ctx, query).Scan(&snapshot); err != nil {
+				t.Fatal(err)
+			}
+			combined.WriteString(table)
+			combined.WriteString(snapshot)
+		}
+		return combined.String()
+	}
+	beforeAnalysis := financeFingerprint()
+	for _, statement := range []string{
+		"INSERT INTO transactions SELECT * FROM transactions WHERE false",
+		"UPDATE accounts SET current_balance=0 WHERE false",
+		"DELETE FROM transactions WHERE false",
+		"TRUNCATE transactions",
+		"DROP TABLE transactions",
+	} {
+		tx, err := api.beginAIFinanceRead(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var readOnly string
+		if err = tx.QueryRow(ctx, "SHOW transaction_read_only").Scan(&readOnly); err != nil || readOnly != "on" {
+			t.Fatalf("Finance transaction is not read-only: %s %v", readOnly, err)
+		}
+		_, err = tx.Exec(ctx, statement)
+		tx.Rollback(ctx)
+		var databaseError *pgconn.PgError
+		if !errors.As(err, &databaseError) || databaseError.Code != "25006" {
+			t.Fatalf("PostgreSQL accepted a Finance write or rejected it for the wrong reason: %s: %v", statement, err)
+		}
 	}
 	snapshot, err := api.aiFinanceContext(ctx, workspace, settings, "2026-10", 10)
 	if err != nil {
@@ -220,5 +260,8 @@ func TestAIDatabaseLifecycle(t *testing.T) {
 	settingsAfter, err := api.aiLoadSettings(ctx, workspace, user)
 	if err != nil || settingsAfter.DefaultCredentialID != nil {
 		t.Fatal("deleted default credential was not cleared")
+	}
+	if afterAnalysis := financeFingerprint(); afterAnalysis != beforeAnalysis {
+		t.Fatal("AI analysis or AI record cleanup modified Finance source data")
 	}
 }

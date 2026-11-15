@@ -103,3 +103,7 @@ For the AI database lifecycle test, set `AI_TEST_DATABASE_URL` to a disposable
 PostgreSQL database migrated through 028 before running Go tests. The test uses a
 local mock provider and covers encryption, data scopes, simulation, replay, and
 cross-user/workspace access without sending real financial data to an AI provider.
+It also checks that the actual Finance read transaction rejects INSERT, UPDATE,
+DELETE, TRUNCATE, and DROP with PostgreSQL error 25006. A comparison of all Finance
+source rows before and after analysis and AI cleanup verifies that source data
+stays unchanged, including when provider output contains SQL and a tool-call attempt.

@@ -138,6 +138,7 @@ function handleMaintenanceSearch(event) {
 }
 
 function isNavCurrent(item) {
+  if (item.to === '/ai') return route.name === 'ai'
   if (item.to === '/reader') return route.path === '/reader' || route.name === 'reader-book'
   if (item.to === '/finance' || item.to === '/maintenance') return route.path === item.to
   return route.path === item.to || route.path.startsWith(`${item.to}/`)
