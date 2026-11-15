@@ -30,6 +30,8 @@ const router = createRouter({
     { path: '/', name: 'landing', component: LandingView, meta: { title: 'Catatan sehari-hari', product: 'Hub.by', layout: 'landing' } },
     { path: '/login', name: 'login', component: HubView, meta: { title: 'Masuk', product: 'Hub.by', layout: 'portal' } },
     { path: '/hub', name: 'hub', component: HubView, meta: { title: 'Pilih modul', product: 'Hubby', layout: 'portal' } },
+    { path: '/ai', name: 'ai', component: () => import('./views/AIView.vue'), meta: { title: 'Percakapan', product: 'AI' } },
+    { path: '/ai/settings', name: 'ai-settings', component: () => import('./views/AISettingsView.vue'), meta: { title: 'Pengaturan AI', product: 'AI' } },
     { path: '/finance', name: 'dashboard', component: DashboardView, meta: { title: 'Ringkasan', product: 'Finance' } },
     { path: '/finance/health', name: 'financial-health', component: FinancialHealthView, meta: { title: 'Kesehatan keuangan', product: 'Finance' } },
     { path: '/finance/transactions', name: 'transactions', component: TransactionsView, meta: { title: 'Arus kas', product: 'Finance' } },
@@ -67,7 +69,7 @@ const router = createRouter({
 })
 
 router.afterEach((to) => {
-  const product = to.meta.product === 'Reader' ? 'Hubby Reader' : to.meta.product === 'Maintenance' ? 'Hubby Maintenance' : to.meta.product === 'Watch' ? 'Hubby Watch' : to.meta.product === 'Books' ? 'Hubby Books' : to.meta.product === 'Finance' ? 'Hubby Finance' : to.meta.product === 'Hub.by' ? 'Hub.by' : 'Hubby'
+  const product = to.meta.product === 'AI' ? 'Hubby AI' : to.meta.product === 'Reader' ? 'Hubby Reader' : to.meta.product === 'Maintenance' ? 'Hubby Maintenance' : to.meta.product === 'Watch' ? 'Hubby Watch' : to.meta.product === 'Books' ? 'Hubby Books' : to.meta.product === 'Finance' ? 'Hubby Finance' : to.meta.product === 'Hub.by' ? 'Hub.by' : 'Hubby'
   document.title = `${to.meta.title || 'Hubby'} · ${product}`
 })
 

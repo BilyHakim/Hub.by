@@ -3,6 +3,17 @@ import { ArrowUpRight, BarChart3, BookOpen, BookMarked, Clapperboard, Clock3, Fi
 
 const modules = [
   {
+    name: 'Hubby AI',
+    description: 'Analisis keuangan, evaluasi pos pengeluaran, dan simulasikan pilihan berdasarkan catatan Finance.',
+    to: '/ai',
+    icon: Sparkles,
+    tone: 'ai',
+    features: [
+      { icon: BarChart3, label: 'Analisis Finance' },
+      { icon: History, label: 'Percakapan pribadi' },
+    ],
+  },
+  {
     name: 'Hubby Reader',
     description: 'Baca PDF dan EPUB, tandai bagian penting, dan lanjutkan dari posisi terakhir. Terhubung ke Hubby Books.',
     to: '/reader',

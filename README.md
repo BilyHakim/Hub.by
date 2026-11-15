@@ -4,6 +4,8 @@ Hubby (Hub Bily) adalah workspace aplikasi bily. **Hubby Finance** mengelola ren
 
 ## Struktur
 
+Modul **Hubby AI** tersedia di `/ai` untuk chat dan analisis Finance dengan multi credential terenkripsi, izin sumber data, simulasi pengeluaran, serta riwayat pribadi per workspace. Jalankan migration `028_ai.sql` dan pasang `AI_ENCRYPTION_KEY` pada backend sebelum menambahkan credential melalui Settings. Panduan aktivasi dan batasannya tersedia di [Hubby AI](docs/ai.md).
+
 ```text
 .
 ├── backend/       Go REST API + migration PostgreSQL

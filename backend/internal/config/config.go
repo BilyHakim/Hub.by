@@ -21,6 +21,8 @@ type Config struct {
 	TelegramPairingCode string
 	TelegramLocalUserID int64
 	TelegramTimezone    string
+	AIEncryptionKey     string
+	AIAllowedHosts      []string
 }
 
 func Load() Config {
@@ -41,6 +43,8 @@ func Load() Config {
 		TelegramPairingCode: os.Getenv("TELEGRAM_PAIRING_CODE"),
 		TelegramLocalUserID: int64OrDefault("TELEGRAM_LOCAL_USER_ID", 1),
 		TelegramTimezone:    valueOrDefault("TELEGRAM_TIMEZONE", "Asia/Jakarta"),
+		AIEncryptionKey:     os.Getenv("AI_ENCRYPTION_KEY"),
+		AIAllowedHosts:      splitOrigins(os.Getenv("AI_ALLOWED_HOSTS")),
 	}
 }
 

@@ -19,6 +19,11 @@ import (
 func main() {
 	cfg := config.Load()
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	aiConfig, err := httpapi.NewAIConfig(cfg.AIEncryptionKey, cfg.AIAllowedHosts)
+	if err != nil {
+		logger.Error("AI configuration failed", "error", err)
+		os.Exit(1)
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -59,7 +64,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
-		Handler:           httpapi.NewRouter(pool, logger, cfg.FrontendOrigin, cfg.TMDBAPIToken, cfg.TrustProxy, cfg.CORSAllowedOrigins...),
+		Handler:           httpapi.NewRouterWithAI(pool, logger, cfg.FrontendOrigin, cfg.TMDBAPIToken, cfg.TrustProxy, aiConfig, cfg.CORSAllowedOrigins...),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       120 * time.Second,
 		WriteTimeout:      120 * time.Second,

@@ -7,7 +7,7 @@ import {
   Check, Ellipsis, UserRound, SlidersHorizontal, Users, WalletCards,
   ArrowDownLeft, ArrowUpRight, LogOut, Clapperboard, LayoutGrid, Trash2,
   ChevronLeft, BookOpen,
-  Activity, Wrench, Package, History,
+  Activity, Wrench, Package, History, Sparkles,
 } from '@lucide/vue'
 import { api } from './services/api'
 import LoginView from './components/LoginView.vue'
@@ -110,21 +110,26 @@ const readerNav = [
   { to: '/reader/annotations', label: 'Mark & anotasi', icon: History },
   { to: '/books', label: 'Hubby Books', icon: BookOpen },
 ]
+const aiNav = [
+  { to: '/ai', label: 'Percakapan', icon: Sparkles },
+  { to: '/ai/settings', label: 'Pengaturan AI', icon: Settings },
+]
+const isAI = computed(() => route.meta.product === 'AI')
 const isReader = computed(() => route.meta.product === 'Reader')
 const isPortal = computed(() => route.meta.layout === 'portal')
 const isFinance = computed(() => route.meta.product === 'Finance')
 const isWatch = computed(() => route.meta.product === 'Watch')
 const isBooks = computed(() => route.meta.product === 'Books')
 const isMaintenance = computed(() => route.meta.product === 'Maintenance')
-const isModuleShell = computed(() => isFinance.value || isWatch.value || isBooks.value || isMaintenance.value || isReader.value)
+const isModuleShell = computed(() => isFinance.value || isWatch.value || isBooks.value || isMaintenance.value || isReader.value || isAI.value)
 const maintenanceNav = [
   { to: '/maintenance', label: 'Ringkasan', icon: Wrench },
   { to: '/maintenance/items', label: 'Daftar barang', icon: Package },
   { to: '/maintenance/history', label: 'Riwayat maintenance', icon: History },
 ]
-const nav = computed(() => isReader.value ? readerNav : isMaintenance.value ? maintenanceNav : isFinance.value ? financeNav : isBooks.value ? booksNav : watchNav)
-const productName = computed(() => isReader.value ? 'reader' : isMaintenance.value ? 'maintenance' : isFinance.value ? 'finance' : isBooks.value ? 'books' : 'watch')
-const navLabel = computed(() => isReader.value ? 'Bacaan digital' : isMaintenance.value ? 'Perawatan barang' : isFinance.value ? 'Keuangan' : isBooks.value ? 'Bacaan' : 'Tontonan')
+const nav = computed(() => isAI.value ? aiNav : isReader.value ? readerNav : isMaintenance.value ? maintenanceNav : isFinance.value ? financeNav : isBooks.value ? booksNav : watchNav)
+const productName = computed(() => isAI.value ? 'AI' : isReader.value ? 'reader' : isMaintenance.value ? 'maintenance' : isFinance.value ? 'finance' : isBooks.value ? 'books' : 'watch')
+const navLabel = computed(() => isAI.value ? 'Asisten pribadi' : isReader.value ? 'Bacaan digital' : isMaintenance.value ? 'Perawatan barang' : isFinance.value ? 'Keuangan' : isBooks.value ? 'Bacaan' : 'Tontonan')
 const searchPlaceholder = computed(() => isReader.value ? 'Cari buku atau anotasi...' : isMaintenance.value ? 'Cari barang...' : route.meta.product === 'Watch' ? 'Cari film atau series...' : route.meta.product === 'Books' ? 'Cari buku atau penulis...' : 'Cari transaksi, tujuan...')
 
 function handleMaintenanceSearch(event) {
@@ -294,6 +299,7 @@ async function loadIdentity() {
     const [profileResult, workspaceResult] = await Promise.all([api.me(), api.workspaces()])
     Object.assign(profile, profileResult)
     selectedWorkspaceId.value = profileResult.currentWorkspaceId || selectedWorkspaceId.value
+    localStorage.setItem('hubby-workspace-id', String(selectedWorkspaceId.value))
     if (workspaceResult.length) workspaces.value = workspaceResult
     return true
   } catch {
@@ -472,7 +478,7 @@ onBeforeUnmount(() => {
     </header>
     <RouterView />
   </div>
-  <div v-else class="app-shell" :class="{ 'sidebar-hidden': sidebarHidden, 'module-shell': isModuleShell, 'finance-shell': isFinance, 'watch-shell': isWatch, 'books-shell': isBooks, 'maintenance-shell': isMaintenance, 'reader-shell': isReader }">
+  <div v-else class="app-shell" :class="{ 'sidebar-hidden': sidebarHidden, 'module-shell': isModuleShell, 'finance-shell': isFinance, 'watch-shell': isWatch, 'books-shell': isBooks, 'maintenance-shell': isMaintenance, 'reader-shell': isReader, 'ai-shell': isAI }">
     <div v-if="sidebarOpen" class="sidebar-backdrop" @click="sidebarOpen = false" />
     <aside class="sidebar" :class="{ 'is-open': sidebarOpen }">
       <div class="brand">
@@ -535,7 +541,7 @@ onBeforeUnmount(() => {
               <button class="dropdown-action" type="button" @click="openProfile"><UserRound :size="17" /> Profil saya</button>
               <RouterLink v-if="isFinance" class="dropdown-action" to="/finance/settings" @click="closeMenus"><SlidersHorizontal :size="17" /> Pengaturan Finance</RouterLink>
               <button class="dropdown-action logout-action" type="button" @click="handleLogout"><LogOut :size="17" /> Keluar</button>
-              <div class="dropdown-footer"><WalletCards :size="14" /> Hubby {{ isReader ? 'Reader' : isMaintenance ? 'Maintenance' : isFinance ? 'Finance' : isBooks ? 'Books' : 'Watch' }} · Sesi aman</div>
+              <div class="dropdown-footer"><WalletCards :size="14" /> Hubby {{ isAI ? 'AI' : isReader ? 'Reader' : isMaintenance ? 'Maintenance' : isFinance ? 'Finance' : isBooks ? 'Books' : 'Watch' }} · Sesi aman</div>
             </div>
           </Transition>
         </div>
@@ -558,7 +564,7 @@ onBeforeUnmount(() => {
       <header class="topbar">
         <button v-if="isModuleShell" class="icon-button module-nav-toggle" type="button" :aria-label="sidebarHidden ? 'Tampilkan navigasi' : 'Sembunyikan navigasi'" :aria-expanded="!sidebarHidden" @click="toggleSidebar"><Menu v-if="sidebarHidden" :size="20" /><ChevronLeft v-else :size="20" /></button>
         <button class="icon-button menu-button" aria-label="Tampilkan navigasi" title="Tampilkan navigasi" @click="showSidebar"><Menu :size="21" /></button>
-        <div v-if="route.name !== 'reader-book'" class="search-box">
+        <div v-if="route.name !== 'reader-book' && !isAI" class="search-box">
           <Search :size="18" />
           <input aria-label="Cari" :placeholder="searchPlaceholder" @input="handleMaintenanceSearch" />
           <kbd>⌘ K</kbd>

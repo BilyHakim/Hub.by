@@ -27,7 +27,25 @@ async function request(path, options = {}) {
   return payload.data
 }
 
+function aiRequest(path, options = {}) {
+  return request(`/ai${path}`, {
+    ...options,
+    headers: { 'X-Hubby-Workspace': localStorage.getItem('hubby-workspace-id') || '' },
+  })
+}
+
 export const api = {
+  aiSettings: (signal) => aiRequest('/settings', { signal }),
+  saveAISettings: (payload) => aiRequest('/settings', { method: 'PUT', body: JSON.stringify(payload) }),
+  saveAICredential: (payload) => aiRequest(payload.id ? `/credentials/${payload.id}` : '/credentials', { method: payload.id ? 'PUT' : 'POST', body: JSON.stringify(payload) }),
+  deleteAICredential: (id) => aiRequest(`/credentials/${id}`, { method: 'DELETE' }),
+  testAICredential: (id, signal) => aiRequest(`/credentials/${id}/test`, { method: 'POST', signal }),
+  aiContext: (month, reduction, signal) => aiRequest(`/context?month=${encodeURIComponent(month)}&reduction=${reduction}`, { signal }),
+  aiConversations: (signal) => aiRequest('/conversations', { signal }),
+  aiConversation: (id, signal) => aiRequest(`/conversations/${id}`, { signal }),
+  deleteAIConversation: (id) => aiRequest(`/conversations/${id}`, { method: 'DELETE' }),
+  clearAIConversations: () => aiRequest('/conversations', { method: 'DELETE' }),
+  sendAIMessage: (payload, signal) => aiRequest('/messages', { method: 'POST', body: JSON.stringify(payload), signal }),
   reader: () => request('/reader'),
   readerFile: (id) => request(`/reader/books/${id}/file`, { binary: true }),
   uploadReaderBook: (body) => request('/reader/books', { method: 'POST', body }),

@@ -46,6 +46,8 @@ services:
       TELEGRAM_PAIRING_CODE: ${TELEGRAM_PAIRING_CODE:-}
       TELEGRAM_LOCAL_USER_ID: ${TELEGRAM_LOCAL_USER_ID:-1}
       TELEGRAM_TIMEZONE: ${TELEGRAM_TIMEZONE:-Asia/Jakarta}
+      AI_ENCRYPTION_KEY: ${AI_ENCRYPTION_KEY:-}
+      AI_ALLOWED_HOSTS: ${AI_ALLOWED_HOSTS:-}
     depends_on:
       postgres:
         condition: service_healthy

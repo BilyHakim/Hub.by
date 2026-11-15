@@ -25,15 +25,34 @@ type API struct {
 	loginAttempts map[string]loginAttempt
 	tmdbAPIToken  string
 	httpClient    *http.Client
+	aiConfig      AIConfig
+	aiClient      *http.Client
 }
 
 func NewRouter(db *pgxpool.Pool, logger *slog.Logger, frontendOrigin, tmdbAPIToken string, trustProxy bool, additionalOrigins ...string) http.Handler {
+	return NewRouterWithAI(db, logger, frontendOrigin, tmdbAPIToken, trustProxy, AIConfig{}, additionalOrigins...)
+}
+
+func NewRouterWithAI(db *pgxpool.Pool, logger *slog.Logger, frontendOrigin, tmdbAPIToken string, trustProxy bool, aiConfig AIConfig, additionalOrigins ...string) http.Handler {
 	api := &API{
 		db: db, logger: logger, secureCookies: strings.HasPrefix(frontendOrigin, "https://"), trustProxy: trustProxy,
 		loginAttempts: make(map[string]loginAttempt), tmdbAPIToken: strings.TrimSpace(tmdbAPIToken),
 		httpClient: &http.Client{Timeout: 8 * time.Second},
+		aiConfig:   aiConfig, aiClient: aiConfig.client(),
 	}
 	protected := http.NewServeMux()
+	protected.HandleFunc("GET /api/v1/ai/settings", api.getAISettings)
+	protected.HandleFunc("PUT /api/v1/ai/settings", api.saveAISettings)
+	protected.HandleFunc("POST /api/v1/ai/credentials", api.saveAICredential)
+	protected.HandleFunc("PUT /api/v1/ai/credentials/{id}", api.saveAICredential)
+	protected.HandleFunc("DELETE /api/v1/ai/credentials/{id}", api.deleteAICredential)
+	protected.HandleFunc("POST /api/v1/ai/credentials/{id}/test", api.testAICredential)
+	protected.HandleFunc("GET /api/v1/ai/context", api.getAIContext)
+	protected.HandleFunc("GET /api/v1/ai/conversations", api.listAIConversations)
+	protected.HandleFunc("GET /api/v1/ai/conversations/{id}", api.getAIConversation)
+	protected.HandleFunc("DELETE /api/v1/ai/conversations/{id}", api.deleteAIConversation)
+	protected.HandleFunc("DELETE /api/v1/ai/conversations", api.clearAIConversations)
+	protected.HandleFunc("POST /api/v1/ai/messages", api.sendAIMessage)
 	protected.HandleFunc("GET /api/v1/dashboard", api.dashboard)
 	protected.HandleFunc("GET /api/v1/financial-health", api.financialHealth)
 	protected.HandleFunc("GET /api/v1/transactions", api.listTransactions)
@@ -156,6 +175,10 @@ func corsMiddleware(origin string, additionalOrigins []string, next http.Handler
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestOrigin := r.Header.Get("Origin")
+		if strings.HasPrefix(r.URL.Path,"/api/v1/ai/") {
+			w.Header().Set("Cache-Control","no-store")
+			w.Header().Set("X-Content-Type-Options","nosniff")
+		}
 		_, explicitlyAllowed := allowedOrigins[requestOrigin]
 		if requestOrigin != "" {
 			w.Header().Add("Vary", "Origin")
@@ -164,7 +187,7 @@ func corsMiddleware(origin string, additionalOrigins []string, next http.Handler
 			w.Header().Set("Access-Control-Allow-Origin", requestOrigin)
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
 		}
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, "+clientVerificationHeader)
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Hubby-Workspace, "+clientVerificationHeader)
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 
 		if requestOrigin != "" && !explicitlyAllowed && (r.Method == http.MethodOptions || isUnsafeMethod(r.Method)) {
