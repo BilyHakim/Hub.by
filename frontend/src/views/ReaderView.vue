@@ -193,30 +193,32 @@ async function renderPDF() {
   } catch (e) { if (e.name !== 'RenderingCancelledException' && !disposed) error.value = e.message }
   finally { rendering.value = false }
 }
-async function resetPageScroll() {
+async function resetPageScroll(atEnd = false) {
   await nextTick()
   if (disposed) return
-  paperHost.value?.scrollTo({ top: 0, behavior: 'instant' })
-  contentHost.value?.scrollTo({ top: 0, behavior: 'instant' })
-  if (!fullscreen.value) contentHost.value?.scrollIntoView({ block: 'start', behavior: 'instant' })
+  paperHost.value?.scrollTo({ top: atEnd ? paperHost.value.scrollHeight : 0, behavior: 'instant' })
+  contentHost.value?.scrollTo({ top: atEnd ? contentHost.value.scrollHeight : 0, behavior: 'instant' })
+  if (!fullscreen.value) paperHost.value?.scrollIntoView({ block: atEnd ? 'end' : 'start', behavior: 'instant' })
 }
 async function navigate(target) {
   if (loading.value || rendering.value) return
   error.value = ''
   try {
     if (book.value.format === 'pdf') {
-      page.value = Math.max(1, Math.min(count.value, Number(target) || 1))
+      const targetPage = Math.max(1, Math.min(count.value, Number(target) || 1))
+      const goingBack = targetPage < page.value
+      page.value = targetPage
       location.value = String(page.value)
       canonicalPage.value = bookPage(page.value, count.value, book.value.totalPages)
       await renderPDF()
-      await resetPageScroll()
+      await resetPageScroll(goingBack)
       await save()
     } else {
       clearSelection()
       rendering.value = true
       try {
         await relocateEPUB(() => target === 'next' ? rendition.next() : target === 'prev' ? rendition.prev() : rendition.display(target))
-        await resetPageScroll()
+        await resetPageScroll(target === 'prev')
       } finally { rendering.value = false; resizeEPUB() }
     }
   } catch (e) { error.value = e.message }
