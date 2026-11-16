@@ -1,7 +1,7 @@
-.ai-shell { --sage: #66547e; --sage-dark: #49395e; --sage-light: #ece6f2; }
-.hub-module-ai .hub-module-icon, .hub-module-ai .hub-module-state { color: #66547e; background: #ece6f2; }
-.hub-module-ai::after { background: #ece6f2; }
-.hub-module-ai .hub-open-module { color: #66547e; }
+.ai-shell, .hub-module-ai { --sage: #746a32; --sage-dark: #4e4722; --sage-light: #f0eddb; --ai-border: #c8c19d; }
+.hub-module-ai::after { background: var(--sage-light); }
+.hub-module-ai:hover { border-color: var(--ai-border); }
+.hub-module-ai:focus-visible { outline: 3px solid var(--sage); outline-offset: 4px; }
 .ai-page { --muted: #626b66; }
 .ai-page h2 { font-size: 18px; margin: 0 0 12px; }
 .ai-page h3 { font-size: 15px; margin: 20px 0 10px; }
@@ -14,7 +14,7 @@
 .ai-page textarea { resize: vertical; line-height: 1.6; }
 .ai-page fieldset { border: 0; margin: 0; padding: 0; }
 .ai-muted { color: var(--muted); }
-.ai-notice { display: flex; align-items: start; gap: 10px; padding: 14px 18px; margin-bottom: 18px; background: var(--sage-light); border: 1px solid #c6bbd3; border-radius: 10px; font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
+.ai-notice { display: flex; align-items: start; gap: 10px; padding: 14px 18px; margin-bottom: 18px; background: var(--sage-light); border: 1px solid var(--ai-border); border-radius: 10px; font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
 .ai-notice p { margin: 8px 0 0; }
 .ai-notice a { font-weight: 700; text-decoration: underline; }
 .ai-error { background: #f8e9e5; border-color: #cb8c80; color: #81392d; }
@@ -119,7 +119,7 @@
 .ai-env-import { padding: 16px; background: var(--paper); border-radius: 10px; margin: 20px 0; }
 .ai-env-import summary { cursor: pointer; font-size: 13px; font-weight: 600; }
 .ai-env-import textarea { font-family: monospace; margin: 10px 0; }
-.ai-confirm { padding: 16px; margin-top: 16px; border: 1px solid #c6bbd3; border-radius: 10px; background: var(--sage-light); }
+.ai-confirm { padding: 16px; margin-top: 16px; border: 1px solid var(--ai-border); border-radius: 10px; background: var(--sage-light); }
 .ai-confirm p { margin-top: 0; }
 .ai-confirm button { margin-right: 10px; }
 @media (max-width: 1100px) { .ai-workspace { grid-template-columns: 190px minmax(0, 1fr); gap: 16px; } .ai-chat-options { grid-template-columns: 1fr 1fr; } .ai-chat-options > label:first-child { grid-column: 1 / -1; } }

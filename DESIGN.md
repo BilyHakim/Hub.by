@@ -26,3 +26,11 @@ Arah pemilik: susunan dashboard mengikuti gambar referensi, dengan color space a
 - Panel besar memiliki radius 22px, metrik 16px, dan kontrol memakai radius existing untuk membedakan fungsi setiap bidang. Panel tidak diberi bayangan; popover tetap memakai elevasi karena berada di atas konten.
 - Ikon dompet, bank, tabungan, dan tren memakai komponen existing karena sesuai dengan metrik keuangan. Tidak menambah ilustrasi, logo, avatar, atau statistik buatan.
 - Pada layar sempit, kolom kanan turun mengikuti pembuka dan navigasi memakai drawer existing. Fokus keyboard memakai sand; gerak hanya transisi kontrol dan mengikuti reduced motion.
+
+## Hubby AI
+
+Permintaan pemilik: warna tiap modul harus berbeda, dengan keluarga warna yang tetap senada. Hubby AI memakai olive keemasan redup agar terpisah dari sage Finance, biru Reader, lilac Watch, sand Books, dan merah Maintenance. ENERGY 2 / RHYTHM 2 / MOTION 1 mengikuti aplikasi existing.
+
+- Aksen `#746a32`, bingkai gelap `#4e4722`, bidang muda `#f0eddb`, dan garis aksen `#c8c19d` diterapkan pada kartu hub serta shell AI, termasuk navigasi, tombol, focus, pilihan aktif, dan pemberitahuan.
+- Warna kertas, DM Sans, Manrope, susunan, dan gerak existing mempertahankan hubungan dengan modul lain. Status error tetap memakai warna error existing.
+- Token dibatasi pada `.ai-shell` dan `.hub-module-ai` agar palet modul lain tetap independen.
