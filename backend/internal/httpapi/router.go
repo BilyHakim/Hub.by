@@ -44,6 +44,7 @@ func NewRouterWithAI(db *pgxpool.Pool, logger *slog.Logger, frontendOrigin, tmdb
 	protected.HandleFunc("GET /api/v1/ai/settings", api.getAISettings)
 	protected.HandleFunc("PUT /api/v1/ai/settings", api.saveAISettings)
 	protected.HandleFunc("POST /api/v1/ai/credentials", api.saveAICredential)
+	protected.HandleFunc("POST /api/v1/ai/models", api.previewAIModels)
 	protected.HandleFunc("PUT /api/v1/ai/credentials/{id}", api.saveAICredential)
 	protected.HandleFunc("DELETE /api/v1/ai/credentials/{id}", api.deleteAICredential)
 	protected.HandleFunc("POST /api/v1/ai/credentials/{id}/test", api.testAICredential)
@@ -175,9 +176,9 @@ func corsMiddleware(origin string, additionalOrigins []string, next http.Handler
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestOrigin := r.Header.Get("Origin")
-		if strings.HasPrefix(r.URL.Path,"/api/v1/ai/") {
-			w.Header().Set("Cache-Control","no-store")
-			w.Header().Set("X-Content-Type-Options","nosniff")
+		if strings.HasPrefix(r.URL.Path, "/api/v1/ai/") {
+			w.Header().Set("Cache-Control", "no-store")
+			w.Header().Set("X-Content-Type-Options", "nosniff")
 		}
 		_, explicitlyAllowed := allowedOrigins[requestOrigin]
 		if requestOrigin != "" {

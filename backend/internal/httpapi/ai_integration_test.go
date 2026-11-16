@@ -102,9 +102,24 @@ func TestAIDatabaseLifecycle(t *testing.T) {
 		return res.Body.Bytes()
 	}
 	credentialBody := envelope{"name": "QA credential", "provider": "custom", "baseUrl": provider.URL, "format": "chat_completions", "model": "qa-model", "maxTokens": 1024, "apiKey": "test-secret-must-be-encrypted", "zdr": false, "enabled": true}
+	preview := envelope{"provider": "custom", "baseUrl": provider.URL, "format": "chat_completions", "apiKey": "preview-secret"}
+	if data := call(api.previewAIModels, "POST", 0, preview, 200); !bytes.Contains(data, []byte("qa-model")) || bytes.Contains(data, []byte("preview-secret")) {
+		t.Fatal("model preview failed or exposed key")
+	}
+	var count int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM ai_credentials WHERE workspace_id=$1 AND user_id=$2`, workspace, user).Scan(&count); err != nil || count != 0 {
+		t.Fatal("preview persisted a credential", err)
+	}
 	var saved struct{ Data aiCredential }
 	json.Unmarshal(call(api.saveAICredential, "POST", 0, credentialBody, 200), &saved)
 	credential := saved.Data.ID
+	preview["id"], preview["apiKey"] = credential, ""
+	call(api.previewAIModels, "POST", 0, preview, 200)
+	preview["baseUrl"] = provider.URL + "/changed"
+	call(api.previewAIModels, "POST", 0, preview, 422)
+	preview["baseUrl"] = provider.URL
+	preview["id"] = credential + 1000000
+	call(api.previewAIModels, "POST", 0, preview, 422)
 	var cipher []byte
 	pool.QueryRow(ctx, `SELECT secret FROM ai_credentials WHERE id=$1`, credential).Scan(&cipher)
 	if bytes.Contains(cipher, []byte("test-secret")) {

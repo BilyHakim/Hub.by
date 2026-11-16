@@ -77,6 +77,45 @@ func TestAIEndpointRestrictions(t *testing.T) {
 	}
 }
 
+func TestAIModelDiscovery(t *testing.T) {
+	for _, tc := range []struct {
+		name, format, body, want string
+		status                   int
+	}{
+		{"chat", "chat_completions", `{"data":[{"id":"chat","supported_endpoints":["/v1/chat/completions"]},{"id":"claude","supported_endpoints":["/v1/messages"]},{"id":"chat"},{"id":""},{"id":"legacy"}]}`, `"models":["chat","legacy"]`, 200},
+		{"messages", "messages", `{"data":[{"id":"chat","supported_endpoints":["chat/completions"]},{"id":"claude","supported_endpoints":["messages"]}]}`, `"models":["claude"]`, 200},
+		{"ollama", "ollama", `{"models":[{"name":"local"},{"name":"local"}]}`, `"models":["local"]`, 200},
+		{"empty", "chat_completions", `{"data":[]}`, `"models":[]`, 200},
+		{"invalid", "chat_completions", `broken`, "daftar model dari provider tidak valid", 502},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				path := "/models"
+				if tc.format == "ollama" {
+					path = "/api/tags"
+				}
+				authorized := r.Header.Get("Authorization") == "Bearer secret"
+				if tc.format == "messages" {
+					authorized = r.Header.Get("x-api-key") == "secret"
+				}
+				if r.Method != "GET" || r.URL.Path != path || !authorized {
+					t.Error("incorrect model discovery request")
+				}
+				w.Write([]byte(tc.body))
+			}))
+			defer server.Close()
+			u, _ := url.Parse(server.URL)
+			config := testAIConfig(t, u.Host)
+			api := &API{aiConfig: config, aiClient: config.client()}
+			res := httptest.NewRecorder()
+			api.writeAIModels(res, httptest.NewRequest("POST", "/", nil), aiCredential{BaseURL: server.URL, Format: tc.format}, "secret")
+			if res.Code != tc.status || !strings.Contains(res.Body.String(), tc.want) || strings.Contains(res.Body.String(), "secret") {
+				t.Fatalf("status=%d body=%s", res.Code, res.Body.String())
+			}
+		})
+	}
+}
+
 func TestAIProviderFormatsAndErrors(t *testing.T) {
 	for _, format := range []string{"chat_completions", "messages", "ollama"} {
 		t.Run(format, func(t *testing.T) {

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { ArrowLeft, Check, KeyRound, Pencil, Plus, Save, Trash2 } from '@lucide/vue'
 import { api } from '../services/api'
 
@@ -11,6 +11,11 @@ const config = ref(null)
 const formOpen = ref(false)
 const envText = ref('')
 const models = ref([])
+const modelsLoading = ref(false)
+const modelsStatus = ref('')
+const modelSearch = ref('')
+let modelController
+let modelEpoch = 0
 const deleteTarget = ref(null)
 const clearHistory = ref(false)
 const preferences = reactive({ defaultCredentialId: null, financeEnabled: false, includeBalances: false, includeGoals: false, includeObligations: false, retentionDays: 30, dailyLimit: 20 })
@@ -18,6 +23,36 @@ const credential = reactive({ id: 0, name: '', provider: 'commandcode', baseUrl:
 let controller
 let epoch = 0
 const activeCredentials = computed(() => (config.value?.credentials || []).filter(item => item.enabled))
+const filteredModels = computed(() => models.value.filter(model => model.toLowerCase().includes(modelSearch.value.trim().toLowerCase())))
+function resetModels() {
+  modelController?.abort()
+  modelEpoch++
+  models.value = []
+  modelSearch.value = ''
+  modelsStatus.value = ''
+  modelsLoading.value = false
+}
+watch(() => [credential.provider, credential.baseUrl, credential.format, credential.apiKey, credential.zdr], resetModels, { flush: 'sync' })
+watch(() => [credential.provider, credential.baseUrl, credential.format], () => { credential.model = '' }, { flush: 'sync' })
+async function fetchModels() {
+  resetModels()
+  const current = modelEpoch
+  modelController = new AbortController()
+  modelsLoading.value = true
+  error.value = ''
+  try {
+    const result = await api.aiModels({ ...credential }, modelController.signal)
+    if (current !== modelEpoch) return
+    models.value = result.models
+    modelsStatus.value = result.models.length
+      ? `${result.models.length} model tersedia. Pilih model di bawah. Akses dan kuota diperiksa saat chat dikirim.`
+      : 'Tidak ada model untuk format API ini. Periksa format API atau masukkan ID model secara manual.'
+  } catch (e) {
+    if (current === modelEpoch && e.name !== 'AbortError') error.value = e.message
+  } finally {
+    if (current === modelEpoch) modelsLoading.value = false
+  }
+}
 const presets = {
   commandcode: ['https://api.commandcode.ai/provider/v1', 'chat_completions'],
   openai: ['https://api.openai.com/v1', 'chat_completions'],
@@ -31,6 +66,7 @@ function changeProvider() {
   models.value = []
 }
 function editCredential(item) {
+  resetModels()
   Object.assign(credential, item || { id: 0, name: '', provider: 'commandcode', baseUrl: presets.commandcode[0], format: 'chat_completions', model: '', maxTokens: 4096, zdr: true, enabled: true })
   credential.apiKey = ''
   envText.value = ''
@@ -40,6 +76,7 @@ function editCredential(item) {
   status.value = ''
 }
 function closeForm() {
+  resetModels()
   formOpen.value = false
   credential.apiKey = ''
   envText.value = ''
@@ -148,7 +185,7 @@ async function removeHistory() {
   await run(async () => { await api.clearAIConversations(); if (current === epoch) clearHistory.value = false }, 'Riwayat chat pada workspace ini dihapus. Metadata penggunaan tetap mengikuti masa retensi.')
 }
 onMounted(() => { load(); window.addEventListener('hubby:workspace-changed', load) })
-onBeforeUnmount(() => { epoch++; controller?.abort(); window.removeEventListener('hubby:workspace-changed', load) })
+onBeforeUnmount(() => { epoch++; controller?.abort(); resetModels(); window.removeEventListener('hubby:workspace-changed', load) })
 </script>
 
 <template>
@@ -172,7 +209,20 @@ onBeforeUnmount(() => { epoch++; controller?.abort(); window.removeEventListener
             <label>Base URL<input v-model="credential.baseUrl" type="url" required :readonly="['commandcode', 'openai', 'anthropic'].includes(credential.provider)" /></label>
             <label>Format API<select v-model="credential.format" :disabled="['openai', 'anthropic', 'ollama'].includes(credential.provider)"><option value="chat_completions">Chat Completions</option><option value="messages">Anthropic Messages</option><option v-if="credential.provider === 'ollama'" value="ollama">Ollama</option></select></label>
             <label>API key<input v-model="credential.apiKey" type="password" autocomplete="new-password" :required="!credential.id && credential.provider !== 'ollama'" :placeholder="credential.id ? 'Kosongkan untuk mempertahankan key' : 'Masukkan API key'" maxlength="8192" /></label>
-            <label>Model<input v-model="credential.model" list="ai-models" required maxlength="200" placeholder="ID model dari provider" /><datalist id="ai-models"><option v-for="model in models" :key="model" :value="model" /></datalist></label>
+            <div class="ai-model-picker">
+              <button type="button" class="secondary-button" :disabled="modelsLoading || (!credential.apiKey.trim() && !credential.id && credential.provider !== 'ollama')" @click="fetchModels">{{ modelsLoading ? 'Mengambil model...' : 'Ambil daftar model' }}</button>
+              <p id="ai-model-status" class="ai-muted" role="status">{{ modelsLoading ? 'Menghubungi provider untuk mengambil daftar model...' : modelsStatus || 'Isi API key, lalu ambil daftar model. Credential belum perlu disimpan.' }}</p>
+              <label v-if="models.length">Cari model<input v-model="modelSearch" type="search" placeholder="Cari nama atau ID model" /></label>
+              <label>Model
+                <select v-if="models.length" v-model="credential.model" required aria-describedby="ai-model-status">
+                  <option disabled value="">Pilih model</option>
+                  <option v-if="credential.model && !filteredModels.includes(credential.model)" :value="credential.model">{{ credential.model }} (pilihan saat ini)</option>
+                  <option v-for="model in filteredModels" :key="model" :value="model">{{ model }}</option>
+                </select>
+                <input v-else v-model="credential.model" required maxlength="200" placeholder="Ambil daftar model atau isi ID secara manual" aria-describedby="ai-model-status" />
+              </label>
+              <p v-if="models.length && !filteredModels.length" class="ai-muted" role="status">Tidak ada model yang cocok dengan pencarian.</p>
+            </div>
             <label>Batas token jawaban<input v-model.number="credential.maxTokens" type="number" required min="256" max="8192" step="1" /></label>
             <label class="ai-checkbox"><input v-model="credential.enabled" type="checkbox" />Credential aktif</label>
             <label v-if="credential.provider === 'commandcode'" class="ai-checkbox ai-form-wide"><input v-model="credential.zdr" type="checkbox" />Wajibkan zero data retention (ZDR). Model yang tidak mendukung akan menolak permintaan.</label>

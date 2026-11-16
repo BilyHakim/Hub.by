@@ -12,8 +12,13 @@ request, and a conversation keeps its original workspace while generation runs.
    `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"`.
 3. Set `AI_ENCRYPTION_KEY` in the backend environment. Production Compose forwards
    this variable. Restart/rebuild the backend and frontend as appropriate.
-4. Open Hubby AI settings, add a credential, select its model and API format, save,
-   and test the connection. The connection test lists models without generating
+4. Open Hubby AI settings, add a credential, enter the API key and API format,
+   click "Ambil daftar model", search and select a model, then save.
+   Model discovery works before saving and does not store the submitted key.
+   Models with endpoint metadata are filtered by the selected API format.
+   Changing the provider, endpoint, key, format, or ZDR clears the fetched list.
+   You can still enter a model ID manually if discovery is unavailable.
+   Test the saved connection. The connection test lists models without generating
    an answer. Model access and quota are checked by the provider during generation.
 5. Enable Finance access and any optional scopes you want to share. Save settings,
    open a conversation, select a period, and inspect the data before sending.

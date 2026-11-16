@@ -78,8 +78,12 @@
 .ai-credential-row small { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
 .ai-row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .ai-credential-form { border-top: 1px solid var(--line); padding-top: 8px; }
-.ai-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.ai-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 20px; }
 .ai-form-wide { grid-column: 1 / -1; }
+.ai-model-picker { display: grid; gap: 12px; min-width: 0; }
+.ai-model-picker > button { justify-self: start; min-height: 44px; }
+.ai-model-picker > p { margin: 0; font-size: 13px; line-height: 1.6; }
+.ai-model-picker select { width: 100%; min-width: 0; }
 .ai-page .ai-checkbox { display: flex; align-items: center; gap: 12px; font-weight: 400; line-height: 1.6; }
 .ai-page .ai-checkbox input { width: 20px; height: 20px; min-height: 20px; flex: none; accent-color: var(--sage); }
 .ai-checkbox small { display: block; font-size: 12px; margin-top: 5px; color: var(--muted); }

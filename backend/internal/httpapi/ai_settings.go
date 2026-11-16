@@ -123,6 +123,78 @@ func (api *API) aiLoadCredential(ctx context.Context, workspace, user, id int64)
 	return c, err
 }
 
+func (api *API) validateAIEndpoint(c aiCredential) error {
+	u, err := api.aiConfig.validateURL(c.BaseURL)
+	if err != nil {
+		return err
+	}
+	switch c.Provider {
+	case "commandcode":
+		if u.Host != "api.commandcode.ai" || u.Path != "/provider/v1" || (c.Format != "chat_completions" && c.Format != "messages") {
+			return errors.New("CommandCode memakai https://api.commandcode.ai/provider/v1 dan format chat atau messages")
+		}
+	case "openai":
+		if u.Host != "api.openai.com" || u.Path != "/v1" || c.Format != "chat_completions" {
+			return errors.New("konfigurasi OpenAI tidak valid")
+		}
+	case "anthropic":
+		if u.Host != "api.anthropic.com" || u.Path != "/v1" || c.Format != "messages" {
+			return errors.New("konfigurasi Anthropic tidak valid")
+		}
+	case "ollama":
+		if c.Format != "ollama" {
+			return errors.New("pilih format Ollama")
+		}
+	case "custom":
+		if c.Format != "chat_completions" && c.Format != "messages" {
+			return errors.New("format API kustom tidak valid")
+		}
+	default:
+		return errors.New("provider tidak didukung")
+	}
+	return nil
+}
+
+func (api *API) previewAIModels(w http.ResponseWriter, r *http.Request) {
+	workspace, user, ok := api.aiIdentity(w, r)
+	if !ok {
+		return
+	}
+	var input struct {
+		aiCredential
+		APIKey string `json:"apiKey"`
+	}
+	if decodeJSON(r, &input) != nil || len(input.APIKey) > 8192 || strings.ContainsAny(input.APIKey, "\r\n") || input.ID < 0 {
+		writeError(w, 422, "konfigurasi credential tidak valid")
+		return
+	}
+	c := input.aiCredential
+	c.BaseURL = strings.TrimRight(strings.TrimSpace(c.BaseURL), "/")
+	if err := api.validateAIEndpoint(c); err != nil {
+		writeError(w, 422, err.Error())
+		return
+	}
+	key := strings.TrimSpace(input.APIKey)
+	if key == "" && c.Provider != "ollama" && c.ID > 0 {
+		var stored aiCredential
+		err := api.db.QueryRow(r.Context(), `SELECT secret,base_url,provider FROM ai_credentials WHERE id=$1 AND workspace_id=$2 AND user_id=$3`, c.ID, workspace, user).Scan(&stored.Secret, &stored.BaseURL, &stored.Provider)
+		if err != nil || stored.BaseURL != c.BaseURL || stored.Provider != c.Provider {
+			writeError(w, 422, "isi API key untuk provider dan endpoint ini")
+			return
+		}
+		key, err = api.aiConfig.open(stored.Secret, aiSecretScope(workspace, user))
+		if err != nil {
+			writeError(w, 503, "gagal membuka credential tersimpan")
+			return
+		}
+	}
+	if key == "" && c.Provider != "ollama" {
+		writeError(w, 422, "API key wajib diisi untuk mengambil model")
+		return
+	}
+	api.writeAIModels(w, r, c, key)
+}
+
 func (api *API) saveAICredential(w http.ResponseWriter, r *http.Request) {
 	workspace, user, ok := api.aiIdentity(w, r)
 	if !ok {
@@ -146,41 +218,11 @@ func (api *API) saveAICredential(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 422, "isi nama, model, dan batas token 256–8192 dengan benar")
 		return
 	}
-	u, err := api.aiConfig.validateURL(c.BaseURL)
-	if err != nil {
+	if err := api.validateAIEndpoint(c); err != nil {
 		writeError(w, 422, err.Error())
 		return
 	}
-	switch c.Provider {
-	case "commandcode":
-		if u.Host != "api.commandcode.ai" || u.Path != "/provider/v1" || (c.Format != "chat_completions" && c.Format != "messages") {
-			writeError(w, 422, "CommandCode memakai https://api.commandcode.ai/provider/v1 dan format chat atau messages")
-			return
-		}
-	case "openai":
-		if u.Host != "api.openai.com" || u.Path != "/v1" || c.Format != "chat_completions" {
-			writeError(w, 422, "konfigurasi OpenAI tidak valid")
-			return
-		}
-	case "anthropic":
-		if u.Host != "api.anthropic.com" || u.Path != "/v1" || c.Format != "messages" {
-			writeError(w, 422, "konfigurasi Anthropic tidak valid")
-			return
-		}
-	case "ollama":
-		if c.Format != "ollama" {
-			writeError(w, 422, "pilih format Ollama")
-			return
-		}
-	case "custom":
-		if c.Format != "chat_completions" && c.Format != "messages" {
-			writeError(w, 422, "format API kustom tidak valid")
-			return
-		}
-	default:
-		writeError(w, 422, "provider tidak didukung")
-		return
-	}
+	var err error
 	var id int64
 	if r.Method == "PUT" {
 		id, err = strconv.ParseInt(r.PathValue("id"), 10, 64)
@@ -273,6 +315,10 @@ func (api *API) testAICredential(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 503, err.Error())
 		return
 	}
+	api.writeAIModels(w, r, c, key)
+}
+
+func (api *API) writeAIModels(w http.ResponseWriter, r *http.Request, c aiCredential, key string) {
 	path := "/models"
 	if c.Format == "ollama" {
 		path = "/api/tags"
@@ -284,7 +330,8 @@ func (api *API) testAICredential(w http.ResponseWriter, r *http.Request) {
 	}
 	var result struct {
 		Data []struct {
-			ID string `json:"id"`
+			ID                 string   `json:"id"`
+			SupportedEndpoints []string `json:"supported_endpoints"`
 		} `json:"data"`
 		Models []struct {
 			Name string `json:"name"`
@@ -295,15 +342,33 @@ func (api *API) testAICredential(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	models := make([]string, 0)
-	for _, m := range result.Data {
-		if len(models) < 200 && len(m.ID) < 200 {
-			models = append(models, m.ID)
+	seen := make(map[string]bool)
+	add := func(id string) {
+		if id != "" && len(id) <= 200 && !seen[id] && len(models) < 200 {
+			models = append(models, id)
+			seen[id] = true
 		}
 	}
-	for _, m := range result.Models {
-		if len(models) < 200 && len(m.Name) < 200 {
-			models = append(models, m.Name)
+	for _, m := range result.Data {
+		if len(m.SupportedEndpoints) > 0 {
+			endpoint := "/chat/completions"
+			if c.Format == "messages" {
+				endpoint = "/messages"
+			}
+			supported := false
+			for _, path := range m.SupportedEndpoints {
+				if strings.HasSuffix("/"+path, endpoint) {
+					supported = true
+				}
+			}
+			if !supported {
+				continue
+			}
 		}
+		add(m.ID)
+	}
+	for _, m := range result.Models {
+		add(m.Name)
 	}
 	writeJSON(w, 200, envelope{"data": envelope{"models": models, "message": "Koneksi berhasil. Akses generasi model mengikuti izin dan kuota provider."}})
 }
