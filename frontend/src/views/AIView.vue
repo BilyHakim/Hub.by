@@ -4,6 +4,7 @@ import { Plus, Send, Settings, Sparkles, Trash2 } from '@lucide/vue'
 import { api } from '../services/api'
 import AIContextCard from '../components/AIContextCard.vue'
 import AIAnswer from '../components/AIAnswer.vue'
+import { aiRangeError, defaultAIStartMonth } from '../utils/aiPeriodRange'
 
 const loading = ref(true)
 const sending = ref(false)
@@ -16,6 +17,7 @@ const question = ref('')
 const pendingQuestion = ref('')
 const credentialId = ref('')
 const month = ref('')
+const startMonth = ref('')
 const reduction = ref(10)
 const preview = ref(null)
 const previewBusy = ref(false)
@@ -29,7 +31,8 @@ let previewEpoch = 0
 let retryRequest = null
 const credentials = computed(() => (config.value?.credentials || []).filter(item => item.enabled))
 const selectedCredential = computed(() => credentials.value.find(item => item.id === Number(credentialId.value)))
-const ready = computed(() => !loading.value && !sending.value && !opening.value && config.value?.encryptionReady && !!selectedCredential.value && !!month.value)
+const rangeError = computed(() => aiRangeError(startMonth.value, month.value))
+const ready = computed(() => !loading.value && !sending.value && !opening.value && config.value?.encryptionReady && !!selectedCredential.value && !rangeError.value)
 const prompts = ['Evaluasi kondisi keuangan saya pada periode ini.', 'Pos pengeluaran mana yang bisa saya sesuaikan?', 'Jelaskan dampak simulasi ini terhadap cashflow saya.']
 
 function resetConversation() {
@@ -68,6 +71,7 @@ async function load() {
     config.value = settings
     conversations.value = history
     month.value = period.currentPeriodLabel
+    startMonth.value = defaultAIStartMonth(month.value)
     const defaultCredential = credentials.value.find(item => item.id === settings.settings.defaultCredentialId)
     credentialId.value = defaultCredential?.id || credentials.value[0]?.id || ''
   } catch (e) {
@@ -84,6 +88,7 @@ async function openConversation(id) {
     if (current !== epoch || selection !== conversationEpoch) return
     conversation.value = item
     month.value = item.month
+    startMonth.value = item.startMonth || defaultAIStartMonth(item.month)
     invalidatePreview()
     retryRequest = null
     await nextTick()
@@ -97,7 +102,7 @@ async function showContext() {
   previewBusy.value = true
   error.value = ''
   try {
-    const data = await api.aiContext(month.value, reduction.value, controller.signal)
+    const data = await api.aiContext(startMonth.value, month.value, reduction.value, controller.signal)
     if (current === epoch && request === previewEpoch) preview.value = data
   } catch (e) { if (current === epoch && e.name !== 'AbortError') error.value = e.message }
   finally { if (current === epoch && request === previewEpoch) previewBusy.value = false }
@@ -107,7 +112,7 @@ async function send() {
   const current = epoch
   const payload = {
     credentialId: Number(credentialId.value), conversationId: conversation.value?.id || 0,
-    revision: conversation.value?.revision || 0, month: month.value,
+    revision: conversation.value?.revision || 0, startMonth: startMonth.value, month: month.value,
     question: question.value.trim(), reductionPercent: Number(reduction.value),
   }
   const serialized = JSON.stringify(payload)
@@ -166,7 +171,7 @@ onBeforeUnmount(() => { epoch++; controller?.abort(); window.removeEventListener
         <h2>Riwayat pribadi</h2>
         <p v-if="!conversations.length" class="ai-muted">Percakapan tersimpan di workspace ini setelah AI menjawab.</p>
         <div v-for="item in conversations" :key="item.id" class="ai-history-row" :class="{ active: conversation?.id === item.id }">
-          <button :disabled="sending || opening" :aria-current="conversation?.id === item.id ? 'true' : undefined" @click="openConversation(item.id)"><strong>{{ item.title }}</strong><small>{{ item.month }}</small></button>
+          <button :disabled="sending || opening" :aria-current="conversation?.id === item.id ? 'true' : undefined" @click="openConversation(item.id)"><strong>{{ item.title }}</strong><small>{{ item.startMonth && item.startMonth !== item.month ? `${item.startMonth} sampai ${item.month}` : item.month }}</small></button>
           <button class="ai-icon-action" :disabled="sending" :aria-label="`Hapus percakapan ${item.title}`" @click="deleteId = item.id"><Trash2 :size="16" /></button>
         </div>
         <div v-if="deleteId" class="ai-confirm" role="group" aria-label="Konfirmasi hapus percakapan"><p>Hapus percakapan ini?</p><button class="secondary-button" :disabled="deleting" @click="deleteId = null">Batal</button><button class="secondary-button" :disabled="deleting" @click="removeConversation">Hapus</button></div>
@@ -174,10 +179,18 @@ onBeforeUnmount(() => { epoch++; controller?.abort(); window.removeEventListener
       <div class="ai-chat-panel">
         <div class="ai-chat-options">
           <label>Credential dan model<select v-model="credentialId" :disabled="sending || opening"><option value="" disabled>Pilih credential</option><option v-for="item in credentials" :key="item.id" :value="item.id">{{ item.name }} · {{ item.model }}</option></select></label>
-          <label>Periode Finance<input v-model="month" type="month" min="1900-01" max="2200-12" :disabled="sending || opening || !!conversation" @change="changePeriod" /></label>
+          <fieldset class="ai-period-range" :disabled="sending || opening || !!conversation" aria-describedby="ai-range-help">
+            <legend>Periode Finance</legend>
+            <div class="ai-period-inputs">
+              <label>Dari<input v-model="startMonth" type="month" min="1900-01" :max="month || '2200-12'" @change="changePeriod" /></label>
+              <label>Sampai<input v-model="month" type="month" :min="startMonth || '1900-01'" max="2200-12" @change="changePeriod" /></label>
+            </div>
+            <p id="ai-range-help" class="ai-range-help">Maksimal 12 bulan. Budget dan simulasi memakai periode akhir. Mulai percakapan baru untuk mengganti rentang riwayat.</p>
+          </fieldset>
           <label>Simulasi pengurangan pos fleksibel<select v-model.number="reduction" :disabled="sending || opening" @change="invalidatePreview"><option v-for="value in [0, 5, 10, 15, 20, 30, 50]" :key="value" :value="value">{{ value }}%</option></select></label>
         </div>
-        <div class="ai-source-bar"><span>{{ config.settings.financeEnabled ? 'Sumber · Hubby Finance' : 'Sumber Finance belum diaktifkan' }}</span><button class="ai-text-button" :disabled="sending || previewBusy || !month" @click="showContext">{{ previewBusy ? 'Memuat...' : 'Periksa data yang akan dikirim' }}</button></div>
+        <p v-if="!loading && rangeError" class="ai-notice ai-error" role="alert">{{ rangeError }}</p>
+        <div class="ai-source-bar"><span>{{ config.settings.financeEnabled ? 'Sumber · Hubby Finance' : 'Sumber Finance belum diaktifkan' }}</span><button class="ai-text-button" :disabled="sending || opening || previewBusy || !!rangeError" @click="showContext">{{ previewBusy ? 'Memuat...' : 'Periksa data yang akan dikirim' }}</button></div>
         <AIContextCard v-if="preview" :context="preview" />
         <div class="ai-messages" aria-label="Percakapan">
           <div v-if="!conversation && !sending" class="ai-empty"><Sparkles :size="32" aria-hidden="true" /><h2>Apa yang ingin kamu evaluasi?</h2><p>Pilih periode, lalu tanyakan pola pengeluaran atau dampak penyesuaian budget.</p><div class="ai-prompts"><button v-for="prompt in prompts" :key="prompt" @click="question = prompt">{{ prompt }}</button></div></div>

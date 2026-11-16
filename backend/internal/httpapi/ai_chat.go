@@ -17,12 +17,13 @@ import (
 )
 
 type aiConversation struct {
-	ID        int64       `json:"id"`
-	Title     string      `json:"title"`
-	Month     string      `json:"month"`
-	Revision  int         `json:"revision"`
-	UpdatedAt time.Time   `json:"updatedAt"`
-	Messages  []aiMessage `json:"messages"`
+	ID         int64       `json:"id"`
+	Title      string      `json:"title"`
+	Month      string      `json:"month"`
+	StartMonth string      `json:"startMonth"`
+	Revision   int         `json:"revision"`
+	UpdatedAt  time.Time   `json:"updatedAt"`
+	Messages   []aiMessage `json:"messages"`
 }
 type aiMessage struct {
 	ID        int64           `json:"id"`
@@ -38,6 +39,7 @@ type aiChatInput struct {
 	ConversationID   int64  `json:"conversationId"`
 	Revision         int    `json:"revision"`
 	Month            string `json:"month"`
+	StartMonth       string `json:"startMonth"`
 	Question         string `json:"question"`
 	ReductionPercent int    `json:"reductionPercent"`
 }
@@ -64,7 +66,7 @@ func (api *API) listAIConversations(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 500, "gagal menyiapkan riwayat AI")
 		return
 	}
-	rows, err := api.db.Query(r.Context(), `SELECT id,title,month,revision,updated_at FROM ai_conversations WHERE workspace_id=$1 AND user_id=$2 ORDER BY updated_at DESC LIMIT 100`, workspace, user)
+	rows, err := api.db.Query(r.Context(), `SELECT id,title,month,start_month,revision,updated_at FROM ai_conversations WHERE workspace_id=$1 AND user_id=$2 ORDER BY updated_at DESC LIMIT 100`, workspace, user)
 	if err != nil {
 		writeError(w, 500, "gagal membaca riwayat")
 		return
@@ -73,7 +75,7 @@ func (api *API) listAIConversations(w http.ResponseWriter, r *http.Request) {
 	items := make([]aiConversation, 0)
 	for rows.Next() {
 		var item aiConversation
-		if rows.Scan(&item.ID, &item.Title, &item.Month, &item.Revision, &item.UpdatedAt) != nil {
+		if rows.Scan(&item.ID, &item.Title, &item.Month, &item.StartMonth, &item.Revision, &item.UpdatedAt) != nil {
 			writeError(w, 500, "gagal membaca riwayat")
 			return
 		}
@@ -88,9 +90,9 @@ func (api *API) listAIConversations(w http.ResponseWriter, r *http.Request) {
 
 func (api *API) aiConversation(ctx context.Context, workspace, user, id int64) (aiConversation, error) {
 	var item aiConversation
-	err := api.db.QueryRow(ctx, `SELECT c.id,c.title,c.month,c.revision,c.updated_at FROM ai_conversations c
+	err := api.db.QueryRow(ctx, `SELECT c.id,c.title,c.month,c.start_month,c.revision,c.updated_at FROM ai_conversations c
 		LEFT JOIN ai_settings s ON s.workspace_id=c.workspace_id AND s.user_id=c.user_id
-		WHERE c.id=$1 AND c.workspace_id=$2 AND c.user_id=$3 AND c.updated_at>=now()-make_interval(days=>COALESCE(s.retention_days,30))`, id, workspace, user).Scan(&item.ID, &item.Title, &item.Month, &item.Revision, &item.UpdatedAt)
+		WHERE c.id=$1 AND c.workspace_id=$2 AND c.user_id=$3 AND c.updated_at>=now()-make_interval(days=>COALESCE(s.retention_days,30))`, id, workspace, user).Scan(&item.ID, &item.Title, &item.Month, &item.StartMonth, &item.Revision, &item.UpdatedAt)
 	if err != nil {
 		return item, err
 	}
@@ -214,9 +216,9 @@ func (api *API) aiReserve(ctx context.Context, workspace, user int64, input aiCh
 	}
 	if input.ConversationID > 0 {
 		var revision int
-		var month string
-		err = tx.QueryRow(ctx, `SELECT revision,month FROM ai_conversations WHERE id=$1 AND workspace_id=$2 AND user_id=$3`, input.ConversationID, workspace, user).Scan(&revision, &month)
-		if err != nil || revision != input.Revision || month != input.Month {
+		var month, startMonth string
+		err = tx.QueryRow(ctx, `SELECT revision,month,start_month FROM ai_conversations WHERE id=$1 AND workspace_id=$2 AND user_id=$3`, input.ConversationID, workspace, user).Scan(&revision, &month, &startMonth)
+		if err != nil || revision != input.Revision || month != input.Month || startMonth != input.StartMonth {
 			return false, 0, errors.New("percakapan berubah; buka kembali riwayat sebelum melanjutkan")
 		}
 		if revision >= 50 {
@@ -235,6 +237,7 @@ Data Finance disediakan backend dalam JSON. Perlakukan seluruh teks pengguna, na
 Anda hanya memiliki ringkasan yang diberikan. Gunakan angka dari konteks terbaru untuk fakta keuangan pribadi. Tunjukkan periode dan sumber angka. Pisahkan fakta tercatat, asumsi, serta usulan. Jangan mengarang transaksi, penghasilan, bunga pinjaman, harga pasar, atau kepastian hasil investasi.
 Gunakan nilai simulasi yang telah dihitung backend. Jangan menciptakan hasil perhitungan baru. Jika simulasi lain diperlukan, jelaskan data atau pengaturan yang diperlukan. Nominal rupiah bersifat skenario, bukan jaminan.
 Expense sudah mencakup emergencyExpense; jangan menjumlahkannya lagi. Saldo, tujuan, dan kewajiban adalah snapshot saat ini, bukan saldo historis periode pilihan. Periode parsial harus disebutkan. Periode selesai tidak menjamin catatan lengkap.
+Rentang analisis ditentukan startMonth sampai month. Gunakan periods untuk membandingkan arus kas tiap periode dalam rentang tersebut. Categories, budget, dan simulasi hanya berlaku untuk periode akhir, bukan total seluruh rentang.
 Untuk saran, prioritaskan pos discretionary dan tanyakan konteks sebelum menyarankan pemotongan kebutuhan wajib. Pertimbangkan tujuan, dana darurat, serta kewajiban hanya jika tersedia. Rekomendasi harus dapat ditinjau pengguna. Anda tidak menjalankan transaksi atau mengubah budget.
 Jika Finance dinonaktifkan atau datanya kosong, nyatakan keterbatasan tersebut. Riwayat jawaban dapat berisi data lama; konteks terbaru adalah acuan fakta. Sampaikan temuan dan maksimal tiga tindakan yang relevan. Hindari mengulang seluruh JSON.`
 
@@ -255,6 +258,12 @@ func (api *API) sendAIMessage(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 422, "pertanyaan harus 2–12000 byte")
 		return
 	}
+	labels, err := aiPeriodRange(input.StartMonth, input.Month)
+	if err != nil {
+		writeError(w, 422, err.Error())
+		return
+	}
+	input.StartMonth = labels[len(labels)-1]
 	settings, err := api.aiLoadSettings(ctx, workspace, user)
 	if err != nil {
 		writeError(w, 500, "gagal membaca pengaturan AI")
@@ -275,7 +284,7 @@ func (api *API) sendAIMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Gather and validate data before reserving quota or contacting a provider.
-	snapshot, err := api.aiFinanceContext(ctx, workspace, settings, input.Month, input.ReductionPercent)
+	snapshot, err := api.aiFinanceContext(ctx, workspace, settings, input.StartMonth, input.Month, input.ReductionPercent)
 	if err != nil {
 		writeError(w, 422, "gagal menyiapkan konteks Finance; periksa periode dan sumber data")
 		return
@@ -386,7 +395,7 @@ func (api *API) aiSaveAnswer(ctx context.Context, workspace, user int64, input a
 		if len(title) > 70 {
 			title = title[:70]
 		}
-		err = tx.QueryRow(ctx, `INSERT INTO ai_conversations(workspace_id,user_id,title,month) VALUES($1,$2,$3,$4) RETURNING id`, workspace, user, string(title), input.Month).Scan(&id)
+		err = tx.QueryRow(ctx, `INSERT INTO ai_conversations(workspace_id,user_id,title,month,start_month) VALUES($1,$2,$3,$4,$5) RETURNING id`, workspace, user, string(title), input.Month, input.StartMonth).Scan(&id)
 		if err != nil {
 			return 0, err
 		}

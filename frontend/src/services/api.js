@@ -41,7 +41,7 @@ export const api = {
   deleteAICredential: (id) => aiRequest(`/credentials/${id}`, { method: 'DELETE' }),
   testAICredential: (id, signal) => aiRequest(`/credentials/${id}/test`, { method: 'POST', signal }),
   aiModels: (payload, signal) => aiRequest('/models', { method: 'POST', body: JSON.stringify(payload), signal }),
-  aiContext: (month, reduction, signal) => aiRequest(`/context?month=${encodeURIComponent(month)}&reduction=${reduction}`, { signal }),
+  aiContext: (startMonth, month, reduction, signal) => aiRequest(`/context?startMonth=${encodeURIComponent(startMonth)}&month=${encodeURIComponent(month)}&reduction=${reduction}`, { signal }),
   aiConversations: (signal) => aiRequest('/conversations', { signal }),
   aiConversation: (id, signal) => aiRequest(`/conversations/${id}`, { signal }),
   deleteAIConversation: (id) => aiRequest(`/conversations/${id}`, { method: 'DELETE' }),

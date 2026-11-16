@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="id">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Uji rentang Hubby AI</title>
+<body>
+<div id="test-controls"></div>
+<p id="results" role="status">Menjalankan pengujian...</p>
+<div id="app" class="ai-shell"></div>
+<script type="module">
+import { createApp, h } from 'vue'
+import AIView from '../src/views/AIView.vue'
+import { api } from '../src/services/api.js'
+import '../src/styles/main.css'
+
+if (!location.search) {
+  document.querySelector('#results').remove()
+  document.querySelector('#test-controls').innerHTML = '<button id="phone">375 px</button> <button id="tablet">768 px</button> <button id="desktop">1200 px</button><br><iframe title="Pengujian rentang periode" src="?fixture" style="width:1200px;height:850px;border:1px solid #888"></iframe>'
+  for (const [id, width] of [['phone',375], ['tablet',768], ['desktop',1200]]) document.querySelector(`#${id}`).onclick = () => { document.querySelector('iframe').style.width = width + 'px' }
+} else {
+  const result = document.querySelector('#results')
+  const check = (condition, message) => { if (!condition) throw Error(message) }
+  const settle = () => new Promise(resolve => setTimeout(resolve, 0))
+  let saved, lastPreview, lastSent
+  const makeContext = (startMonth, month, reduction) => {
+    const periods = []
+    const date = new Date(`${month}-01T00:00:00Z`)
+    while (date.toISOString().slice(0,7) >= startMonth) {
+      const label = date.toISOString().slice(0,7)
+      periods.push({month:label,start:`${label}-01`,end:`${label}-28`,income:1000000,expense:500000,surplus:500000,transactionCount:5,complete:label !== month})
+      date.setUTCMonth(date.getUTCMonth()-1)
+    }
+    return {startMonth,month,periods,categories:[{name:'Data simulasi',class:'discretionary',planned:600000,actual:500000,scenarioSaving:50000}],sources:['Data simulasi pengujian'],notes:['Bukan data keuangan pengguna.'],generatedAt:new Date().toISOString(),reductionPercent:reduction,scenarioSaving:50000,scenarioSurplus:550000}
+  }
+  api.aiSettings = async () => ({encryptionReady:true,settings:{financeEnabled:true},credentials:[{id:1,name:'Provider simulasi',model:'model-uji',enabled:true}]})
+  api.aiConversations = async () => saved ? [{...saved,title:'Perbandingan simulasi'}] : []
+  api.financePeriodSetting = async () => ({currentPeriodLabel:'2026-11'})
+  api.aiContext = async (startMonth, month, reduction) => { lastPreview={startMonth,month}; return makeContext(startMonth,month,reduction) }
+  api.sendAIMessage = async input => {
+    lastSent=input
+    saved={id:1,revision:1,startMonth:input.startMonth,month:input.month,messages:[{id:1,role:'user',content:input.question},{id:2,role:'assistant',model:'model-uji',content:'## Perbandingan\n\nIni **data simulasi** untuk menguji rentang periode.',context:makeContext(input.startMonth,input.month,input.reductionPercent)}]}
+    return saved
+  }
+  api.aiConversation = async () => saved
+  try {
+    createApp(AIView).component('RouterLink',{setup:(_, {slots}) => () => h('a',{href:'#results'},slots.default?.())}).mount('#app')
+    await settle()
+    const [start, end] = document.querySelectorAll('.ai-period-range input')
+    const preview = document.querySelector('.ai-source-bar button')
+    const send = document.querySelector('.ai-composer button')
+    const setMonth = async (input, value) => { input.value=value; input.dispatchEvent(new Event('input',{bubbles:true})); input.dispatchEvent(new Event('change',{bubbles:true})); await settle() }
+    check(start.value === '2026-08' && end.value === '2026-11', 'Default empat bulan salah')
+    await setMonth(start,'2026-09')
+    preview.click(); await settle()
+    check(lastPreview.startMonth === '2026-09' && lastPreview.month === '2026-11', 'Preview mengirim rentang yang salah')
+    check(document.querySelectorAll('.ai-context-card .ai-table-scroll:first-child tbody tr').length === 3, 'Preview tidak menampilkan tiga bulan')
+    document.querySelector('.ai-context-card').open=true
+    await setMonth(start,'2025-10')
+    check(preview.disabled && send.disabled && !document.querySelector('.ai-context-card'), 'Rentang terlalu panjang tidak diblokir atau preview lama tertinggal')
+    await setMonth(start,'2026-12')
+    check(preview.disabled && send.disabled, 'Rentang terbalik tidak diblokir')
+    await setMonth(start,'2026-09')
+    const question = document.querySelector('#ai-question')
+    question.value='Bandingkan tiap bulan dalam rentang ini.'
+    question.dispatchEvent(new Event('input',{bubbles:true})); await settle()
+    send.click(); await settle(); await settle()
+    check(lastSent.startMonth === '2026-09' && lastSent.month === '2026-11', 'Chat tidak mengirim rentang pilihan')
+    check(start.matches(':disabled') && end.matches(':disabled'), 'Rentang percakapan tersimpan tidak terkunci')
+    document.querySelector('.ai-history > button').click(); await settle()
+    check(!start.matches(':disabled') && !end.matches(':disabled'), 'Percakapan baru tidak membuka rentang')
+    document.querySelector('.ai-history-row button').click(); await settle()
+    check(start.value === '2026-09' && end.value === '2026-11' && start.matches(':disabled'), 'Rentang riwayat tidak dipulihkan')
+    const context = document.querySelector('.ai-context-card')
+    context.open=true
+    const reportLayout = () => {
+      check(document.documentElement.scrollWidth <= innerWidth, 'Halaman overflow')
+      result.textContent=`PASS: preview, validasi, chat, riwayat, rentang terkunci, dan layout ${innerWidth}px. Data simulasi.`
+    }
+    requestAnimationFrame(reportLayout)
+    window.addEventListener('resize',reportLayout)
+  } catch (error) { result.textContent=`FAIL: ${error.message}`; throw error }
+}
+</script>
+</body>
+</html>

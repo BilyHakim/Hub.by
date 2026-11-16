@@ -40,6 +40,8 @@ type aiFinanceContext struct {
 	GeneratedAt      time.Time         `json:"generatedAt"`
 	Currency         string            `json:"currency"`
 	FinanceEnabled   bool              `json:"financeEnabled"`
+	StartMonth       string            `json:"startMonth"`
+	Month            string            `json:"month"`
 	Periods          []aiPeriodSummary `json:"periods"`
 	Categories       []aiCategory      `json:"categories"`
 	Balances         json.RawMessage   `json:"balances,omitempty"`
@@ -71,16 +73,41 @@ func (api *API) beginAIFinanceRead(ctx context.Context) (pgx.Tx, error) {
 	return tx, nil
 }
 
-func (api *API) aiFinanceContext(ctx context.Context, workspace int64, settings aiSettings, month string, reduction int) (aiFinanceContext, error) {
+func aiPeriodRange(startMonth, month string) ([]string, error) {
+	end, err := time.Parse("2006-01", month)
+	if err != nil || end.Year() < 1900 || end.Year() > 2200 {
+		return nil, errors.New("periode akhir tidak valid")
+	}
+	if startMonth == "" {
+		startMonth = max("1900-01", end.AddDate(0, -3, 0).Format("2006-01"))
+	}
+	start, err := time.Parse("2006-01", startMonth)
+	if err != nil || start.Year() < 1900 || start.Year() > 2200 {
+		return nil, errors.New("periode awal tidak valid")
+	}
+	count := (end.Year()-start.Year())*12 + int(end.Month()-start.Month()) + 1
+	if count < 1 || count > 12 {
+		return nil, errors.New("pilih rentang berurutan antara 1 dan 12 bulan")
+	}
+	labels := make([]string, count)
+	for offset := range labels {
+		labels[offset] = end.AddDate(0, -offset, 0).Format("2006-01")
+	}
+	return labels, nil
+}
+
+func (api *API) aiFinanceContext(ctx context.Context, workspace int64, settings aiSettings, startMonth, month string, reduction int) (aiFinanceContext, error) {
 	result := aiFinanceContext{WorkspaceID: workspace, GeneratedAt: time.Now().UTC(), Currency: "IDR", FinanceEnabled: settings.FinanceEnabled,
 		Periods: make([]aiPeriodSummary, 0), Categories: make([]aiCategory, 0), Sources: make([]string, 0), Notes: make([]string, 0), ReductionPercent: reduction}
 	if reduction < 0 || reduction > 50 {
 		return result, errors.New("persentase simulasi harus 0–50")
 	}
-	label, err := time.Parse("2006-01", month)
-	if err != nil || label.Year() < 1900 || label.Year() > 2200 {
-		return result, errors.New("periode tidak valid")
+	labels, err := aiPeriodRange(startMonth, month)
+	if err != nil {
+		return result, err
 	}
+	result.StartMonth, result.Month = labels[len(labels)-1], labels[0]
+	label, _ := time.Parse("2006-01", month)
 	if !settings.FinanceEnabled {
 		result.Notes = append(result.Notes, "Akses Finance dinonaktifkan. Tidak ada data keuangan pribadi dalam konteks ini.")
 		return result, nil
@@ -96,9 +123,9 @@ func (api *API) aiFinanceContext(ctx context.Context, workspace int64, settings 
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return result, err
 	}
-	periods := make([]financePeriod, 0, 4)
-	for offset := 0; offset < 4; offset++ {
-		period, err := buildFinancePeriod(label.AddDate(0, -offset, 0).Format("2006-01"), periodSetting)
+	periods := make([]financePeriod, 0, len(labels))
+	for _, monthLabel := range labels {
+		period, err := buildFinancePeriod(monthLabel, periodSetting)
 		if err != nil {
 			return result, err
 		}
@@ -119,6 +146,10 @@ func (api *API) aiFinanceContext(ctx context.Context, workspace int64, settings 
 		}
 		result.Periods = append(result.Periods, item)
 	}
+	previousPeriod, err := buildFinancePeriod(label.AddDate(0, -1, 0).Format("2006-01"), periodSetting)
+	if err != nil {
+		return result, err
+	}
 	rows, err := tx.Query(ctx, `WITH actual AS (
 		SELECT category_id,SUM(amount) FILTER(WHERE occurred_at>=$2 AND occurred_at<$3)::bigint AS amount,
 		SUM(amount) FILTER(WHERE occurred_at>=$4 AND occurred_at<$5)::bigint AS previous
@@ -126,7 +157,7 @@ func (api *API) aiFinanceContext(ctx context.Context, workspace int64, settings 
 		SELECT c.name,COALESCE(c.expense_class,'unclassified'),COALESCE(b.planned_amount,0),COALESCE(a.amount,0),COALESCE(a.previous,0)
 		FROM categories c LEFT JOIN actual a ON a.category_id=c.id
 		LEFT JOIN monthly_budgets b ON b.category_id=c.id AND b.workspace_id=$1 AND b.month=$6
-		WHERE c.workspace_id=$1 AND c.type='expense' ORDER BY c.id LIMIT 501`, workspace, periods[0].Start, periods[0].EndExclusive, periods[1].Start, periods[1].EndExclusive, label)
+		WHERE c.workspace_id=$1 AND c.type='expense' ORDER BY c.id LIMIT 501`, workspace, periods[0].Start, periods[0].EndExclusive, previousPeriod.Start, previousPeriod.EndExclusive, label)
 	if err != nil {
 		return result, err
 	}
@@ -153,8 +184,10 @@ func (api *API) aiFinanceContext(ctx context.Context, workspace int64, settings 
 	}
 	result.ScenarioExpense = result.Periods[0].Expense - result.ScenarioSaving
 	result.ScenarioSurplus = result.Periods[0].Income - result.ScenarioExpense
-	result.Sources = append(result.Sources, "Ringkasan arus kas: periode pilihan dan tiga periode sebelumnya", "Budget dan realisasi per kategori: periode pilihan")
+	result.Sources = append(result.Sources, "Ringkasan arus kas per periode: "+result.StartMonth+" sampai "+result.Month, "Budget, realisasi kategori, dan simulasi: periode akhir "+result.Month)
 	result.Notes = append(result.Notes,
+		"Periods diurutkan dari periode akhir ke periode awal. Bandingkan pemasukan, pengeluaran, surplus, dan savingsRate setiap periode dalam rentang pilihan.",
+		"Categories dan seluruh nilai scenario hanya untuk periode akhir. PreviousActual dan Difference membandingkan kategori periode akhir dengan satu periode sebelumnya, yang dapat berada di luar rentang pilihan. Saldo, tujuan, serta kewajiban tetap snapshot saat ini.",
 		"Expense mencakup semua pengeluaran, termasuk emergencyExpense. Transfer antar rekening tidak dihitung sebagai pemasukan/pengeluaran.",
 		"Complete menunjukkan periode kalender telah berakhir, bukan jaminan pencatatan lengkap. Jangan membandingkan periode parsial dengan periode penuh tanpa menjelaskan perbedaannya.",
 		"Simulasi mengurangi persentase pilihan dari pengeluaran tercatat berkategori discretionary, dibulatkan turun per kategori. Ini skenario periode pilihan, bukan proyeksi atau perubahan budget otomatis.",
@@ -207,7 +240,11 @@ func (api *API) getAIContext(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 422, "persentase simulasi tidak valid")
 		return
 	}
-	data, err := api.aiFinanceContext(r.Context(), workspace, settings, r.URL.Query().Get("month"), reduction)
+	if _, err := aiPeriodRange(r.URL.Query().Get("startMonth"), r.URL.Query().Get("month")); err != nil {
+		writeError(w, 422, err.Error())
+		return
+	}
+	data, err := api.aiFinanceContext(r.Context(), workspace, settings, r.URL.Query().Get("startMonth"), r.URL.Query().Get("month"), reduction)
 	if err != nil {
 		writeError(w, 422, "konteks Finance tidak dapat dibaca; periksa periode, persentase, dan data")
 		return

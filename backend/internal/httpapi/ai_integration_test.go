@@ -183,12 +183,20 @@ func TestAIDatabaseLifecycle(t *testing.T) {
 			t.Fatalf("PostgreSQL accepted a Finance write or rejected it for the wrong reason: %s: %v", statement, err)
 		}
 	}
-	snapshot, err := api.aiFinanceContext(ctx, workspace, settings, "2026-10", 10)
+	snapshot, err := api.aiFinanceContext(ctx, workspace, settings, "", "2026-10", 10)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if snapshot.ScenarioSaving != 10000 || snapshot.Periods[0].Expense != 100000 {
 		t.Fatalf("incorrect snapshot %+v", snapshot)
+	}
+	single, err := api.aiFinanceContext(ctx, workspace, settings, "2026-10", "2026-10", 10)
+	if err != nil || len(single.Periods) != 1 || single.ScenarioSaving != 10000 {
+		t.Fatal("single-month range failed", single, err)
+	}
+	ranged, err := api.aiFinanceContext(ctx, workspace, settings, "2026-09", "2026-10", 10)
+	if err != nil || len(ranged.Periods) != 2 || ranged.Periods[0].Month != "2026-10" || ranged.Periods[1].Month != "2026-09" || ranged.Periods[1].Expense != 0 {
+		t.Fatal("selected range failed", ranged, err)
 	}
 	encoded, _ := json.Marshal(snapshot)
 	if bytes.Contains(encoded, []byte("OTHER-WORKSPACE-SECRET")) {
@@ -197,10 +205,17 @@ func TestAIDatabaseLifecycle(t *testing.T) {
 	input := aiChatInput{RequestID: "10000000-0000-4000-8000-000000000001", CredentialID: credential, Month: "2026-10", Question: "Evaluasi pengeluaran saya", ReductionPercent: 10}
 	var response struct{ Data aiConversation }
 	json.Unmarshal(call(api.sendAIMessage, "POST", 0, input, 200), &response)
-	if response.Data.Revision != 1 || len(response.Data.Messages) != 2 {
+	if response.Data.Revision != 1 || len(response.Data.Messages) != 2 || response.Data.StartMonth != "2026-07" {
 		t.Fatalf("answer not saved atomically: %+v", response.Data)
 	}
 	conversationID := response.Data.ID
+	changedRange := input
+	changedRange.RequestID = "10000000-0000-4000-8000-000000000004"
+	changedRange.ConversationID, changedRange.Revision, changedRange.StartMonth = conversationID, 1, "2026-09"
+	call(api.sendAIMessage, "POST", 0, changedRange, 409)
+	if calls.Load() != 1 {
+		t.Fatal("changed conversation range reached provider")
+	}
 	call(api.sendAIMessage, "POST", 0, input, 200)
 	if calls.Load() != 1 {
 		t.Fatal("replayed request generated duplicate provider charges")

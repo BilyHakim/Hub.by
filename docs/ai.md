@@ -7,7 +7,9 @@ request, and a conversation keeps its original workspace while generation runs.
 
 ## Setup
 
-1. Run migration `028_ai.sql` using `go run ./cmd/migrate up` from `backend`.
+1. Run migrations through `029_ai_period_range.sql` using `go run ./cmd/migrate up`
+   from `backend`. Migration 029 stores each conversation's starting month and
+   backfills existing conversations with their previous four-period range.
 2. Generate a random 32-byte Base64 key, for example with
    `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"`.
 3. Set `AI_ENCRYPTION_KEY` in the backend environment. Production Compose forwards
@@ -60,9 +62,16 @@ blocked. Only approve endpoints controlled by a trusted administrator.
 
 ## Finance context
 
-Finance access starts disabled. When enabled, context includes the selected
-finance period and three preceding periods, expense categories, budget versus
-actual amounts, and a backend-calculated scenario for discretionary spending.
+Finance access starts disabled. When enabled, context includes monthly summaries
+for an inclusive range of 1–12 Finance periods. The default is the selected ending
+month and three preceding periods. Users can set both endpoints, including a
+single month. Preview shows each period's dates, income, expenses, surplus, and
+completion status. The range is stored with the conversation and cannot change
+within that conversation; start a new conversation to select another range.
+Expense categories, budget versus actual amounts, and the backend-calculated
+discretionary spending scenario apply only to the ending period. Category
+previousActual/difference compare that ending period to its immediate predecessor,
+which may be outside a single-period selection.
 Periods follow Hubby's existing finance-period settings. Optional scopes include
 aggregate balances, goals, and outstanding debt/receivables. These are current
 snapshots, not historical account balances. Expense includes emergency spending;
@@ -106,13 +115,17 @@ prevent saving an otherwise billable response.
 ## Validation
 
 Run `go test ./...` in `backend` and `npm.cmd run build` in `frontend` on Windows.
+Run `node --test src/utils/aiPeriodRange.test.js` from `frontend` for inclusive
+range validation. With the frontend dev server running, open
+`/tests/ai-period-range.html` for simulated preview/chat/history checks and
+375/768/1200 px layouts. The fixture does not use live Finance data or provider keys.
 For Markdown rendering and XSS regression checks, start the frontend dev server
 and open `/tests/ai-markdown.html`. The page uses simulated API responses and
 checks saved answers, reactive updates, formatting, HTML and unsafe URL blocking,
 and local scrolling. Resize the viewport to check narrow layouts; the result
 appears at the top of the page. No provider key or live Finance data is used.
 For the AI database lifecycle test, set `AI_TEST_DATABASE_URL` to a disposable
-PostgreSQL database migrated through 028 before running Go tests. The test uses a
+PostgreSQL database migrated through 029 before running Go tests. The test uses a
 local mock provider and covers encryption, data scopes, simulation, replay, and
 cross-user/workspace access without sending real financial data to an AI provider.
 It also checks that the actual Finance read transaction rejects INSERT, UPDATE,
