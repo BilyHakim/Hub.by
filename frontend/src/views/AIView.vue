@@ -180,14 +180,14 @@ onBeforeUnmount(() => { epoch++; controller?.abort(); window.removeEventListener
         <div class="ai-chat-options">
           <label>Credential dan model<select v-model="credentialId" :disabled="sending || opening"><option value="" disabled>Pilih credential</option><option v-for="item in credentials" :key="item.id" :value="item.id">{{ item.name }} · {{ item.model }}</option></select></label>
           <fieldset class="ai-period-range" :disabled="sending || opening || !!conversation" aria-describedby="ai-range-help">
-            <legend>Periode Finance</legend>
+            <legend class="sr-only">Periode Finance</legend>
             <div class="ai-period-inputs">
-              <label>Dari<input v-model="startMonth" type="month" min="1900-01" :max="month || '2200-12'" @change="changePeriod" /></label>
-              <label>Sampai<input v-model="month" type="month" :min="startMonth || '1900-01'" max="2200-12" @change="changePeriod" /></label>
+              <label>Periode awal<input v-model="startMonth" type="month" min="1900-01" :max="month || '2200-12'" @change="changePeriod" /></label>
+              <label>Periode akhir<input v-model="month" type="month" :min="startMonth || '1900-01'" max="2200-12" @change="changePeriod" /></label>
             </div>
-            <p id="ai-range-help" class="ai-range-help">Maksimal 12 bulan. Budget dan simulasi memakai periode akhir. Mulai percakapan baru untuk mengganti rentang riwayat.</p>
           </fieldset>
           <label>Simulasi pengurangan pos fleksibel<select v-model.number="reduction" :disabled="sending || opening" @change="invalidatePreview"><option v-for="value in [0, 5, 10, 15, 20, 30, 50]" :key="value" :value="value">{{ value }}%</option></select></label>
+          <p id="ai-range-help" class="ai-range-help">Maksimal 12 bulan. Budget dan simulasi memakai periode akhir.<span v-if="conversation"> Mulai percakapan baru untuk mengganti rentang.</span></p>
         </div>
         <p v-if="!loading && rangeError" class="ai-notice ai-error" role="alert">{{ rangeError }}</p>
         <div class="ai-source-bar"><span>{{ config.settings.financeEnabled ? 'Sumber · Hubby Finance' : 'Sumber Finance belum diaktifkan' }}</span><button class="ai-text-button" :disabled="sending || opening || previewBusy || !!rangeError" @click="showContext">{{ previewBusy ? 'Memuat...' : 'Periksa data yang akan dikirim' }}</button></div>
