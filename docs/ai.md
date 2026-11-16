@@ -77,8 +77,10 @@ account numbers, and notes are omitted. Category/goal names can still be sensiti
 
 The provider receives the question, enabled context, and up to six recent turns
 within a 48 KB history budget. If source permissions narrow, incompatible prior
-history is omitted from the provider request. Outputs are displayed as escaped
-text. Calculated context accompanies every answer for review; generated advice
+history is omitted from the provider request. Assistant answers, including saved
+history, render as Markdown sanitized with DOMPurify. Raw HTML is escaped, external
+images are not loaded, and user messages remain plain text. Tables and code blocks
+scroll within the answer on narrow screens. Calculated context accompanies every answer for review; generated advice
 can still be mistaken and should be checked before acting.
 
 ## History, concurrency, and limits
@@ -104,6 +106,11 @@ prevent saving an otherwise billable response.
 ## Validation
 
 Run `go test ./...` in `backend` and `npm.cmd run build` in `frontend` on Windows.
+For Markdown rendering and XSS regression checks, start the frontend dev server
+and open `/tests/ai-markdown.html`. The page uses simulated API responses and
+checks saved answers, reactive updates, formatting, HTML and unsafe URL blocking,
+and local scrolling. Resize the viewport to check narrow layouts; the result
+appears at the top of the page. No provider key or live Finance data is used.
 For the AI database lifecycle test, set `AI_TEST_DATABASE_URL` to a disposable
 PostgreSQL database migrated through 028 before running Go tests. The test uses a
 local mock provider and covers encryption, data scopes, simulation, replay, and

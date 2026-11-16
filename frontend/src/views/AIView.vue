@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { Plus, Send, Settings, Sparkles, Trash2 } from '@lucide/vue'
 import { api } from '../services/api'
 import AIContextCard from '../components/AIContextCard.vue'
+import AIAnswer from '../components/AIAnswer.vue'
 
 const loading = ref(true)
 const sending = ref(false)
@@ -180,7 +181,7 @@ onBeforeUnmount(() => { epoch++; controller?.abort(); window.removeEventListener
         <AIContextCard v-if="preview" :context="preview" />
         <div class="ai-messages" aria-label="Percakapan">
           <div v-if="!conversation && !sending" class="ai-empty"><Sparkles :size="32" aria-hidden="true" /><h2>Apa yang ingin kamu evaluasi?</h2><p>Pilih periode, lalu tanyakan pola pengeluaran atau dampak penyesuaian budget.</p><div class="ai-prompts"><button v-for="prompt in prompts" :key="prompt" @click="question = prompt">{{ prompt }}</button></div></div>
-          <article v-for="item in conversation?.messages || []" :key="item.id" class="ai-message" :class="`ai-message-${item.role}`"><header>{{ item.role === 'user' ? 'Anda' : 'Hubby AI' }}<small v-if="item.model">{{ item.model }}</small></header><div class="ai-answer">{{ item.content }}</div><AIContextCard v-if="item.context" :context="item.context" /></article>
+          <article v-for="item in conversation?.messages || []" :key="item.id" class="ai-message" :class="`ai-message-${item.role}`"><header>{{ item.role === 'user' ? 'Anda' : 'Hubby AI' }}<small v-if="item.model">{{ item.model }}</small></header><AIAnswer v-if="item.role === 'assistant'" :content="item.content" /><div v-else class="ai-answer">{{ item.content }}</div><AIContextCard v-if="item.context" :context="item.context" /></article>
           <article v-if="sending" class="ai-message ai-message-user"><header>Anda</header><div class="ai-answer">{{ pendingQuestion }}</div></article>
           <p v-if="sending" class="ai-processing" role="status">Mengambil data dan menyusun analisis...</p>
           <div ref="messageEnd" />

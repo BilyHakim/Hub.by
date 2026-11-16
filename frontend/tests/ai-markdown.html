@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="id">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Uji Markdown Hubby AI</title>
+<body>
+<div id="results" role="status">Menjalankan pengujian...</div>
+<div id="app"></div>
+<script type="module">
+import { createApp, h, nextTick } from 'vue'
+import AIView from '../src/views/AIView.vue'
+import { api } from '../src/services/api.js'
+import { renderAIMarkdown } from '../src/utils/aiMarkdown.js'
+import '../src/styles/main.css'
+
+const results = document.querySelector('#results')
+const check = (condition, message) => { if (!condition) throw Error(message) }
+const content = [
+  '## Evaluasi keuangan',
+  'Data berikut adalah **contoh pengujian**, bukan data pengguna. Nilai *surplus* dapat berubah.',
+  '### Tindakan berikutnya',
+  '1. Tinjau pengeluaran.\n2. Periksa kembali budget.\n   - Pertahankan kebutuhan wajib.\n   - Tinjau pos fleksibel.',
+  '| Pos | Rencana | Aktual | Selisih | Catatan |\n| --- | ---: | ---: | ---: | --- |\n| Belanja | Rp500.000 | Rp450.000 | Rp50.000 | Contoh pengujian |',
+  '> Simulasi bukan jaminan hasil.',
+  'Gunakan `surplus` sebagai nama nilai. ~~Catatan lama~~ telah diganti.',
+  '```json\n{"contoh":"' + 'nilai-panjang-'.repeat(25) + '"}\n```',
+  '[Panduan contoh](#results)',
+  'Teks panjang: ' + 'contoh'.repeat(45),
+].join('\n\n')
+const userText = '**Tetap teks biasa** <img src=x onerror=alert(1)>'
+api.aiSettings = async () => ({ encryptionReady:true, settings:{financeEnabled:false}, credentials:[{id:1,name:'Provider simulasi',model:'model-uji',enabled:true}] })
+api.aiConversations = async () => [{id:1,title:'Contoh Markdown (data simulasi)',month:'2026-11'}]
+api.financePeriodSetting = async () => ({currentPeriodLabel:'2026-11'})
+api.aiConversation = async () => ({id:1,revision:1,month:'2026-11',messages:[{id:1,role:'user',content:userText},{id:2,role:'assistant',content,model:'model-uji'}]})
+
+try {
+  const app = createApp(AIView)
+  app.component('RouterLink', {setup:(_, {slots}) => () => h('a', {href:'#results'}, slots.default?.())})
+  app.mount('#app')
+  await new Promise(resolve => setTimeout(resolve, 0))
+  document.querySelector('.ai-history-row button').click()
+  await new Promise(resolve => setTimeout(resolve, 0))
+  const answer = document.querySelector('.ai-markdown')
+  check(answer.querySelector('h2')?.textContent === 'Evaluasi keuangan', 'Heading Markdown gagal')
+  check(answer.querySelector('strong')?.textContent === 'contoh pengujian', 'Bold gagal')
+  check(answer.querySelector('em') && answer.querySelector('del') && answer.querySelector('blockquote'), 'Format inline atau kutipan gagal')
+  check(answer.querySelector('ol li ul') && answer.querySelector('pre code'), 'Daftar bertingkat atau blok kode gagal')
+  check(answer.querySelector('.ai-markdown-table[tabindex="0"] table'), 'Tabel scroll gagal')
+  check(answer.querySelector('pre[tabindex="0"]'), 'Blok kode tidak dapat difokuskan')
+  check(answer.querySelector('a')?.getAttribute('href') === '#results', 'Tautan aman hilang')
+  check(document.querySelector('.ai-message-user .ai-answer').textContent === userText && !document.querySelector('.ai-message-user img'), 'Pesan pengguna tidak lagi berupa teks biasa')
+
+  for (const attack of [
+    '<script>window.markdownAttack = true<\/script>',
+    '<img src="https://example.invalid/tracker" onerror="alert(1)">',
+    '<svg onload="alert(1)"><a href="javascript:alert(1)">x</a></svg>',
+    '[tautan](javascript:alert%281%29)',
+    '[tautan](data:text/html,attack)',
+    '[tautan](jav&#x61;script:alert%281%29)',
+    '![pelacak](https://example.invalid/tracker)',
+    '<iframe src="https://example.invalid"></iframe><form><input autofocus></form>',
+  ]) {
+    const root = document.createElement('div')
+    root.innerHTML = renderAIMarkdown(attack)
+    check(!root.querySelector('script,img,svg,iframe,form,input,style'), 'Elemen berbahaya lolos')
+    check(![...root.querySelectorAll('*')].some(el => [...el.attributes].some(a => /^on/i.test(a.name))), 'Event handler lolos')
+    check(![...root.querySelectorAll('a')].some(a => /^(javascript|data|vbscript):/i.test(a.getAttribute('href') || '')), 'URL berbahaya lolos')
+  }
+  check(!window.markdownAttack, 'Skrip dijalankan')
+
+  const { ref } = await import('vue')
+  const { default: AIAnswer } = await import('../src/components/AIAnswer.vue')
+  const updated = ref('**Lama**')
+  const host = document.createElement('div')
+  createApp({render:() => h(AIAnswer, {content:updated.value})}).mount(host)
+  updated.value = '**Baru**'
+  await nextTick()
+  check(host.querySelector('strong')?.textContent === 'Baru', 'Jawaban baru tidak dirender ulang')
+
+  const reportLayout = () => {
+    check(document.documentElement.scrollWidth <= innerWidth, 'Halaman melebar di luar viewport')
+    check(answer.querySelector('pre').scrollWidth > answer.querySelector('pre').clientWidth, 'Blok kode panjang tidak memiliki scroll lokal')
+    results.textContent = `PASS: Markdown, riwayat, pembaruan jawaban, pesan pengguna, keamanan, dan layout ${innerWidth}px.`
+  }
+  requestAnimationFrame(reportLayout)
+  window.addEventListener('resize', reportLayout)
+} catch (error) {
+  results.textContent = `FAIL: ${error.message}`
+  throw error
+}
+</script>
+</body>
+</html>

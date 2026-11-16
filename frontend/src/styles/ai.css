@@ -46,6 +46,30 @@
 .ai-message header small { font-size: 11px; font-weight: 400; color: var(--muted); overflow-wrap: anywhere; }
 .ai-message-user { margin-left: 10%; padding: 16px 20px; background: var(--surface-2); border-radius: 12px; }
 .ai-answer { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.85; }
+.ai-markdown { white-space: normal; max-width: 80ch; min-width: 0; }
+.ai-markdown > :first-child { margin-top: 0; }
+.ai-markdown > :last-child { margin-bottom: 0; }
+.ai-markdown p { font-size: inherit; line-height: inherit; margin: 0 0 1em; }
+.ai-markdown :is(h1, h2, h3, h4, h5, h6) { font-family: Manrope, sans-serif; line-height: 1.4; margin: 1.5em 0 .65em; overflow-wrap: anywhere; }
+.ai-markdown h1 { font-size: 22px; }
+.ai-markdown h2 { font-size: 20px; }
+.ai-markdown h3 { font-size: 17px; }
+.ai-markdown :is(h4, h5, h6) { font-size: 15px; }
+.ai-markdown :is(ul, ol) { margin: 0 0 1em; padding-left: 1.6em; }
+.ai-markdown li { padding-left: .2em; margin: .35em 0; }
+.ai-markdown li > p { margin-bottom: .5em; }
+.ai-markdown blockquote { margin: 1em 0; padding: 12px 16px; background: var(--surface-2); border-radius: 8px; }
+.ai-markdown blockquote > :last-child { margin-bottom: 0; }
+.ai-markdown a { color: var(--sage-dark); text-decoration: underline; text-underline-offset: 3px; }
+.ai-markdown code { font-family: Consolas, monospace; font-size: .9em; padding: .15em .35em; background: var(--surface-2); border-radius: 4px; }
+.ai-markdown pre { max-width: 100%; overflow-x: auto; padding: 16px; margin: 1em 0; background: var(--surface-2); border-radius: 8px; white-space: pre; overflow-wrap: normal; line-height: 1.6; }
+.ai-markdown pre code { padding: 0; background: transparent; border-radius: 0; }
+.ai-markdown hr { border: 0; border-top: 1px solid var(--line); margin: 1.5em 0; }
+.ai-markdown-table { max-width: 100%; overflow-x: auto; margin: 1em 0; }
+.ai-markdown-table table { width: 100%; border-collapse: collapse; text-align: left; font-size: inherit; }
+.ai-markdown-table :is(th, td) { min-width: 100px; padding: 10px 12px; border: 1px solid var(--line); vertical-align: top; }
+.ai-markdown-table th { background: var(--surface-2); font-weight: 700; }
+.ai-markdown :is(pre, .ai-markdown-table):focus-visible { outline: 3px solid var(--sage); outline-offset: 3px; }
 .ai-processing { color: var(--sage-dark); }
 .ai-composer { padding: 20px; border-top: 1px solid var(--line); }
 .ai-composer > label { margin-bottom: 9px; }
