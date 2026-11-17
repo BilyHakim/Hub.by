@@ -5,12 +5,14 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"math"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 )
 
 func testAIConfig(t *testing.T, allowed ...string) AIConfig {
@@ -166,6 +168,59 @@ func TestAIProviderFormatsAndErrors(t *testing.T) {
 	_, err := api.aiGenerate(context.Background(), aiCredential{BaseURL: server.URL, Format: "chat_completions"}, "secret", "", nil)
 	if err == nil || strings.Contains(err.Error(), "secret") {
 		t.Fatalf("provider error leaked or disappeared: %v", err)
+	}
+}
+
+func TestAIProviderTimeoutAndGatewayErrors(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		status int
+		delay  bool
+		want   string
+	}{
+		{"timeout", 200, true, "waktu tunggu provider AI habis"},
+		{"rate limit", 429, false, "sisa kredit tidak menjamin"},
+		{"gateway timeout", 504, false, "gateway provider melewati batas waktu"},
+		{"context too large", 413, false, "konteks yang dikirim terlalu besar"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if tc.delay {
+					<-r.Context().Done()
+					return
+				}
+				w.WriteHeader(tc.status)
+				w.Write([]byte("private-key-and-finance-data"))
+			}))
+			defer server.Close()
+			u, _ := url.Parse(server.URL)
+			config := testAIConfig(t, u.Host)
+			client := config.client()
+			if tc.delay {
+				client.Timeout = 25 * time.Millisecond
+			}
+			api := &API{aiConfig: config, aiClient: client}
+			_, err := api.aiProviderRequest(context.Background(), aiCredential{BaseURL: server.URL}, "private-key", "GET", "/models", nil)
+			if err == nil || !strings.Contains(err.Error(), tc.want) || strings.Contains(err.Error(), "private-key") {
+				t.Fatalf("unexpected or unsafe error: %v", err)
+			}
+		})
+	}
+}
+
+func TestAIConnectionErrorClassification(t *testing.T) {
+	for _, tc := range []struct {
+		err  error
+		want string
+	}{
+		{context.Canceled, "dibatalkan"},
+		{context.DeadlineExceeded, "waktu tunggu"},
+		{&net.DNSError{Err: "private-data", Name: "private-host"}, "DNS"},
+	} {
+		wrapped := &url.Error{Op: "Post", URL: "https://private-host/private-key", Err: tc.err}
+		if got := aiConnectionError(wrapped).Error(); !strings.Contains(got, tc.want) || strings.Contains(got, "private") {
+			t.Fatalf("unexpected classification: %s", got)
+		}
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -15,6 +16,7 @@ import (
 	"net/http"
 	"net/netip"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 )
@@ -23,6 +25,10 @@ type AIConfig struct {
 	key          []byte
 	allowedHosts map[string]bool
 }
+
+// Non-streaming reasoning models can take several minutes before sending headers.
+// Keep the handler, server, proxy, and pending-run lease longer than this budget.
+const aiGenerationTimeout = 240 * time.Second
 
 func NewAIConfig(encodedKey string, allowedHosts []string) (AIConfig, error) {
 	config := AIConfig{allowedHosts: make(map[string]bool)}
@@ -123,7 +129,7 @@ var aiReservedNetworks = []netip.Prefix{
 func (config AIConfig) client() *http.Client {
 	dialer := &net.Dialer{Timeout: 10 * time.Second}
 	transport := &http.Transport{
-		Proxy: nil, TLSHandshakeTimeout: 10 * time.Second, ResponseHeaderTimeout: 70 * time.Second,
+		Proxy: nil, TLSHandshakeTimeout: 10 * time.Second, ResponseHeaderTimeout: aiGenerationTimeout,
 		DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
 			host, _, err := net.SplitHostPort(address)
 			if err != nil {
@@ -144,7 +150,26 @@ func (config AIConfig) client() *http.Client {
 			return dialer.DialContext(ctx, network, net.JoinHostPort(ips[0].String(), port))
 		},
 	}
-	return &http.Client{Transport: transport, Timeout: 80 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("redirect endpoint AI tidak diizinkan") }}
+	return &http.Client{Transport: transport, Timeout: aiGenerationTimeout, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("redirect endpoint AI tidak diizinkan") }}
+}
+
+// Never expose raw transport errors: they can contain endpoint URLs or secrets.
+func aiConnectionError(err error) error {
+	if errors.Is(err, context.Canceled) {
+		return errors.New("permintaan AI dibatalkan sebelum selesai")
+	}
+	if errors.Is(err, context.DeadlineExceeded) || os.IsTimeout(err) {
+		return errors.New("waktu tunggu provider AI habis; ini bukan konfirmasi kuota habis. Coba rentang periode lebih pendek atau model lebih cepat; periksa penggunaan provider sebelum mengirim ulang")
+	}
+	var dnsError *net.DNSError
+	if errors.As(err, &dnsError) {
+		return errors.New("alamat provider AI gagal di-resolve; periksa hostname endpoint dan DNS server")
+	}
+	var tlsError *tls.CertificateVerificationError
+	if errors.As(err, &tlsError) {
+		return errors.New("sertifikat TLS provider AI tidak dapat diverifikasi; periksa endpoint dan sertifikat server")
+	}
+	return errors.New("koneksi ke provider AI gagal; periksa endpoint, jaringan server, dan status provider. Kegagalan ini tidak memastikan kuota habis")
 }
 
 type aiCredential struct {
@@ -201,11 +226,11 @@ func (api *API) aiProviderRequest(ctx context.Context, credential aiCredential, 
 	}
 	res, err := api.aiClient.Do(req)
 	if err != nil {
-		return nil, errors.New("koneksi AI gagal atau melewati batas waktu; cek endpoint dan status provider")
+		return nil, aiConnectionError(err)
 	}
 	defer res.Body.Close()
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		messages := map[int]string{400: "format request atau model tidak didukung provider", 401: "API key ditolak provider", 403: "credential tidak memiliki akses ke model", 404: "endpoint atau model tidak ditemukan", 422: "konfigurasi atau kebijakan ZDR tidak didukung model", 429: "kuota atau batas request provider tercapai", 503: "provider sedang sibuk"}
+		messages := map[int]string{400: "format request, ukuran konteks, atau model tidak didukung provider", 401: "API key ditolak provider", 403: "credential tidak memiliki akses ke model", 404: "endpoint atau model tidak ditemukan", 408: "provider melewati batas waktu pemrosesan permintaan", 413: "konteks yang dikirim terlalu besar untuk provider; pilih rentang periode lebih pendek", 422: "konfigurasi atau kebijakan ZDR tidak didukung model", 429: "provider membatasi request atau kuota; sisa kredit tidak menjamin batas request per menit masih tersedia", 502: "gateway provider gagal menghubungi model", 503: "provider sedang sibuk", 504: "gateway provider melewati batas waktu menunggu model"}
 		message := messages[res.StatusCode]
 		if message == "" {
 			message = "provider AI gagal memproses permintaan"
@@ -213,7 +238,10 @@ func (api *API) aiProviderRequest(ctx context.Context, credential aiCredential, 
 		return nil, errors.New(message)
 	}
 	data, err = io.ReadAll(io.LimitReader(res.Body, (1<<20)+1))
-	if err != nil || len(data) > 1<<20 {
+	if err != nil {
+		return nil, aiConnectionError(err)
+	}
+	if len(data) > 1<<20 {
 		return nil, errors.New("respons provider terlalu besar atau tidak dapat dibaca")
 	}
 	return data, nil

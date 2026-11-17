@@ -139,11 +139,29 @@ minute and a configurable rolling 24-hour request limit (default 20). Admitted
 failed attempts count toward limits. Duplicate request IDs do not repeat provider
 generation during retention. Concurrent revisions are rejected, and deleting a
 conversation during generation prevents that answer from recreating it. Pending
-requests older than three minutes are released on the next request. A crash after
+requests older than six minutes are released on the next request. A crash after
 provider acceptance can incur usage without a saved answer; no automatic inference
 retry is performed. Token totals describe successfully saved provider responses,
 not an authoritative billing ledger. Database failures after generation may also
 prevent saving an otherwise billable response.
+
+## Connection and generation timeouts
+
+The connection test only fetches the model list; success does not confirm that
+generation is fast enough, the model is currently available, or request limits
+permit generation. Non-streaming generation waits up to 240 seconds, including
+the time before response headers arrive. The chat handler has 270 seconds and
+the API server write timeout and Nginx read timeout are 300 seconds. Pending-run
+leases last six minutes so a slow active request cannot be released prematurely.
+Rebuild/restart both backend and frontend containers to apply these limits.
+Any additional external reverse proxy must also permit long-running requests.
+
+Timeout errors are distinct from DNS, TLS certificate, HTTP 429, and upstream
+gateway failures. Remaining credits do not rule out timeout or request-rate
+limits. A timeout can occur after the provider accepted the request, so inspect
+provider usage before retrying; the application does not automatically retry.
+For large transaction corpora, try a narrower period or a faster model. Current
+context is never silently truncated to avoid a timeout.
 
 ## Validation
 

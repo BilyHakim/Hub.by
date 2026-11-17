@@ -48,7 +48,7 @@ var aiRequestID = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]
 
 func (api *API) aiCleanup(ctx context.Context, workspace, user int64, days int) error {
 	_, err := api.db.Exec(ctx, `DELETE FROM ai_conversations c WHERE c.workspace_id=$1 AND c.user_id=$2 AND c.updated_at<now()-make_interval(days=>$3)
-		AND NOT EXISTS(SELECT 1 FROM ai_runs r WHERE r.conversation_id=c.id AND r.status='pending' AND r.created_at>now()-interval '3 minutes')`, workspace, user, days)
+		AND NOT EXISTS(SELECT 1 FROM ai_runs r WHERE r.conversation_id=c.id AND r.status='pending' AND r.created_at>now()-interval '6 minutes')`, workspace, user, days)
 	if err != nil {
 		return err
 	}
@@ -198,7 +198,7 @@ func (api *API) aiReserve(ctx context.Context, workspace, user int64, input aiCh
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return false, 0, err
 	}
-	_, err = tx.Exec(ctx, `UPDATE ai_runs SET status='failed' WHERE workspace_id=$1 AND user_id=$2 AND status='pending' AND created_at<now()-interval '3 minutes'`, workspace, user)
+	_, err = tx.Exec(ctx, `UPDATE ai_runs SET status='failed' WHERE workspace_id=$1 AND user_id=$2 AND status='pending' AND created_at<now()-interval '6 minutes'`, workspace, user)
 	if err != nil {
 		return false, 0, err
 	}
@@ -247,7 +247,7 @@ func (api *API) sendAIMessage(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), 100*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), aiGenerationTimeout+30*time.Second)
 	defer cancel()
 	var input aiChatInput
 	if decodeJSON(r, &input) != nil || !aiRequestID.MatchString(input.RequestID) || input.ConversationID < 0 || input.Revision < 0 || input.ReductionPercent < 0 || input.ReductionPercent > 50 {

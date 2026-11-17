@@ -67,7 +67,7 @@ func main() {
 		Handler:           httpapi.NewRouterWithAI(pool, logger, cfg.FrontendOrigin, cfg.TMDBAPIToken, cfg.TrustProxy, aiConfig, cfg.CORSAllowedOrigins...),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       120 * time.Second,
-		WriteTimeout:      120 * time.Second,
+		WriteTimeout:      300 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
 
