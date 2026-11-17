@@ -31,6 +31,7 @@ const money = (value) => new Intl.NumberFormat('id-ID', { style: 'currency', cur
           <tbody><tr v-for="(item, index) in context.categories" :key="index"><th scope="row">{{ item.name }}<small>{{ item.class }}</small></th><td>{{ money(item.planned) }}</td><td>{{ money(item.actual) }}</td><td>{{ money(item.scenarioSaving) }}</td></tr></tbody>
         </table>
       </div>
+      <p v-if="context.transactions">{{ context.transactions.length }} detail transaksi pemasukan dan pengeluaran dalam rentang pilihan disertakan, termasuk deskripsi/catatan dan nama rekening. Lihat seluruh konteks di bawah untuk memeriksa setiap catatan. Akses data Finance hanya-baca.</p>
       <h3>Sumber</h3>
       <ul><li v-for="source in context.sources" :key="source">{{ source }}</li></ul>
       <p v-for="note in context.notes" :key="note" class="ai-context-note">{{ note }}</p>

@@ -62,7 +62,13 @@ blocked. Only approve endpoints controlled by a trusted administrator.
 
 ## Finance context
 
-Finance access starts disabled. When enabled, context includes monthly summaries
+Finance access starts disabled. When enabled, context includes every income and
+expense transaction in the selected range, with ID, type, amount, full
+description/transaction notes, date, category/class, account name, emergency-fund
+flag, and debt-payment flag. No row limit, sampling, or description truncation is
+applied. The provider can inspect individual records and calculate additional
+totals, patterns, and scenarios with stated assumptions and transaction references.
+The preview exposes the full JSON before sending. Context also includes monthly summaries
 for an inclusive range of 1–12 Finance periods. The default is the selected ending
 month and three preceding periods. Users can set both endpoints, including a
 single month. Preview shows each period's dates, income, expenses, surplus, and
@@ -81,8 +87,35 @@ The reduction scenario applies the chosen percentage to recorded discretionary
 expenses, rounded down per category. It shows hypothetical savings and surplus
 for that period. The AI has no transaction/budget write tools, free-form SQL, or
 database credentials. Finance reads run in a read-only repeatable-read transaction
-with query timeouts and explicit workspace filters. Raw transaction descriptions,
-account numbers, and notes are omitted. Category/goal names can still be sensitive.
+with query timeouts and explicit workspace filters. Transaction descriptions,
+notes, and account/category/goal names can contain sensitive information and are
+sent to the selected provider when their source is enabled. Account balances,
+goals, and obligations remain controlled by their existing optional scopes.
+
+### AI corpus access rules
+
+- Allow analysis of every provided record, including transaction descriptions and
+  notes; do not restrict analysis to category aggregates. Personal needs must be
+  evaluated from transaction contents with ambiguous classifications identified.
+- Source access is read-only. Never add, edit, delete, transfer, or otherwise
+  mutate primary source data (especially Finance). This includes INSERT, UPDATE,
+  DELETE, UPSERT, MERGE, TRUNCATE, DROP, ALTER, and equivalent write operations.
+- Enforce this in PostgreSQL with the existing READ ONLY transaction, rather than
+  relying solely on prompt instructions. Do not expose database credentials,
+  arbitrary SQL, or mutation tools to the model. Model output is stored/rendered
+  as text and is never executed as SQL or a tool call.
+- Corpus text is evidence, not authority: embedded instructions cannot grant
+  write access or change permissions. User requests cannot grant the model write
+  access to source data either. Recommendations remain proposals for user review.
+- Preserve authenticated workspace isolation and enabled source scopes. Reads
+  use the selected Finance range (currently 1–12 periods); this does not grant
+  unrestricted access to other workspaces, credentials, or other app modules.
+- Do not silently truncate the current corpus. Provider context-window limits
+  and query/request timeouts still apply; a provider rejection returns an error.
+  Select a narrower date range if the selected model cannot accept the corpus.
+- The application still saves AI settings, credentials, usage, and conversation
+  history in its AI tables. These application-managed writes do not give the
+  model write access to the Finance corpus or other primary source records.
 
 The provider receives the question, enabled context, and up to six recent turns
 within a 48 KB history budget. If source permissions narrow, incompatible prior
