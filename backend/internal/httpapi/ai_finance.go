@@ -233,11 +233,15 @@ func (api *API) aiFinanceContext(ctx context.Context, workspace int64, settings 
 	if settings.IncludeBalances {
 		err = tx.QueryRow(ctx, `SELECT jsonb_build_object('asOf',now(),'assets',COALESCE(SUM(current_balance) FILTER(WHERE kind<>'liability'),0),
 			'liabilities',ABS(COALESCE(SUM(current_balance) FILTER(WHERE kind='liability'),0)),
-			'emergencyFund',COALESCE(SUM(current_balance) FILTER(WHERE is_emergency_fund),0)) FROM accounts WHERE workspace_id=$1`, workspace).Scan(&result.Balances)
+			'emergencyFund',COALESCE(SUM(current_balance) FILTER(WHERE is_emergency_fund),0),
+			'accounts',COALESCE(jsonb_agg(jsonb_build_object('id',id,'name',name,'kind',kind,
+			'currentBalance',current_balance,'isEmergencyFund',is_emergency_fund) ORDER BY id),'[]'::jsonb))
+			FROM accounts WHERE workspace_id=$1`, workspace).Scan(&result.Balances)
 		if err != nil {
 			return result, err
 		}
-		result.Sources = append(result.Sources, "Saldo agregat rekening saat pengambilan data")
+		result.Sources = append(result.Sources, "Saldo setiap rekening dan total aset, kewajiban, serta dana darurat saat pengambilan data, termasuk rekening tanpa transaksi pada rentang pilihan")
+		result.Notes = append(result.Notes, "Balances.accounts memuat semua rekening workspace beserta ID, nama, jenis, saldo saat ini, dan penanda dana darurat. Saldo bukan hasil penjumlahan transaksi dalam rentang pilihan. Assets mengecualikan rekening liability; emergencyFund menjumlahkan semua rekening bertanda dana darurat. Periksa jenis rekening dan penandanya sebelum menjelaskan selisih; aset di luar dana darurat belum tentu uang tunai yang bebas dipakai.")
 	}
 	if settings.IncludeGoals {
 		err = tx.QueryRow(ctx, `SELECT COALESCE(jsonb_agg(jsonb_build_object('name',name,'target',target_amount,'current',current_amount,

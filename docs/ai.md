@@ -79,7 +79,11 @@ discretionary spending scenario apply only to the ending period. Category
 previousActual/difference compare that ending period to its immediate predecessor,
 which may be outside a single-period selection.
 Periods follow Hubby's existing finance-period settings. Optional scopes include
-aggregate balances, goals, and outstanding debt/receivables. These are current
+per-account balances (ID, name, kind, current balance, emergency-fund flag),
+aggregate assets/liabilities/emergency fund, goals, and outstanding debt/receivables.
+`balances.accounts` includes every account in the workspace, even accounts with
+no transactions in the selected range. It is only sent when IncludeBalances is
+enabled. These are current
 snapshots, not historical account balances. Expense includes emergency spending;
 transfers are excluded. A finished period does not guarantee complete records.
 
