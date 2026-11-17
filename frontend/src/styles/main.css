@@ -1034,7 +1034,7 @@ h1, h2, h3, .brand strong { font-family: 'Manrope', sans-serif; letter-spacing: 
 .obligation-paid { display: flex; align-items: center; gap: 6px; color: var(--sage); font-size: 10px; font-weight: 700; }
 .obligation-empty { grid-column: 1 / -1; min-height: 180px; display: grid; place-items: center; }
 .obligation-modal, .payment-modal { position: relative; max-width: 540px; }
-.payment-modal { max-width: 430px; }
+.payment-modal { max-width: 430px; max-height: calc(100vh - 40px); max-height: calc(100dvh - 40px); overflow-y: auto; overscroll-behavior: contain; }
 .payment-caption { margin: 5px 0 0; color: var(--muted); font-size: 9px; }
 .tenor-shortcuts { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; color: var(--muted); font-size: 8px; }
 .tenor-shortcuts button { padding: 5px 8px; color: var(--sage); border: 1px solid #d3ddd7; border-radius: 7px; background: var(--sage-light); font-size: 8px; font-weight: 700; cursor: pointer; }
